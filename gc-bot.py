@@ -107,8 +107,7 @@ async def on_message(message):
     elif message.content.startswith('!choose'):
         await client.send_message(message.channel, chooseRand(message.content[len('!choose '):]))
 
-def getDieRoll(input):
-        params = input[len('!roll '):].split("d")
+def getDieRoll(arg):
         if len(params) != 2 or not (params[0].isdigit() and params[1].isdigit()):
             return "Required syntax: `!roll XdY`"
         elif int(params[0]) > MAX_DICE:
