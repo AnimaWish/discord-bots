@@ -11,9 +11,12 @@ prompts = [
     'What did you like least about this section?',
     'What surprised you about this section?',
     'What did [CHARACTER] get up to in this section?',
-    'How did this section effect your opinion about [CHARACTER]?',
+    'How did this section affect your opinion about [CHARACTER]?',
+    'How did this section affect your opinion about [CHARACTER]?',
     'Which comic in this section was your favorite?',
-    'What new characters were introduced in this section?'
+    'What new characters were introduced in this section?',
+    'Who were the major players in this section?',
+    'What major events happened in this section?'
 ]
 
 characters = [
@@ -40,15 +43,20 @@ async def on_ready():
 
 @client.event
 async def on_message(message):
+    linkPattern = 'achewood\.com\/index\.php\?date=\d+';
+    
+    indexLinkMatch = re.search(linkPattern, message.content)
+
     if message.content.startswith('!help'):
         await client.send_message(message.channel, getHelp())
 
-    elif message.content.startswith('http://achewood.com/index.php?date=') or message.content.startswith('http://www.achewood.com/index.php?date='):
-        comicLink = message.content.replace('index', 'comic')
-        contents = urllib.request.urlopen(message.content).read().decode("utf-8")
+    elif indexLinkMatch:
+        indexLink = 'http://' + message.content[indexLinkMatch.start():indexLinkMatch.end()]
+        comicLink = indexLink.replace('index', 'comic')
+        contents = urllib.request.urlopen(indexLink).read().decode("utf-8")
         titleText = parseTitle(contents)
 
-        await client.send_message(msg, linkWithTitle(comicLink, titleText))
+        await client.send_message(message.channel, linkWithTitle(comicLink, titleText))
 
     elif message.content.startswith('!random'):
         contents = urllib.request.urlopen('http://www.ohnorobot.com/random.pl?comic=636').read().decode("utf-8")
