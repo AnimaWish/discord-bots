@@ -3,19 +3,20 @@ import asyncio
 import random
 import urllib.request
 import re
-import random
 import os
 
 client = discord.Client()
+
+
+###################
+#    Constants    #
+###################
 
 MAX_DICE = 1000000
 OVERWATACH_SERVER_ID = '199402098754846729'
 GENTLEMEN_ROLE_ID = '432092120007049236'
 
-server = None
-gents = None
-
-chars = {
+OVERWATCH_CHARACTERS = {
     'offense': [
         'Doomfist',
         'Genji',
@@ -52,7 +53,7 @@ chars = {
     ]
 }
 
-choiceStrings = [
+CHOICE_STRINGS = [
     "I choose... {}!",
     "How about {}?",
     "Result hazy, try again later (jk do {})",
@@ -65,47 +66,38 @@ choiceStrings = [
     "I'm a {} man myself."
 ]
 
+###################
+#    Commands     #
+###################
+
+class BotCommand:
+    def __init__(self, method, requiredPermission):
+        self.method = method
+        self.permission = requiredPermission
+
 commandMap = {
-    
+    'help':         BotCommand(getHelp,                          False),
+    'echo':         BotCommand(echo,                             False),
+    'roll':         BotCommand(getDieRoll,                       False),
+    'character':    BotCommand(getRandomCharacter,               False),
+    'choose':       BotCommand(chooseRand,                       False),
+    'bears':        BotCommand(lambda x: mentionGents(':bear:'), GENTLEMEN_ROLE_ID),
+    'pubg':         BotCommand(lambda x: mentionGents(':pubg:'), GENTLEMEN_ROLE_ID)
 }
 
-@client.event
-async def on_ready():
-    print('Logged in as')
-    print(client.user.name)
-    print(client.user.id)
-    initConstants()
-    print('------')
+def getHelp():
+    return """
+Available Commands:
+`!bears` - :bear:
+`!pubg`  - :b:
+`!roll XdY` - roll X Y-sided dice
+`!character [offense|defense|tank|support|any]` - get a random character
+`!choose [a,list,of,shit]` - get a random member of the list
+Hit up Wish#6215 for feature requests/bugs, or visit my repository at https://github.com/AnimaWish/discord-bots
+"""
 
-def initConstants():
-    global server
-    server = client.get_server(OVERWATACH_SERVER_ID)
-    for role in server.roles:
-        if role.id == GENTLEMEN_ROLE_ID:
-            global gents
-            gents = role
-            break
-
-    print(server.name)
-    print(gents.name)
-
-@client.event
-async def on_message(message):
-    if message.content.startswith('!help'):
-        await client.send_message(message.channel, getHelp())
-    elif message.content.startswith('!echo'):
-        await client.send_message(message.channel, message.content[len('!echo '):])
-    elif message.content.startswith('!roll'):
-        await client.send_message(message.channel, getDieRoll(message.content[len('!roll '):]))   
-    elif message.content.startswith('!character'):
-        await client.send_message(message.channel, getRandomCharacter(message.content[len('!character '):]))
-    elif message.content.startswith('!choose'):
-        await client.send_message(message.channel, chooseRand(message.content[len('!choose '):]))
-    elif gents in message.author.roles:
-        if message.content.startswith('!bears'):
-            await client.send_message(message.channel, mentionGents() + ":bear:")
-        elif message.content.startswith('!pubg'):
-            await client.send_message(message.channel, mentionGents() + ":b:")
+def echo(arg):
+    return arg
 
 def getDieRoll(arg):
         params = arg.split("d")
@@ -121,45 +113,64 @@ def getDieRoll(arg):
         return "You rolled {}!".format(result)
 
 def getRandomCharacter(role):
-    splitRoles = set(re.split('[; |,\s]',role))
+    splitCharacterRoles = set(re.split('[; |,\s]',role))
     pool = []
-    for key in splitRoles:
+    for key in splitCharacterRoles:
         key = key.lower()
-        print(key)
         if key == 'all' or key == 'any':
-            pool = chars['offense'] + chars['defense'] + chars['tank'] + chars['support']
+            pool = OVERWATCH_CHARACTERS['offense'] + OVERWATCH_CHARACTERS['defense'] + OVERWATCH_CHARACTERS['tank'] + OVERWATCH_CHARACTERS['support']
             break;
-        if key in chars:
-            pool = pool + chars[key]
+        if key in OVERWATCH_CHARACTERS:
+            pool = pool + OVERWATCH_CHARACTERS[key]
 
-    if len(splitRoles) == 0 or len(pool) == 0:
-        pool = chars['offense'] + chars['defense'] + chars['tank'] + chars['support']
+    if len(splitCharacterRoles) == 0 or len(pool) == 0:
+        pool = OVERWATCH_CHARACTERS['offense'] + OVERWATCH_CHARACTERS['defense'] + OVERWATCH_CHARACTERS['tank'] + OVERWATCH_CHARACTERS['support']
 
-    return random.choice(choiceStrings).format(random.choice(pool))
-
+    return random.choice(CHOICE_STRINGS).format(random.choice(pool))
 
 def chooseRand(list):
     theList = re.split('[; |,\s]',list)
-    return random.choice(choiceStrings).format(random.choice(theList))
+    return random.choice(CHOICE_STRINGS).format(random.choice(theList))
 
-def getHelp():
-    return """
-Available Commands:
-`!bears` - :bear:
-`!pubg`  - :b:
-`!roll XdY` - roll X Y-sided dice
-`!character [offense|defense|tank|support|any]` - get a random character
-`!choose [a,list,of,shit]` - get a random member of the list
-Hit up Wish#6215 for feature requests/bugs!
-"""
+def mentionGents(message):
+    return '<@&{}>'.format(GENTLEMEN_ROLE_ID) + ' ' + message
 
-def getRoles(server):
-    roles = list(server.roles)
-    for x in roles:
-        print(x.name, x.id)
+###################
+#     Helpers     #
+###################
 
-def mentionGents():
-    return '<@&{}>'.format(GENTLEMEN_ROLE_ID)
+def memberHasRole(member, roleId):
+    for role in member.roles:
+        if role.id == roleId:
+            return True
+
+    return False
+ 
+###################
+#  Event Methods  #
+###################
+
+@client.event
+async def on_ready():
+    print('Logged in as')
+    print(client.user.name)
+    print(client.user.id)
+    print('------')
+
+@client.event
+async def on_message(message):
+    commandPattern = "^!\S+\s"
+    commandMatch = re.match(commandPattern, message.content)
+    if commandMatch:
+        commandString = message.content[commandMatch.start() + 1 : commandMatch.end()].strip()
+        if commandString in commandMap:
+            command = commandMap[commandString]
+            if not command.permission or memberHasRole(message.author, command.permission):
+                command.method(message.contents[commandMatch.end():])
+
+###################
+#     Startup     #
+###################
 
 def fetchToken():
     dirname = os.path.dirname(__file__)

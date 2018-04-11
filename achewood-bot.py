@@ -123,7 +123,7 @@ def getHelp():
  - Type `!prompt` to get a random discussion prompt! Hot dang!
  - Type `!search [search term]` to search comic dialogue! Holy smokes!
 
-Hit up Wish#6215 for feature requests/bugs!
+Hit up Wish#6215 for feature requests/bugs, or visit my repository at https://github.com/AnimaWish/discord-bots
 """
 
 def getComicAndTitleFromPage(contents):
