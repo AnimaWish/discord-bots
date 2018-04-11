@@ -166,8 +166,8 @@ def fetchToken():
     secrets = open(os.path.join(dirname, "secrets.txt"), 'r')
     for line in secrets:
         parsed = line.split(":")
-        if parsed[0] == __file__:
-            token = parsed[1]
+        if parsed[0] == os.path.basename(__file__):
+            token = parsed[1].strip()
             secrets.close()
             return token
 
