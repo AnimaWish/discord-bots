@@ -4,6 +4,7 @@ import random
 import urllib.request
 import re
 import random
+import os
 
 client = discord.Client()
 
@@ -161,10 +162,13 @@ def mentionGents():
     return '<@&{}>'.format(GENTLEMEN_ROLE_ID)
 
 def fetchToken():
-    secrets = open("secrets.txt", 'r')
+    dirname = os.path.dirname(__file__)
+    secrets = open(os.path.join(dirname, "secrets.txt"), 'r')
     for line in secrets:
         parsed = line.split(":")
         if parsed[0] == __file__:
-            return parsed[1]
+            token = parsed[1]
+            secrets.close()
+            return token
 
 client.run(fetchToken())
