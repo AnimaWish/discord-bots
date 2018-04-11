@@ -95,17 +95,17 @@ async def on_message(message):
         await client.send_message(message.channel, getHelp())
     elif message.content.startswith('!echo'):
         await client.send_message(message.channel, message.content[len('!echo '):])
-    elif gents in message.author.roles:
-        if message.content.startswith('!bears'):
-            await client.send_message(message.channel, mentionGents() + ":bear:")
-        elif message.content.startswith('!pubg'):
-            await client.send_message(message.channel, mentionGents() + ":b:")
     elif message.content.startswith('!roll'):
         await client.send_message(message.channel, getDieRoll(message.content[len('!roll '):]))   
     elif message.content.startswith('!character'):
         await client.send_message(message.channel, getRandomCharacter(message.content[len('!character '):]))
     elif message.content.startswith('!choose'):
         await client.send_message(message.channel, chooseRand(message.content[len('!choose '):]))
+    elif gents in message.author.roles:
+        if message.content.startswith('!bears'):
+            await client.send_message(message.channel, mentionGents() + ":bear:")
+        elif message.content.startswith('!pubg'):
+            await client.send_message(message.channel, mentionGents() + ":b:")
 
 def getDieRoll(arg):
         params = arg.split("d")
