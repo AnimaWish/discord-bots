@@ -4,10 +4,10 @@ import random
 import urllib.request
 import re
 import os
-import generic
+from generic import DiscordBot, BotCommand
 import argparse
 
-class ZenyattaBot(generic.DiscordBot):
+class ZenyattaBot(DiscordBot):
     client = discord.Client()
 
     ###################
@@ -63,7 +63,7 @@ class ZenyattaBot(generic.DiscordBot):
         "Choose {}."
         "Whatever you do, DON'T pick {} (wink)",
         "Signs point to {}",
-        "/me cracks open fortune cookie, finds message that says \"{}\"",
+        "*cracks open fortune cookie, finds message that says \"{}\"*"
         "My lawyers advise {}",
         "I'm a {} man myself."
     ]
@@ -72,36 +72,33 @@ class ZenyattaBot(generic.DiscordBot):
     #     Helpers     #
     ###################
 
-    def memberHasRole(member, roleId):
-        for role in member.roles:
-            if role.id == roleId:
-                return True
+    def memberIsGentleman(self, author):
+        return DiscordBot.memberHasRole(author, self.GENTLEMEN_ROLE_ID)
 
-        return False
-
-    def memberIsGentleman(author):
-        return memberHasRole(author, GENTLEMEN_ROLE_ID)
+    def mentionGents(self, text):
+        return '<@&{}>'.format(self.GENTLEMEN_ROLE_ID) + ' ' + text
 
     ###################
     #    Commands     #
     ###################
 
-    def getHelp():
+    def getHelp(self, message, params):
         return """
-    Available Commands:
+Available Commands:
     `!bears` - :bear:
     `!pubg`  - :b:
     `!roll XdY` - roll X Y-sided dice
     `!character [offense|defense|tank|support|any]` - get a random character
     `!choose [a,list,of,shit]` - get a random member of the list
-    Hit up Wish#6215 for feature requests/bugs, or visit my repository at https://github.com/AnimaWish/discord-bots
+Hit up Wish#6215 for feature requests/bugs, or visit my repository at https://github.com/AnimaWish/discord-bots
     """
 
     def echo(arg):
         return arg
 
-    def getDieRoll(self, arg):
-            params = arg.split("d")
+    def getDieRoll(self, message, params):
+            print (params)
+            params = params.split("d")
             if len(params) != 2 or not (params[0].isdigit() and params[1].isdigit()):
                 return "Required syntax: `!roll XdY`"
             elif int(params[0]) > ZenyattaBot.MAX_DICE:
@@ -113,8 +110,8 @@ class ZenyattaBot(generic.DiscordBot):
 
             return "You rolled {}!".format(result)
 
-    def getRandomCharacter(self, role):
-        splitCharacterRoles = set(re.split('[; |,\s]',role))
+    def getRandomCharacter(self, message, params):
+        splitCharacterRoles = set(re.split('[; |,\s]',params))
         pool = []
         for key in splitCharacterRoles:
             key = key.lower()
@@ -129,12 +126,9 @@ class ZenyattaBot(generic.DiscordBot):
 
         return random.choice(ZenyattaBot.CHOICE_STRINGS).format(random.choice(pool))
 
-    def chooseRand(self, list):
-        theList = re.split('[; |,\s]',list)
+    def chooseRand(self, message, params):
+        theList = re.split('[; |,\s]',params)
         return random.choice(ZenyattaBot.CHOICE_STRINGS).format(random.choice(theList))
-
-    def mentionGents(self, message):
-        return '<@&{}>'.format(GENTLEMEN_ROLE_ID) + ' ' + message
      
     ###################
     #   Bot Methods   #
@@ -143,13 +137,13 @@ class ZenyattaBot(generic.DiscordBot):
     def __init__(self, token):
         super().__init__(token)
         self.commandMap = {
-            'help':         generic.BotCommand(self.getHelp,                     lambda x: True),
-            'echo':         generic.BotCommand(self.echo,                        lambda x: True),
-            'roll':         generic.BotCommand(self.getDieRoll,                  lambda x: True),
-            'character':    generic.BotCommand(self.getRandomCharacter,          lambda x: True),
-            'choose':       generic.BotCommand(self.chooseRand,                  lambda x: True),
-            'bears':        generic.BotCommand(lambda x: mentionGents(':bear:'), self.memberIsGentleman),
-            'pubg':         generic.BotCommand(lambda x: mentionGents(':pubg:'), self.memberIsGentleman)
+            'help':         BotCommand(self.getHelp,                                        lambda x: True),
+            'echo':         BotCommand(self.echo,                                           lambda x: True),
+            'roll':         BotCommand(self.getDieRoll,                                     lambda x: True),
+            'character':    BotCommand(self.getRandomCharacter,                             lambda x: True),
+            'choose':       BotCommand(self.chooseRand,                                     lambda x: True),
+            'bears':        BotCommand(lambda message, params: self.mentionGents(':bear:'), self.memberIsGentleman),
+            'pubg':         BotCommand(lambda message, params: self.mentionGents(':pubg:'), self.memberIsGentleman)
         }
 
     async def on_ready(self):
@@ -166,4 +160,3 @@ if __name__ == "__main__":
     args = parser.parse_args()
     zenyatta = ZenyattaBot(args.token[0])
     zenyatta.run()
-
