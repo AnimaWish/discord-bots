@@ -14,8 +14,8 @@ client = discord.Client()
 ###################
 
 botMap = {
-    'philippe': 'achewood-bot',
-    'zenyatta': 'gc-bot'
+    'philippe': None,
+    'zenyatta': None
 }
 
 WISH_USER_ID = '199401793032028160'
@@ -72,6 +72,9 @@ def whoAmI(params, author):
 
     return "Username: {}#{}\nUserId: {}\nAccess Permission: {}".format(author.name, author.discriminator, author.id, permString)
 
+def getStatus(params, author):
+    return "Who knows"
+
 def echo(params, author):
     return params
 
@@ -107,6 +110,7 @@ def shutdown(params, author):
 commandMap = {
     'help':     BotCommand(getHelp,     lambda x: True),
     'whoami':   BotCommand(whoAmI,      lambda x: True),
+    'status':   BotCommand(getStatus,   lambda x: True),
 
     'echo':     BotCommand(echo,        isValidUser),
     'restart':  BotCommand(restart,     isValidUser),
