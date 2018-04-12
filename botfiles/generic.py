@@ -41,6 +41,9 @@ class DiscordBot:
     Hit up Wish#6215 for feature requests/bugs, or visit my repository at https://github.com/AnimaWish/discord-bots
     """
 
+    def echo(self, message, params):
+        return params
+
     ###################
     #  Event Methods  #
     ###################
@@ -62,7 +65,7 @@ class DiscordBot:
                 params  = message.content[commandMatch.end():].strip()
                 try: 
                     result = command.execute(params, message)
-                    if result is not None:
+                    if result is not None and len(result) > 0:
                         await self.client.send_message(message.channel, result)    
 
                 except PermissionError as err:
@@ -79,6 +82,7 @@ class DiscordBot:
 
         self.commandMap = {
             'help': BotCommand(self.getHelp, lambda x: True),
+            'echo': BotCommand(self.echo,    lambda x: True),
         }
         self.client.event(self.on_ready)
         self.client.event(self.on_message)

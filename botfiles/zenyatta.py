@@ -8,8 +8,6 @@ from generic import DiscordBot, BotCommand
 import argparse
 
 class ZenyattaBot(DiscordBot):
-    client = discord.Client()
-
     ###################
     #    Constants    #
     ###################
@@ -73,10 +71,10 @@ class ZenyattaBot(DiscordBot):
     ###################
 
     def memberIsGentleman(self, author):
-        return DiscordBot.memberHasRole(author, self.GENTLEMEN_ROLE_ID)
+        return DiscordBot.memberHasRole(author, ZenyattaBot.GENTLEMEN_ROLE_ID)
 
     def mentionGents(self, text):
-        return '<@&{}>'.format(self.GENTLEMEN_ROLE_ID) + ' ' + text
+        return '<@&{}>'.format(ZenyattaBot.GENTLEMEN_ROLE_ID) + ' ' + text
 
     ###################
     #    Commands     #
@@ -92,9 +90,6 @@ Available Commands:
     `!choose [a,list,of,shit]` - get a random member of the list
 Hit up Wish#6215 for feature requests/bugs, or visit my repository at https://github.com/AnimaWish/discord-bots
     """
-
-    def echo(arg):
-        return arg
 
     def getDieRoll(self, message, params):
             print (params)
@@ -134,8 +129,8 @@ Hit up Wish#6215 for feature requests/bugs, or visit my repository at https://gi
     #   Bot Methods   #
     ###################
 
-    def __init__(self, token):
-        super().__init__(token)
+    def __init__(self, token, prefix="!"):
+        super().__init__(token, prefix)
         self.commandMap = {
             'help':         BotCommand(self.getHelp,                                        lambda x: True),
             'echo':         BotCommand(self.echo,                                           lambda x: True),
@@ -154,7 +149,7 @@ Hit up Wish#6215 for feature requests/bugs, or visit my repository at https://gi
 
 
 if __name__ == "__main__":
-    print("Hello")
+    print("Peace be upon you.")
     parser = argparse.ArgumentParser(description='Zenyatta Bot')
     parser.add_argument("token", type=str, nargs=1)
     args = parser.parse_args()
