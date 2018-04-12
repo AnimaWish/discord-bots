@@ -67,6 +67,17 @@ CHOICE_STRINGS = [
 ]
 
 ###################
+#     Helpers     #
+###################
+
+def memberHasRole(member, roleId):
+    for role in member.roles:
+        if role.id == roleId:
+            return True
+
+    return False
+
+###################
 #    Commands     #
 ###################
 
@@ -74,16 +85,6 @@ class BotCommand:
     def __init__(self, method, requiredPermission):
         self.method = method
         self.permission = requiredPermission
-
-commandMap = {
-    'help':         BotCommand(getHelp,                          False),
-    'echo':         BotCommand(echo,                             False),
-    'roll':         BotCommand(getDieRoll,                       False),
-    'character':    BotCommand(getRandomCharacter,               False),
-    'choose':       BotCommand(chooseRand,                       False),
-    'bears':        BotCommand(lambda x: mentionGents(':bear:'), GENTLEMEN_ROLE_ID),
-    'pubg':         BotCommand(lambda x: mentionGents(':pubg:'), GENTLEMEN_ROLE_ID)
-}
 
 def getHelp():
     return """
@@ -135,16 +136,15 @@ def chooseRand(list):
 def mentionGents(message):
     return '<@&{}>'.format(GENTLEMEN_ROLE_ID) + ' ' + message
 
-###################
-#     Helpers     #
-###################
-
-def memberHasRole(member, roleId):
-    for role in member.roles:
-        if role.id == roleId:
-            return True
-
-    return False
+commandMap = {
+    'help':         BotCommand(getHelp,                          False),
+    'echo':         BotCommand(echo,                             False),
+    'roll':         BotCommand(getDieRoll,                       False),
+    'character':    BotCommand(getRandomCharacter,               False),
+    'choose':       BotCommand(chooseRand,                       False),
+    'bears':        BotCommand(lambda x: mentionGents(':bear:'), GENTLEMEN_ROLE_ID),
+    'pubg':         BotCommand(lambda x: mentionGents(':pubg:'), GENTLEMEN_ROLE_ID)
+}
  
 ###################
 #  Event Methods  #
@@ -166,7 +166,7 @@ async def on_message(message):
         if commandString in commandMap:
             command = commandMap[commandString]
             if not command.permission or memberHasRole(message.author, command.permission):
-                command.method(message.contents[commandMatch.end():])
+                await client.send_message(message.channel, command.method(message.contents[commandMatch.end() + 1:]))
 
 ###################
 #     Startup     #
