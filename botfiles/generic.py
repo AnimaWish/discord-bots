@@ -6,77 +6,66 @@ import re
 import os
 
 class BotCommand:
-		# permissionFunction expects a User as an argument, and returns a
-	    def __init__(self, method, permissionFunction):
-	        self.method = method
-	        self.permission = permissionFunction
+        # permissionFunction expects a User as an argument, and returns a
+        def __init__(self, method, permissionFunction):
+            self.method = method
+            self.permission = permissionFunction
 
 class DiscordBot:
-	def __init__(self, token):
-		self.client = discord.Client()
-		self.token = token
-		self.commandMap = {}
+    ###################
+    #     Helpers     #
+    ###################
 
-	###################
-	#     Helpers     #
-	###################
+    def memberHasRole(member, roleId):
+        for role in member.roles:
+            if role.id == roleId:
+                return True
 
-	def memberHasRole(member, roleId):
-	    for role in member.roles:
-	        if role.id == roleId:
-	            return True
+        return False
 
-	    return False
+    ###################
+    #    Commands     #
+    ###################
 
-	###################
-	#    Commands     #
-	###################
+    # TODO generate this programmatically
+    def getHelp():
+        return """
+    Hit up Wish#6215 for feature requests/bugs, or visit my repository at https://github.com/AnimaWish/discord-bots
+    """
 
-	# TODO generate this programmatically
-	def getHelp():
-	    return """
-	Hit up Wish#6215 for feature requests/bugs, or visit my repository at https://github.com/AnimaWish/discord-bots
-	"""
+    ###################
+    #  Event Methods  #
+    ###################
 
-	def chooseRand(list):
-	    theList = re.split('[; |,\s]',list)
-	    return random.choice(CHOICE_STRINGS).format(random.choice(theList))
+    async def on_ready(self):
+        print('Logged in as')
+        print(self.client.user.name)
+        print(self.client.user.id)
+        print('------')
 
-	###################
-	#  Event Methods  #
-	###################
+    async def on_message(self, message):
+        commandPattern = "^!\S+\s"
+        commandMatch = re.match(commandPattern, message.content)
+        if commandMatch:
+            commandString = message.content[commandMatch.start() + 1 : commandMatch.end()].strip()
+            if commandString in self.commandMap:
+                command = self.commandMap[commandString]
+                if command.permission(message.author):
+                    await self.client.send_message(message.channel, command.method(message.content[commandMatch.end():]))
 
-	@client.event
-	async def on_ready():
-	    print('Logged in as')
-	    print(client.user.name)
-	    print(client.user.id)
-	    print('------')
+    ###################
+    #     Startup     #
+    ###################
 
-	@client.event
-	async def on_message(message):
-	    commandPattern = "^!\S+\s"
-	    commandMatch = re.match(commandPattern, message.content)
-	    if commandMatch:
-	        commandString = message.content[commandMatch.start() + 1 : commandMatch.end()].strip()
-	        if commandString in commandMap:
-	            command = commandMap[commandString]
-	            if command.permission(message.author):
-	                await client.send_message(message.channel, command.method(message.contents[commandMatch.end() + 1:]))
-
-	###################
-	#     Startup     #
-	###################
-
-	def fetchToken():
-	    rootdirname = os.path.dirname(os.path.dirname(__file__))
-	    secrets = open(os.path.join(rootdirname, "secrets.txt"), 'r')
-	    for line in secrets:
-	        parsed = line.split(":")
-	        if parsed[0] == os.path.basename(__file__):
-	            token = parsed[1].strip()
-	            secrets.close()
-	            return token
+    def __init__(self, token):
+        self.client = discord.Client()
+        self.token = token
+        # commandMap should be overloaded by implementer
+        self.commandMap = {
+            'help': generic.BotCommand(self.getHelp, lambda x: True),
+        }
+        self.client.event(self.on_ready)
+        self.client.event(self.on_message)
 
     def run(self):
-		client.run(self.token)
+        self.client.run(self.token)
