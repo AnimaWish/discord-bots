@@ -4,8 +4,8 @@ import random
 import urllib.request
 import re
 import os, sys
-import subprocess
 import importlib
+import threading
 
 client = discord.Client()
 
@@ -17,6 +17,8 @@ botMap = {
     'philippe': None,
     'zenyatta': None
 }
+
+threads = {}
 
 WISH_USER_ID = '199401793032028160'
 
@@ -38,13 +40,23 @@ def isAdmin(userId):
 def mentionWish(message):
     return wishUser.mention + ': ' + message
 
-def readBlacklist():
+def importBlacklist():
     blacklistFile = open('blacklist.txt', 'r')
     global blacklist
     blacklist = []
     for line in blacklistFile:
         blacklist.append(line.strip())
     blacklistFile.close()
+
+# Requires botMap to be mapped
+def restartChild(botName):
+    importlib.reload(botMap[botName])
+    if botName in threads:
+        #TODO kill thread
+
+    # threads[botName] = threading.Thread(target=botMap[botName].run)
+    # threads[botName].start()
+
 
 ###################
 #    Commands     #
@@ -63,6 +75,7 @@ ALL OTHER CONSIDERATIONS SECONDARY.
 CREW EXPENDABLE.
 """
 
+# Returns information about sender
 def whoAmI(params, author):
     permString = "NONE"
     if isAdmin(author.id):
@@ -72,24 +85,32 @@ def whoAmI(params, author):
 
     return "Username: {}#{}\nUserId: {}\nAccess Permission: {}".format(author.name, author.discriminator, author.id, permString)
 
+# Returns status of children bots
 def getStatus(params, author):
     return "Who knows"
 
 def echo(params, author):
     return params
 
+# Reload and restart a bot
 def restart(params, author):
-    if not childName in botMap:
-        return childName + " not found." 
+    if not botName in botMap:
+        return botName + " not found." 
 
-    #TODO bots in subprocesses
+    restartChild(botName)
+
+    print("Restarted {}".format(botName))
+
+    #TODO hash file to make sure something actually changed
     #TODO https://stackoverflow.com/questions/684171/how-to-re-import-an-updated-package-while-in-python-interpreter
 
+# Update local files
 def update(params, author):
     bashCommand = "git pull"
     process = subprocess.Popen(bashCommand.split(), cwd=os.path.dirname(os.path.abspath(__file__)))
     output, error = process.communicate()
 
+# Add a user to the blacklist
 def block(params, author):
     userId = params.strip()
     if userId in VALID_USERS:
@@ -98,10 +119,10 @@ def block(params, author):
     blacklistFile = open('blacklist.txt', 'a')
     blacklistFile.write(userId)
     blacklistFile.close()
-    readBlacklist()
+    importBlacklist()
     return "User blocked. Blacklist has {} members.".format(len(blacklist))
 
-
+# Shut down everything
 def shutdown(params, author):
     #TODO gracefully shutdown children
     #TODO gracefully shutdown event loop - why is this so hard
@@ -141,13 +162,13 @@ async def on_ready():
         print("NO ADMINISTRATOR FOUND")
 
     #Initialize Blacklist
-    readBlacklist()
+    importBlacklist()
     print("Imported blacklist with {} members.".format(len(blacklist)))
 
     #Start Children
-    # for botName in botMap.keys():
-    #     importlib.__import__(botName)
-    #     restartChild(botName)
+    for botName in botMap.keys():
+        #botMap[botName] = importlib.__import__('botfiles', fromlist=[botName])
+        #restartChild(botName)
 
     print('------')
 
