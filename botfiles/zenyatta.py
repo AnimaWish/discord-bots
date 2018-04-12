@@ -173,8 +173,8 @@ async def on_message(message):
 ###################
 
 def fetchToken():
-    dirname = os.path.dirname(__file__)
-    secrets = open(os.path.join(dirname, "secrets.txt"), 'r')
+    rootdirname = os.path.dirname(os.path.dirname(__file__))
+    secrets = open(os.path.join(rootdirname, "secrets.txt"), 'r')
     for line in secrets:
         parsed = line.split(":")
         if parsed[0] == os.path.basename(__file__):
