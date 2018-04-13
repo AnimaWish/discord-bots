@@ -9,6 +9,20 @@ import threading
 
 client = discord.Client()
 
+class BotObject:
+    def __init__(self, botName, token):
+        self.token = token
+        self.name = botName
+        sys.path.append("botfiles")
+        package = importlib.__import__('botfiles', fromlist=[botName])
+        self.module = getattr(package, botName)
+        self.reloadModule()
+
+    def reloadModule(self):
+        importlib.reload(self.module)
+        botClass = getattr(self.module, self.name.capitalize() + "Bot")
+        self.bot = botClass(self.token)
+
 ###################
 #    Constants    #
 ###################
@@ -18,7 +32,10 @@ botMap = {
     'zenyatta': None
 }
 
-threads = {}
+threads = {
+    'philippe': None,
+    'zenyatta': None
+}
 
 WISH_USER_ID = '199401793032028160'
 
@@ -50,13 +67,14 @@ def importBlacklist():
 
 # Requires botMap to be mapped
 def restartChild(botName):
-    importlib.reload(botMap[botName])
-    if botName in threads:
-        #TODO kill thread
+    if botName in botMap:
+        botObj = botMap[botName]
+        if threads[botName] is not None:
+            threads[botName].join()
 
-    # threads[botName] = threading.Thread(target=botMap[botName].run)
-    # threads[botName].start()
-
+        botObj.reloadModule()
+        threads[botName] = threading.Thread(target=botObj.bot.run, name="{}-thread".format(botName))
+        threads[botName].start()
 
 ###################
 #    Commands     #
@@ -167,8 +185,8 @@ async def on_ready():
 
     #Start Children
     for botName in botMap.keys():
-        #botMap[botName] = importlib.__import__('botfiles', fromlist=[botName])
-        #restartChild(botName)
+        botMap[botName] = BotObject(botName, fetchToken(botName + ".py"))
+        restartChild(botName)
 
     print('------')
 
@@ -202,14 +220,14 @@ async def on_message(message):
 #     Startup     #
 ###################
 
-def fetchToken():
+def fetchToken(botName):
     dirname = os.path.dirname(__file__)
     secrets = open(os.path.join(dirname, "secrets.txt"), 'r')
     for line in secrets:
         parsed = line.split(":")
-        if parsed[0] == os.path.basename(__file__):
+        if parsed[0] == botName:
             token = parsed[1].strip()
             secrets.close()
             return token
 
-client.run(fetchToken())
+client.run(fetchToken(__file__))
