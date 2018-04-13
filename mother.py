@@ -28,7 +28,7 @@ class BotObject:
 ###################
 
 botMap = {
-    'philippe': None,
+    #'philippe': None,
     'zenyatta': None
 }
 
@@ -70,6 +70,7 @@ def restartChild(botName):
     if botName in botMap:
         botObj = botMap[botName]
         if threads[botName] is not None:
+            botObj.stop()
             threads[botName].join()
 
         botObj.reloadModule()

@@ -4,6 +4,7 @@ import random
 import urllib.request
 import re
 import os
+import threading
 
 class BotCommand:
     # method must accept `message` and `params`, and return a string or None
@@ -75,8 +76,17 @@ class DiscordBot:
     #     Startup     #
     ###################
 
+    @asyncio.coroutine
+    def checkForStopEvent(self):
+        while True:
+            if self._stop_event.is_set():
+                self.shutdown()
+                break
+            yield from asyncio.sleep(3)
+
     def __init__(self, token, prefix="!"):
         self.client = discord.Client()
+
         self.token = token
         self.prefix = prefix
 
@@ -87,5 +97,24 @@ class DiscordBot:
         self.client.event(self.on_ready)
         self.client.event(self.on_message)
 
+        self._stop_event = threading.Event()
+
+    def stop(self):
+        self._stop_event.set()
+
     def run(self):
+        print("A")
         self.client.run(self.token)
+        asyncio.run_coroutine_threadsafe(self.checkForStopEvent, self.client.loop)
+
+        #task = asyncio.Task(self.checkForStopEvent)
+        # self.loop = get_event_loop();
+        # self.loop.create_task(self.checkForStopEvent)
+        #self.client.loop.run_until_complete(task)
+        print("B")
+        print("C")
+
+    def shutdown(self):
+        loop = self.client.loop
+        loop.call_soon_threadsafe(loop.stop)
+
