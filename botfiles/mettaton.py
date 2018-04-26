@@ -116,7 +116,7 @@ Hit up Wish#6215 for feature requests/bugs, or visit my repository at https://gi
     
     def getPose(self, message, params):
         dirname = os.path.dirname(__file__) # TODO Will this work with mother?
-        DIR = os.path.join(dirname, "../assets/poses/")
+        DIR = "../assets/poses/"
         poseCount = len([name for name in os.listdir(DIR) if os.path.isfile(os.path.join(DIR, name)) and ".png" == os.path.splittext(os.path.isfile(os.path.join(DIR, name)))[1]])
         choice = random.randint(1, poseCount)
         poseFile = open(os.path.join(DIR, "%d.png".fmt(choice)))
