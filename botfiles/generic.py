@@ -3,7 +3,7 @@ import asyncio
 import random
 import urllib.request
 import re
-import os
+import os, io
 
 class BotCommand:
     # method must accept `message` and `params`, and return a string or None
@@ -65,8 +65,8 @@ class DiscordBot:
                 params  = message.content[commandMatch.end():].strip()
                 try: 
                     result = command.execute(params, message)
-                    if callable(result):
-                        result(self.client, message)
+                    if isinstance(result, io.IOBase):
+                        await self.client.send_file(message.channel, result)
                     elif result is not None and len(result) > 0:
                         await self.client.send_message(message.channel, result)
 
