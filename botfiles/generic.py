@@ -65,8 +65,10 @@ class DiscordBot:
                 params  = message.content[commandMatch.end():].strip()
                 try: 
                     result = command.execute(params, message)
-                    if result is not None and len(result) > 0:
-                        await self.client.send_message(message.channel, result)    
+                    if callable(result):
+                        result(self.client, message)
+                    elif result is not None and len(result) > 0:
+                        await self.client.send_message(message.channel, result)
 
                 except PermissionError as err:
                     print("Insufficient permissions for user {}".format(err))

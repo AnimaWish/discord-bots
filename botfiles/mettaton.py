@@ -121,8 +121,7 @@ Hit up Wish#6215 for feature requests/bugs, or visit my repository at https://gi
         poseCount = len([name for name in os.listdir(DIR) if os.path.isfile(os.path.join(DIR, name)) and ".png" == os.path.splittext(os.path.isfile(os.path.join(DIR, name)))[1]])
         choice = random.randint(1, poseCount)
         poseFile = open(os.path.join(DIR, "%d.png".fmt(choice)))
-        await self.client.send_file(message.channel, poseFile)
-        return None
+        return lambda client, message: await client.send_file(message.channel, poseFile)
 
     ###################
     #   Bot Methods   #
