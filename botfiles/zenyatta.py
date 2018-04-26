@@ -92,7 +92,6 @@ Hit up Wish#6215 for feature requests/bugs, or visit my repository at https://gi
     """
 
     def getDieRoll(self, message, params):
-            print (params)
             params = params.split("d")
             if len(params) != 2 or not (params[0].isdigit() and params[1].isdigit()):
                 return "Required syntax: `!roll XdY`"
