@@ -12,21 +12,6 @@ class MettatonBot(DiscordBot):
     #    Constants    #
     ###################
 
-    MAX_DICE = 1000000
-
-    CHOICE_STRINGS = [
-        "I choose... {}!",
-        "How about {}?",
-        "Result hazy, try again later (jk do {})",
-        "{}, obviously!",
-        "Choose {}."
-        "Whatever you do, DON'T pick {} (wink)",
-        "Signs point to {}",
-        "*cracks open fortune cookie, finds message that says \"{}\"*"
-        "My lawyers advise {}",
-        "I'm a {} man myself."
-    ]
-
     ###################
     #     Helpers     #
     ###################
@@ -39,29 +24,10 @@ class MettatonBot(DiscordBot):
         return """
 Available Commands:
     `!roll XdY` - roll X Y-sided dice
-    `!choose a,list,of,shit` - get a random member of the list
+    `!choose a,list,of,things` - get a random member of the list
     `!pose` - strike a pose
 Hit up Wish#6215 for feature requests/bugs, or visit my repository at https://github.com/AnimaWish/discord-bots
     """
-
-    #TODO move this to generic
-    def getDieRoll(self, message, params):
-            params = params.split("d")
-            if len(params) != 2 or not (params[0].isdigit() and params[1].isdigit()):
-                return "Required syntax: `!roll XdY`"
-            elif int(params[0]) > MettatonBot.MAX_DICE:
-                return "I can't possibly hold {} dice!".format(params[0])
-            else:
-                result = 0
-                for x in range(0, int(params[0])):
-                    result = result + random.randint(1, int(params[1]))
-
-            return "You rolled {}!".format(result)
-
-    #TODO move this to generic
-    def chooseRand(self, message, params):
-        theList = re.split('[; |,\s]',params)
-        return random.choice(MettatonBot.CHOICE_STRINGS).format(random.choice(theList))
     
     def getPose(self, message, params):
         DIR = "assets/mettaton/poses/"# TODO Will this work with mother?

@@ -20,6 +20,22 @@ class BotCommand:
             raise PermissionError("{}#{}:({})".format(message.author.name, message.author.discriminator, message.author.id))
 
 class DiscordBot:
+
+    MAX_DICE = 1000000
+
+    CHOICE_STRINGS = [
+        "I choose... {}!",
+        "How about {}?",
+        "Result hazy, try again later (jk do {})",
+        "{}, obviously!",
+        "Choose {}.",
+        "Whatever you do, DON'T pick {} (wink)",
+        "Signs point to {}",
+        "*cracks open fortune cookie, finds message that says \"{}\"*",
+        "My lawyers advise {}",
+        "I'm a {} guy myself."
+    ]
+
     ###################
     #     Helpers     #
     ###################
@@ -44,6 +60,23 @@ class DiscordBot:
 
     def echo(self, message, params):
         return params
+
+    def getDieRoll(self, message, params):
+            params = params.split("d")
+            if len(params) != 2 or not (params[0].isdigit() and params[1].isdigit()):
+                return "Required syntax: `!roll XdY`"
+            elif int(params[0]) > DiscordBot.MAX_DICE:
+                return "I can't possibly hold {} dice!".format(params[0])
+            else:
+                result = 0
+                for x in range(0, int(params[0])):
+                    result = result + random.randint(1, int(params[1]))
+
+            return "You rolled {}!".format(result)
+
+    def chooseRand(self, message, params):
+        theList = re.split('[; |,\s]',params)
+        return random.choice(DiscordBot.CHOICE_STRINGS).format(random.choice(theList))
 
     ###################
     #  Event Methods  #
