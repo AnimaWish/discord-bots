@@ -14,43 +14,6 @@ class MettatonBot(DiscordBot):
 
     MAX_DICE = 1000000
 
-    OVERWATCH_CHARACTERS = {
-        'offense': [
-            'Doomfist',
-            'Genji',
-            'McCree',
-            'Pharah',
-            'Reaper',
-            'Soldier: 76',
-            'Sombra',
-            'Tracer'
-        ],
-        'defense': [
-            'Bastion',
-            'Hanzo',
-            'Junkrat',
-            'Mei',
-            'Torbjörn',
-            'Widowmaker',
-        ],
-        'tank': [
-            'D.Va',
-            'Orisa',
-            'Reinhardt',
-            'Roadhog',
-            'Winston',
-            'Zarya'
-        ],
-        'support': [
-            'Ana',
-            'Brigitte',
-            'Lúcio',
-            'Mercy',
-            'Moira',
-            'Symmetra'
-        ]
-    }
-
     CHOICE_STRINGS = [
         "I choose... {}!",
         "How about {}?",
@@ -76,11 +39,12 @@ class MettatonBot(DiscordBot):
         return """
 Available Commands:
     `!roll XdY` - roll X Y-sided dice
-    `!character [offense|defense|tank|support|any]` - get a random character
-    `!choose [a,list,of,shit]` - get a random member of the list
+    `!choose a,list,of,shit` - get a random member of the list
+    `!pose` - strike a pose
 Hit up Wish#6215 for feature requests/bugs, or visit my repository at https://github.com/AnimaWish/discord-bots
     """
 
+    #TODO move this to generic
     def getDieRoll(self, message, params):
             params = params.split("d")
             if len(params) != 2 or not (params[0].isdigit() and params[1].isdigit()):
@@ -94,22 +58,7 @@ Hit up Wish#6215 for feature requests/bugs, or visit my repository at https://gi
 
             return "You rolled {}!".format(result)
 
-    def getRandomCharacter(self, message, params):
-        splitCharacterRoles = set(re.split('[; |,\s]',params))
-        pool = []
-        for key in splitCharacterRoles:
-            key = key.lower()
-            if key == 'all' or key == 'any':
-                pool = MettatonBot.OVERWATCH_CHARACTERS['offense'] + MettatonBot.OVERWATCH_CHARACTERS['defense'] + MettatonBot.OVERWATCH_CHARACTERS['tank'] + MettatonBot.OVERWATCH_CHARACTERS['support']
-                break;
-            if key in MettatonBot.OVERWATCH_CHARACTERS:
-                pool = pool + MettatonBot.OVERWATCH_CHARACTERS[key]
-
-        if len(splitCharacterRoles) == 0 or len(pool) == 0:
-            pool = MettatonBot.OVERWATCH_CHARACTERS['offense'] + MettatonBot.OVERWATCH_CHARACTERS['defense'] + MettatonBot.OVERWATCH_CHARACTERS['tank'] + MettatonBot.OVERWATCH_CHARACTERS['support']
-
-        return random.choice(MettatonBot.CHOICE_STRINGS).format(random.choice(pool))
-
+    #TODO move this to generic
     def chooseRand(self, message, params):
         theList = re.split('[; |,\s]',params)
         return random.choice(MettatonBot.CHOICE_STRINGS).format(random.choice(theList))
@@ -137,7 +86,6 @@ Hit up Wish#6215 for feature requests/bugs, or visit my repository at https://gi
             'help':         BotCommand(self.getHelp,            lambda x: True),
             'echo':         BotCommand(self.echo,               lambda x: True),
             'roll':         BotCommand(self.getDieRoll,         lambda x: True),
-            'character':    BotCommand(self.getRandomCharacter, lambda x: True),
             'choose':       BotCommand(self.chooseRand,         lambda x: True),
             'pose':         BotCommand(self.getPose,            lambda x: True),
         }

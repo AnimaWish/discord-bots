@@ -87,7 +87,7 @@ Available Commands:
     `!pubg`  - :b:
     `!roll XdY` - roll X Y-sided dice
     `!character [offense|defense|tank|support|any]` - get a random character
-    `!choose [a,list,of,shit]` - get a random member of the list
+    `!choose a,list,of,shit` - get a random member of the list
 Hit up Wish#6215 for feature requests/bugs, or visit my repository at https://github.com/AnimaWish/discord-bots
     """
 
@@ -105,6 +105,7 @@ Hit up Wish#6215 for feature requests/bugs, or visit my repository at https://gi
             return "You rolled {}!".format(result)
 
     def getRandomCharacter(self, message, params):
+        # TODO strip off brackets if user adds them
         splitCharacterRoles = set(re.split('[; |,\s]',params))
         pool = []
         for key in splitCharacterRoles:
