@@ -115,6 +115,15 @@ Hit up Wish#6215 for feature requests/bugs, or visit my repository at https://gi
         theList = re.split('[; |,\s]',params)
         return random.choice(MettatonBot.CHOICE_STRINGS).format(random.choice(theList))
      
+    def getPose(self, message, params):
+        dirname = os.path.dirname(__file__) # TODO Will this work with mother?
+        DIR = os.path.join(dirname, "../assets/poses/")
+        poseCount = len([name for name in os.listdir(DIR) if os.path.isfile(os.path.join(DIR, name)) && ".png" == os.path.splittext(os.path.isfile(os.path.join(DIR, name)))[1]])
+        choice = random.randint(1, poseCount)
+        poseFile = open(os.path.join(DIR, "%d.png".fmt(choice)))
+        await self.client.send_file(message.channel, poseFile)
+        return None
+
     ###################
     #   Bot Methods   #
     ###################
@@ -122,11 +131,12 @@ Hit up Wish#6215 for feature requests/bugs, or visit my repository at https://gi
     def __init__(self, token, prefix="!"):
         super().__init__(token, prefix)
         self.commandMap = {
-            'help':         BotCommand(self.getHelp,                                        lambda x: True),
-            'echo':         BotCommand(self.echo,                                           lambda x: True),
-            'roll':         BotCommand(self.getDieRoll,                                     lambda x: True),
-            'character':    BotCommand(self.getRandomCharacter,                             lambda x: True),
-            'choose':       BotCommand(self.chooseRand,                                     lambda x: True)
+            'help':         BotCommand(self.getHelp,            lambda x: True),
+            'echo':         BotCommand(self.echo,               lambda x: True),
+            'roll':         BotCommand(self.getDieRoll,         lambda x: True),
+            'character':    BotCommand(self.getRandomCharacter, lambda x: True),
+            'choose':       BotCommand(self.chooseRand,         lambda x: True),
+            'pose':         BotCommand(self.getPose,            lambda x: True),
         }
 
     async def on_ready(self):
@@ -134,7 +144,6 @@ Hit up Wish#6215 for feature requests/bugs, or visit my repository at https://gi
 
     async def on_message(self, message):
         await super().on_message(message)
-
 
 if __name__ == "__main__":
     print("OHH YEAH")
