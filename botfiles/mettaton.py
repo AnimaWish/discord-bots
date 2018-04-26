@@ -115,9 +115,14 @@ Hit up Wish#6215 for feature requests/bugs, or visit my repository at https://gi
         return random.choice(MettatonBot.CHOICE_STRINGS).format(random.choice(theList))
     
     def getPose(self, message, params):
-        dirname = os.path.dirname(__file__) # TODO Will this work with mother?
-        DIR = "../assets/poses/"
-        poseCount = len([name for name in os.listdir(DIR) if os.path.isfile(os.path.join(DIR, name)) and ".png" == os.path.splittext(os.path.isfile(os.path.join(DIR, name)))[1]])
+        DIR = "assets/mettaton/poses/"# TODO Will this work with mother?
+
+        poseCount = 0
+        for root, dirs, files in os.walk(DIR):
+            for file in files:    
+                if file.endswith('.png'):
+                    poseCount += 1
+
         choice = random.randint(1, poseCount)
         poseFile = open(os.path.join(DIR, "%d.png".fmt(choice)))
         return poseFile
