@@ -114,8 +114,8 @@ Hit up Wish#6215 for feature requests/bugs, or visit my repository at https://gi
     def chooseRand(self, message, params):
         theList = re.split('[; |,\s]',params)
         return random.choice(MettatonBot.CHOICE_STRINGS).format(random.choice(theList))
-     
-    def getPose(self, message, params):
+    
+    async def getPose(self, message, params):
         dirname = os.path.dirname(__file__) # TODO Will this work with mother?
         DIR = os.path.join(dirname, "../assets/poses/")
         poseCount = len([name for name in os.listdir(DIR) if os.path.isfile(os.path.join(DIR, name)) and ".png" == os.path.splittext(os.path.isfile(os.path.join(DIR, name)))[1]])
