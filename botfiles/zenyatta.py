@@ -53,19 +53,6 @@ class ZenyattaBot(DiscordBot):
         ]
     }
 
-    CHOICE_STRINGS = [
-        "I choose... {}!",
-        "How about {}?",
-        "Result hazy, try again later (jk do {})",
-        "{}, obviously!",
-        "Choose {}."
-        "Whatever you do, DON'T pick {} (wink)",
-        "Signs point to {}",
-        "*cracks open fortune cookie, finds message that says \"{}\"*"
-        "My lawyers advise {}",
-        "I'm a {} man myself."
-    ]
-
     ###################
     #     Helpers     #
     ###################
@@ -87,22 +74,9 @@ Available Commands:
     `!pubg`  - :b:
     `!roll XdY` - roll X Y-sided dice
     `!character [offense|defense|tank|support|any]` - get a random character
-    `!choose a,list,of,shit` - get a random member of the list
+    `!choose a,list,of,things` - get a random member of the list
 Hit up Wish#6215 for feature requests/bugs, or visit my repository at https://github.com/AnimaWish/discord-bots
     """
-
-    def getDieRoll(self, message, params):
-            params = params.split("d")
-            if len(params) != 2 or not (params[0].isdigit() and params[1].isdigit()):
-                return "Required syntax: `!roll XdY`"
-            elif int(params[0]) > ZenyattaBot.MAX_DICE:
-                return "I can't possibly hold {} dice!".format(params[0])
-            else:
-                result = 0
-                for x in range(0, int(params[0])):
-                    result = result + random.randint(1, int(params[1]))
-
-            return "You rolled {}!".format(result)
 
     def getRandomCharacter(self, message, params):
         # TODO strip off brackets if user adds them
@@ -120,10 +94,6 @@ Hit up Wish#6215 for feature requests/bugs, or visit my repository at https://gi
             pool = ZenyattaBot.OVERWATCH_CHARACTERS['offense'] + ZenyattaBot.OVERWATCH_CHARACTERS['defense'] + ZenyattaBot.OVERWATCH_CHARACTERS['tank'] + ZenyattaBot.OVERWATCH_CHARACTERS['support']
 
         return random.choice(ZenyattaBot.CHOICE_STRINGS).format(random.choice(pool))
-
-    def chooseRand(self, message, params):
-        theList = re.split('[; |,\s]',params)
-        return random.choice(ZenyattaBot.CHOICE_STRINGS).format(random.choice(theList))
      
     ###################
     #   Bot Methods   #

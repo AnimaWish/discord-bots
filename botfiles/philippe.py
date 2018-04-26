@@ -90,6 +90,8 @@ class PhilippeBot(DiscordBot):
  - Type `!random` to get a random comic! Wow!    
  - Type `!prompt` to get a random discussion prompt! Hot dang!
  - Type `!search [search term]` to search comic dialogue! Holy smokes!
+ - Type `!roll XdY` to roll X Y-sided dice!
+ - Type `!choose a,list,of,things` to randomly select something from the list!
 
 Hit up Wish#6215 for feature requests/bugs, or visit my repository at https://github.com/AnimaWish/discord-bots
     """
@@ -133,6 +135,8 @@ Hit up Wish#6215 for feature requests/bugs, or visit my repository at https://gi
         self.commandMap = {
             'help':   BotCommand(self.getHelp,        lambda x: True),
             'echo':   BotCommand(self.echo,           lambda x: True),
+            'roll':   BotCommand(self.getDieRoll,     lambda x: True),
+            'choose': BotCommand(self.chooseRand,     lambda x: True),
             'random': BotCommand(self.getRandomStrip, lambda x: True),
             'prompt': BotCommand(self.getPrompt,      lambda x: True),
             'search': BotCommand(self.searchStrips,   lambda x: True),
