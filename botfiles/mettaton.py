@@ -124,7 +124,7 @@ Hit up Wish#6215 for feature requests/bugs, or visit my repository at https://gi
                     poseCount += 1
 
         choice = random.randint(1, poseCount)
-        poseFile = open(os.path.join(DIR, "{}.png".format(choice)))
+        poseFile = open(os.path.join(DIR, "{}.png".format(choice)), 'rb')
         return poseFile
 
     ###################
