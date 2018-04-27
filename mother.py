@@ -21,7 +21,10 @@ class BotObject:
     def reloadModule(self):
         importlib.reload(self.module)
         botClass = getattr(self.module, self.name.capitalize() + "Bot")
-        self.bot = botClass(self.token)
+        self.bot = botClass(self.token, "~")
+
+    def stop(self):
+        self.bot.stop()
 
 ###################
 #    Constants    #
@@ -69,13 +72,17 @@ def importBlacklist():
 def restartChild(botName):
     if botName in botMap:
         botObj = botMap[botName]
-        if threads[botName] is not None:
-            botObj.stop()
-            threads[botName].join()
+        killChild(botName)
 
         botObj.reloadModule()
         threads[botName] = threading.Thread(target=botObj.bot.run, name="{}-thread".format(botName))
         threads[botName].start()
+
+def killChild(botName):
+    botObj = botMap[botName]
+    if threads[botName] is not None:
+        botObj.stop()
+        threads[botName].join()
 
 ###################
 #    Commands     #
@@ -113,6 +120,7 @@ def echo(params, author):
 
 # Reload and restart a bot
 def restart(params, author):
+    botName = params
     if not botName in botMap:
         return botName + " not found." 
 
@@ -122,6 +130,15 @@ def restart(params, author):
 
     #TODO hash file to make sure something actually changed
     #TODO https://stackoverflow.com/questions/684171/how-to-re-import-an-updated-package-while-in-python-interpreter
+
+def kill(params, author):
+    botName = params
+    if not botName in botMap:
+        return botName + " not found." 
+
+    killChild(botName)
+
+    print("Shut down {}".format(botName))
 
 # Update local files
 def update(params, author):
@@ -145,7 +162,16 @@ def block(params, author):
 def shutdown(params, author):
     #TODO gracefully shutdown children
     #TODO gracefully shutdown event loop - why is this so hard
-    sys.exit(0)
+    for name in botMap:
+        killChild(name)
+
+    # client.loop.run_until_complete(client.logout())
+    # try:
+    #     client.loop.run_until_complete(asyncio.gather(*asyncio.Task.all_tasks()))
+    # finally:
+    #     client.loop.close()
+
+    #sys.exit(0)
 
 commandMap = {
     'help':     BotCommand(getHelp,     lambda x: True),
@@ -155,6 +181,7 @@ commandMap = {
     'echo':     BotCommand(echo,        isValidUser),
     'restart':  BotCommand(restart,     isValidUser),
     'update':   BotCommand(update,      isValidUser),
+    'kill':     BotCommand(kill,        isValidUser),
 
     'block':    BotCommand(block,       isAdmin),
     'shutdown': BotCommand(shutdown,    isAdmin)

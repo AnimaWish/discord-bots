@@ -104,6 +104,7 @@ Hit up Wish#6215 for feature requests/bugs, or visit my repository at https://gi
         self.commandMap = {
             'help':         BotCommand(self.getHelp,                                        lambda x: True),
             'echo':         BotCommand(self.echo,                                           lambda x: True),
+            'ping':         BotCommand(self.ping,                                           lambda x: True),
             'roll':         BotCommand(self.getDieRoll,                                     lambda x: True),
             'character':    BotCommand(self.getRandomCharacter,                             lambda x: True),
             'choose':       BotCommand(self.chooseRand,                                     lambda x: True),

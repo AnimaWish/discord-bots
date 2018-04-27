@@ -58,6 +58,9 @@ class DiscordBot:
     Hit up Wish#6215 for feature requests/bugs, or visit my repository at https://github.com/AnimaWish/discord-bots
     """
 
+    def ping(self, message, params):
+        return "pong"
+
     def echo(self, message, params):
         return params
 
@@ -117,10 +120,18 @@ class DiscordBot:
             if self._stop_event.is_set():
                 self.shutdown()
                 break
-            yield from asyncio.sleep(3)
+            try:
+                yield from asyncio.sleep(3)
+            except asyncio.CancelledError:
+                break
+
+    def stop(self):
+        self._stop_event.set()
 
     def __init__(self, token, prefix="!"):
-        self.client = discord.Client()
+        self.loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self.loop)
+        self.client = discord.Client(loop=self.loop)
 
         self.token = token
         self.prefix = prefix
@@ -134,22 +145,36 @@ class DiscordBot:
 
         self._stop_event = threading.Event()
 
-    def stop(self):
-        self._stop_event.set()
+    def run(self):      
+        checkForStopTask = self.loop.create_task(self.checkForStopEvent())
+        tasks = [self.client.start(self.token)]
+        wait_tasks = asyncio.wait(tasks)
 
-    def run(self):
-        print("A")
-        self.client.run(self.token)
-        asyncio.run_coroutine_threadsafe(self.checkForStopEvent, self.client.loop)
+        try:
+            self.loop.run_until_complete(wait_tasks)
+        except KeyboardInterrupt:
+            checkForStopTask.cancel()
+            self.shutdown()
+        finally:
+            self.loop.close()
 
         #task = asyncio.Task(self.checkForStopEvent)
         # self.loop = get_event_loop();
         # self.loop.create_task(self.checkForStopEvent)
         #self.client.loop.run_until_complete(task)
-        print("B")
-        print("C")
 
     def shutdown(self):
-        loop = self.client.loop
-        loop.call_soon_threadsafe(loop.stop)
+        print("Shutting down")
+        asyncio.ensure_future(self.client.logout())
+
+        # for task in asyncio.Task.all_tasks():
+        #     task.cancel()
+
+        try:
+            self.loop.run_until_complete(asyncio.gather(*asyncio.Task.all_tasks()))
+        except asyncio.CancelledError:
+            pass
+        finally:
+            self.loop.close()
+            print("Goodbye")
 
