@@ -44,9 +44,6 @@ Hit up Wish#6215 for feature requests/bugs, or visit my repository at https://gi
         return poseFile
 
     def chooseCaptain(self, message, params):
-        print(message.author.voice)
-        print(message.author.voice.voice_channel)
-        print(message.author.voice.voice_channel.voice_members)
         captain = random.choice(message.author.voice.voice_channel.voice_members)
         return random.choice(MettatonBot.CHOICE_STRINGS).format(captain.name)
 
