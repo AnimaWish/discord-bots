@@ -83,6 +83,8 @@ def killChild(botName):
     if threads[botName] is not None:
         botObj.stop()
         threads[botName].join()
+        print("Shut down {}".format(botName))
+        threads[botName] = None
 
 ###################
 #    Commands     #
@@ -137,8 +139,6 @@ def kill(params, author):
         return botName + " not found." 
 
     killChild(botName)
-
-    print("Shut down {}".format(botName))
 
 # Update local files
 def update(params, author):

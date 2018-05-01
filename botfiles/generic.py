@@ -118,7 +118,8 @@ class DiscordBot:
     def checkForStopEvent(self):
         while True:
             if self._stop_event.is_set():
-                self.shutdown()
+                print("Stop signal received")
+                yield from self.client.logout()
                 break
             try:
                 yield from asyncio.sleep(3)
@@ -145,36 +146,22 @@ class DiscordBot:
 
         self._stop_event = threading.Event()
 
+
     def run(self):      
+        print("Hello")
+
         checkForStopTask = self.loop.create_task(self.checkForStopEvent())
-        tasks = [self.client.start(self.token)]
-        wait_tasks = asyncio.wait(tasks)
+        startTask = self.client.start(self.token)
+        wait_tasks = asyncio.wait([startTask])
 
         try:
             self.loop.run_until_complete(wait_tasks)
         except KeyboardInterrupt:
             checkForStopTask.cancel()
-            self.shutdown()
+        except Exception as e:
+            print("Exception: {}".format(e))
         finally:
+            self.loop.run_until_complete(self.client.logout())
             self.loop.close()
 
-        #task = asyncio.Task(self.checkForStopEvent)
-        # self.loop = get_event_loop();
-        # self.loop.create_task(self.checkForStopEvent)
-        #self.client.loop.run_until_complete(task)
-
-    def shutdown(self):
-        print("Shutting down")
-        asyncio.ensure_future(self.client.logout())
-
-        # for task in asyncio.Task.all_tasks():
-        #     task.cancel()
-
-        try:
-            self.loop.run_until_complete(asyncio.gather(*asyncio.Task.all_tasks()))
-        except asyncio.CancelledError:
-            pass
-        finally:
-            self.loop.close()
-            print("Goodbye")
-
+        print("Goodbye")
