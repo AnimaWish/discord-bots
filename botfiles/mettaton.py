@@ -26,6 +26,7 @@ Available Commands:
     `!roll XdY` - roll X Y-sided dice
     `!choose a,list,of,things` - get a random member of the list
     `!pose` - strike a pose
+    `!captain` - choose a team captain from the current voice channel
 Hit up Wish#6215 for feature requests/bugs, or visit my repository at https://github.com/AnimaWish/discord-bots
     """
     
@@ -42,6 +43,13 @@ Hit up Wish#6215 for feature requests/bugs, or visit my repository at https://gi
         poseFile = open(os.path.join(DIR, "{}.png".format(choice)), 'rb')
         return poseFile
 
+    def chooseCaptain(self, message, params):
+        print(message.author.voice)
+        print(message.author.voice.voice_channel)
+        print(message.author.voice.voice_channel.voice_members)
+        captain = random.choice(message.author.voice.voice_channel.voice_members)
+        return random.choice(MettatonBot.CHOICE_STRINGS).format(captain.name)
+
     ###################
     #   Bot Methods   #
     ###################
@@ -54,6 +62,7 @@ Hit up Wish#6215 for feature requests/bugs, or visit my repository at https://gi
             'roll':         BotCommand(self.getDieRoll,         lambda x: True),
             'choose':       BotCommand(self.chooseRand,         lambda x: True),
             'pose':         BotCommand(self.getPose,            lambda x: True),
+            'captain':      BotCommand(self.chooseCaptain,      lambda x: True)
         }
 
     async def on_ready(self):
