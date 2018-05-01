@@ -86,10 +86,7 @@ class DiscordBot:
     ###################
 
     async def on_ready(self):
-        #TODO pipe to stdout?
-        print('Logged in as')
-        print(self.client.user.name)
-        print(self.client.user.id)
+        print('Logged in as {} ({})'.format(self.client.user.name, self.client.user.id))
         print('------')
 
     async def on_message(self, message):

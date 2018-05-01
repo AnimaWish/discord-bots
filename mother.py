@@ -19,7 +19,7 @@ class BotObject:
         self.reloadModule()
 
     def reloadModule(self):
-        importlib.reload(self.module)
+        self.module = importlib.reload(self.module)
         botClass = getattr(self.module, self.name.capitalize() + "Bot")
         self.bot = botClass(self.token, "~")
 
@@ -165,13 +165,13 @@ def shutdown(params, author):
     for name in botMap:
         killChild(name)
 
+    sys.exit(0)
+
     # client.loop.run_until_complete(client.logout())
     # try:
     #     client.loop.run_until_complete(asyncio.gather(*asyncio.Task.all_tasks()))
     # finally:
     #     client.loop.close()
-
-    #sys.exit(0)
 
 commandMap = {
     'help':     BotCommand(getHelp,     lambda x: True),
