@@ -81,6 +81,12 @@ class DiscordBot:
         theList = re.split('[; |,\s]',params)
         return random.choice(DiscordBot.CHOICE_STRINGS).format(random.choice(theList))
 
+    def chooseCaptain(self, message, params):
+        if message.author.voice.voice_channel == None:
+            return "You are not in a voice channel!"
+        captain = random.choice(message.author.voice.voice_channel.voice_members)
+        return random.choice(MettatonBot.CHOICE_STRINGS).format(captain.name)
+
     ###################
     #  Event Methods  #
     ###################

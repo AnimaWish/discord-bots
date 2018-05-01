@@ -108,6 +108,7 @@ Hit up Wish#6215 for feature requests/bugs, or visit my repository at https://gi
             'roll':         BotCommand(self.getDieRoll,                                     lambda x: True),
             'character':    BotCommand(self.getRandomCharacter,                             lambda x: True),
             'choose':       BotCommand(self.chooseRand,                                     lambda x: True),
+            'captain':      BotCommand(self.chooseCaptain,                                  lambda x: True),
             'bears':        BotCommand(lambda message, params: self.mentionGents(':bear:'), self.memberIsGentleman),
             'pubg':         BotCommand(lambda message, params: self.mentionGents(':pubg:'), self.memberIsGentleman)
         }

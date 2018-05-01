@@ -43,12 +43,6 @@ Hit up Wish#6215 for feature requests/bugs, or visit my repository at https://gi
         poseFile = open(os.path.join(DIR, "{}.png".format(choice)), 'rb')
         return poseFile
 
-    def chooseCaptain(self, message, params):
-        if message.author.voice.voice_channel == None:
-            return "You are not in a voice channel!"
-        captain = random.choice(message.author.voice.voice_channel.voice_members)
-        return random.choice(MettatonBot.CHOICE_STRINGS).format(captain.name)
-
     ###################
     #   Bot Methods   #
     ###################
