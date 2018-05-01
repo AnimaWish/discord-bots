@@ -75,6 +75,7 @@ Available Commands:
     `!roll XdY` - roll X Y-sided dice
     `!character [offense|defense|tank|support|any]` - get a random character
     `!choose a,list,of,things` - get a random member of the list
+    `!captain` - choose a random user from your current voice channel
 Hit up Wish#6215 for feature requests/bugs, or visit my repository at https://github.com/AnimaWish/discord-bots
     """
 
