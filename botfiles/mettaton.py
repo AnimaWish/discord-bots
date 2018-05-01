@@ -44,6 +44,8 @@ Hit up Wish#6215 for feature requests/bugs, or visit my repository at https://gi
         return poseFile
 
     def chooseCaptain(self, message, params):
+        if message.author.voice.voice_channel == None:
+            return "You are not in a voice channel!"
         captain = random.choice(message.author.voice.voice_channel.voice_members)
         return random.choice(MettatonBot.CHOICE_STRINGS).format(captain.name)
 
