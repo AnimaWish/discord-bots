@@ -19,16 +19,6 @@ class MettatonBot(DiscordBot):
     ###################
     #    Commands     #
     ###################
-
-    def getHelp(self, message, params):
-        return """
-Available Commands:
-    `!roll XdY` - roll X Y-sided dice
-    `!choose a,list,of,things` - get a random member of the list
-    `!pose` - strike a pose
-    `!captain` - choose a team captain from the current voice channel
-Hit up Wish#6215 for feature requests/bugs, or visit my repository at https://github.com/AnimaWish/discord-bots
-    """
     
     def getPose(self, message, params):
         DIR = "assets/mettaton/poses/"# TODO Will this work with mother?
@@ -47,16 +37,11 @@ Hit up Wish#6215 for feature requests/bugs, or visit my repository at https://gi
     #   Bot Methods   #
     ###################
 
-    def __init__(self, token, prefix="!"):
-        super().__init__(token, prefix)
-        self.commandMap = {
-            'help':         BotCommand(self.getHelp,            lambda x: True),
-            'echo':         BotCommand(self.echo,               lambda x: True),
-            'roll':         BotCommand(self.getDieRoll,         lambda x: True),
-            'choose':       BotCommand(self.chooseRand,         lambda x: True),
-            'pose':         BotCommand(self.getPose,            lambda x: True),
-            'captain':      BotCommand(self.chooseCaptain,      lambda x: True)
-        }
+    def __init__(self, prefix="!"):
+        super().__init__(prefix, "OHHH YES!", "GUESS YOU DON'T WANT TO JOIN MY FAN CLUB...?")
+
+        self.addCommand('pose',    self.getPose,       lambda x: True, "Strike a pose")
+        self.addCommand('captain', self.chooseCaptain, lambda x: True, "Choose a random user from the current voice channel")
 
     async def on_ready(self):
         await super().on_ready()
@@ -65,9 +50,8 @@ Hit up Wish#6215 for feature requests/bugs, or visit my repository at https://gi
         await super().on_message(message)
 
 if __name__ == "__main__":
-    print("OHH YEAH")
     parser = argparse.ArgumentParser(description='Mettaton Bot')
     parser.add_argument("token", type=str, nargs=1)
     args = parser.parse_args()
-    mettaton = MettatonBot(args.token[0])
-    mettaton.run()
+    mettaton = MettatonBot()
+    mettaton.run(args.token[0])

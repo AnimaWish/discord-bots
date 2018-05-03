@@ -66,19 +66,6 @@ class ZenyattaBot(DiscordBot):
     ###################
     #    Commands     #
     ###################
-
-    def getHelp(self, message, params):
-        return """
-Available Commands:
-    `!bears` - :bear:
-    `!pubg`  - :b:
-    `!roll XdY` - roll X Y-sided dice
-    `!character [offense|defense|tank|support|any]` - get a random character
-    `!choose a,list,of,things` - get a random member of the list
-    `!captain` - choose a random user from your current voice channel
-Hit up Wish#6215 for feature requests/bugs, or visit my repository at https://github.com/AnimaWish/discord-bots
-    """
-
     def getRandomCharacter(self, message, params):
         # TODO strip off brackets if user adds them
         splitCharacterRoles = set(re.split('[; |,\s]',params))
@@ -100,19 +87,13 @@ Hit up Wish#6215 for feature requests/bugs, or visit my repository at https://gi
     #   Bot Methods   #
     ###################
 
-    def __init__(self, token, prefix="!"):
-        super().__init__(token, prefix)
-        self.commandMap = {
-            'help':         BotCommand(self.getHelp,                                        lambda x: True),
-            'echo':         BotCommand(self.echo,                                           lambda x: True),
-            'ping':         BotCommand(self.ping,                                           lambda x: True),
-            'roll':         BotCommand(self.getDieRoll,                                     lambda x: True),
-            'character':    BotCommand(self.getRandomCharacter,                             lambda x: True),
-            'choose':       BotCommand(self.chooseRand,                                     lambda x: True),
-            'captain':      BotCommand(self.chooseCaptain,                                  lambda x: True),
-            'bears':        BotCommand(lambda message, params: self.mentionGents(':bear:'), self.memberIsGentleman),
-            'pubg':         BotCommand(lambda message, params: self.mentionGents(':pubg:'), self.memberIsGentleman)
-        }
+    def __init__(self, prefix="~"):
+        super().__init__(prefix, "Peace be upon you", "Passing into the Iris")
+
+        self.addCommand('character', self.getRandomCharacter,                             lambda x: True,         "Get a random OW character from the selected roles",   "[offense|defense|tank|support|any]")
+        self.addCommand('captain',   self.chooseCaptain,                                  lambda x: True,         "Choose a random user from the current voice channel")
+        self.addCommand('bears',     lambda message, params: self.mentionGents(':bear:'), self.memberIsGentleman, ":bear:")
+        self.addCommand('pubg',      lambda message, params: self.mentionGents(':pubg:'), self.memberIsGentleman, ":b:")
 
     async def on_ready(self):
         await super().on_ready()
@@ -122,9 +103,8 @@ Hit up Wish#6215 for feature requests/bugs, or visit my repository at https://gi
 
 
 if __name__ == "__main__":
-    print("Peace be upon you.")
     parser = argparse.ArgumentParser(description='Zenyatta Bot')
     parser.add_argument("token", type=str, nargs=1)
     args = parser.parse_args()
-    zenyatta = ZenyattaBot(args.token[0])
-    zenyatta.run()
+    zenyatta = ZenyattaBot()
+    zenyatta.run(args.token[0])

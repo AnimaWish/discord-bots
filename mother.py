@@ -21,7 +21,7 @@ class BotObject:
     def reloadModule(self):
         self.module = importlib.reload(self.module)
         botClass = getattr(self.module, self.name.capitalize() + "Bot")
-        self.bot = botClass(self.token, "~")
+        self.bot = botClass("~")
 
     def stop(self):
         self.bot.stop()
@@ -31,11 +31,13 @@ class BotObject:
 ###################
 
 botMap = {
-    #'philippe': None,
+    'mettaton': None,
+    'philippe': None,
     'zenyatta': None
 }
 
 threads = {
+    'mettaton': None,
     'philippe': None,
     'zenyatta': None
 }
@@ -75,7 +77,7 @@ def restartChild(botName):
         killChild(botName)
 
         botObj.reloadModule()
-        threads[botName] = threading.Thread(target=botObj.bot.run, name="{}-thread".format(botName))
+        threads[botName] = threading.Thread(target=botObj.bot.run, args=(botObj.token,), name="{}-thread".format(botName))
         threads[botName].start()
 
 def killChild(botName):

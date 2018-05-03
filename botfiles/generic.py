@@ -9,9 +9,11 @@ import threading
 class BotCommand:
     # method must accept `message` and `params`, and return a string or None
     # permissionFunction expects a User/Member as an argument, and returns a bool
-    def __init__(self, method, permissionFunction):
+    def __init__(self, method, permissionFunction, helpMessage="", helpParams=None):
         self.method = method
         self.permission = permissionFunction
+        self.helpParams = helpParams
+        self.helpMessage = helpMessage
 
     def execute(self, params, message):
         if self.permission(message.author):
@@ -20,7 +22,6 @@ class BotCommand:
             raise PermissionError("{}#{}:({})".format(message.author.name, message.author.discriminator, message.author.id))
 
 class DiscordBot:
-
     MAX_DICE = 1000000
 
     CHOICE_STRINGS = [
@@ -40,6 +41,15 @@ class DiscordBot:
     #     Helpers     #
     ###################
 
+    def addCommand(self, commandName, methodFunction, permissionFunction, helpMessage="", helpParams=None):
+        self.commandMap[commandName] = BotCommand(methodFunction, permissionFunction, helpMessage, helpParams)
+
+    def removeCommand(self, commandName):
+        return self.commandMap.pop(commandName)
+
+    def hideCommand(self, commandName):
+        self.commandMap[commandName].helpMessage = ""
+
     @staticmethod
     def memberHasRole(member, roleId):
         for role in member.roles:
@@ -54,9 +64,17 @@ class DiscordBot:
 
     # TODO generate this programmatically
     def getHelp(self, message, params):
-        return """
-    Hit up Wish#6215 for feature requests/bugs, or visit my repository at https://github.com/AnimaWish/discord-bots
-    """
+        helpMessage = "*{}*\n\n**Available Commands:**\n".format(self.greeting)
+        for commandName, botCommand in self.commandMap.items():
+            if botCommand.permission(message.author) and len(botCommand.helpMessage) > 0:
+                commandField = self.prefix + commandName
+                if botCommand.helpParams is not None:
+                    commandField += " " + botCommand.helpParams
+                helpMessage += "    `{}` - {}\n".format(commandField, botCommand.helpMessage)
+
+        helpMessage += "\nHit up Wish#6215 for feature requests/bugs, or visit my repository at https://github.com/AnimaWish/discord-bots"
+
+        return helpMessage
 
     def ping(self, message, params):
         return "pong"
@@ -132,29 +150,35 @@ class DiscordBot:
     def stop(self):
         self._stop_event.set()
 
-    def __init__(self, token, prefix="!"):
+    def __init__(self, prefix="!", greeting="Hello", farewell="Goodbye"):
         self.loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.loop)
         self.client = discord.Client(loop=self.loop)
 
-        self.token = token
         self.prefix = prefix
+        self.greeting = greeting
+        self.farewell = farewell
 
-        self.commandMap = {
-            'help': BotCommand(self.getHelp, lambda x: True),
-            'echo': BotCommand(self.echo,    lambda x: True),
-        }
+        self.commandMap = {}
+
+        self.addCommand('help',   self.getHelp,    lambda x: True)
+        self.addCommand('echo',   self.echo,       lambda x: True)
+        self.addCommand('roll',   self.getDieRoll, lambda x: True, "Roll X Y-sided dice",                  "XdY")
+        self.addCommand('choose', self.chooseRand, lambda x: True, "Choose a random member from the list", "a,list,of,things")
+        self.addCommand('ping',   self.ping,       lambda x: True)
+
+        
         self.client.event(self.on_ready)
         self.client.event(self.on_message)
 
         self._stop_event = threading.Event()
 
 
-    def run(self):      
-        print("Hello")
+    def run(self, token):      
+        print(self.greeting)
 
         checkForStopTask = self.loop.create_task(self.checkForStopEvent())
-        startTask = self.client.start(self.token)
+        startTask = self.client.start(token)
         wait_tasks = asyncio.wait([startTask])
 
         try:
@@ -167,4 +191,4 @@ class DiscordBot:
             self.loop.run_until_complete(self.client.logout())
             self.loop.close()
 
-        print("Goodbye")
+        print(self.farewell)

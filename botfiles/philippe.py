@@ -82,20 +82,6 @@ class PhilippeBot(DiscordBot):
     ###################
     #    Commands     #
     ###################
-
-    def getHelp(self, message, params):
-        return """
-*Here comes a special bot! Here comes a special bot! Here comes a special bot!*
-
- - Type `!random` to get a random comic! Wow!    
- - Type `!prompt` to get a random discussion prompt! Hot dang!
- - Type `!search [search term]` to search comic dialogue! Holy smokes!
- - Type `!roll XdY` to roll X Y-sided dice!
- - Type `!choose a,list,of,things` to randomly select something from the list!
-
-Hit up Wish#6215 for feature requests/bugs, or visit my repository at https://github.com/AnimaWish/discord-bots
-    """
-
     def getRandomStrip(self, message, params):
         contents = urllib.request.urlopen('http://www.ohnorobot.com/random.pl?comic=636').read().decode("utf-8")
         return PhilippeBot.getComicAndTitleFromPage(contents)
@@ -130,17 +116,12 @@ Hit up Wish#6215 for feature requests/bugs, or visit my repository at https://gi
     #   Bot Methods   #
     ###################
 
-    def __init__(self, token, prefix="!"):
-        super().__init__(token, prefix)
-        self.commandMap = {
-            'help':   BotCommand(self.getHelp,        lambda x: True),
-            'echo':   BotCommand(self.echo,           lambda x: True),
-            'roll':   BotCommand(self.getDieRoll,     lambda x: True),
-            'choose': BotCommand(self.chooseRand,     lambda x: True),
-            'random': BotCommand(self.getRandomStrip, lambda x: True),
-            'prompt': BotCommand(self.getPrompt,      lambda x: True),
-            'search': BotCommand(self.searchStrips,   lambda x: True),
-        }
+    def __init__(self, prefix="!"):
+        super().__init__(prefix, "Here comes a special bot! Here comes a special bot! Here comes a special bot!", "Bye bye!")
+
+        self.addCommand('random', self.getRandomStrip, lambda x: True, "Get a random comic")
+        self.addCommand('prompt', self.getPrompt,      lambda x: True, "Get a random discussion prompt")
+        self.addCommand('search', self.searchStrips,   lambda x: True, "Search comic dialogue", "[searchterms]")
 
     async def on_message(self, message):
         indexLinkMatch = re.search(PhilippeBot.INDEX_LINK_PATTERN, message.content)
@@ -155,9 +136,8 @@ Hit up Wish#6215 for feature requests/bugs, or visit my repository at https://gi
         await super().on_message(message)
 
 if __name__ == "__main__":
-    print("Here comes a special bot! Here comes a special bot! Here comes a special bot!")
     parser = argparse.ArgumentParser(description='Philippe Bot')
     parser.add_argument("token", type=str, nargs=1)
     args = parser.parse_args()
-    philippe = PhilippeBot(args.token[0])
-    philippe.run()
+    philippe = PhilippeBot()
+    philippe.run(args.token[0])
