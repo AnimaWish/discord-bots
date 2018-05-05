@@ -6,6 +6,7 @@ import re
 import os
 from generic import DiscordBot, BotCommand
 import argparse
+import dateutil
 
 class PhilippeBot(DiscordBot):
     ###################
@@ -79,6 +80,19 @@ class PhilippeBot(DiscordBot):
         else:
             return False
 
+    @staticmethod
+    def indexMatch(input):
+        indexLinkMatch = re.search(PhilippeBot.INDEX_LINK_PATTERN, input)
+
+        if indexLinkMatch:
+            indexLink = 'http://' + input[indexLinkMatch.start():indexLinkMatch.end()]
+            comicLink = indexLink.replace('index', 'comic')
+            contents = urllib.request.urlopen(indexLink).read().decode("utf-8")
+            titleText = PhilippeBot.parseTitle(contents)
+            return PhilippeBot.linkWithTitle(comicLink, titleText)
+
+        return None
+
     ###################
     #    Commands     #
     ###################
@@ -112,6 +126,20 @@ class PhilippeBot(DiscordBot):
 
         return result
 
+    def logProgress(self, message, params):
+        comicLink = PhilippeBot.indexMatch(params)
+        dateText = ""
+        if comicLink is not None:
+            rPattern = "(.*date=)(\d+)"
+            match = re.search(rPattern, comicLink)
+            if match is not None:
+                dateText = m.group(2)
+        else:
+            dateText = params
+
+        dateTime = dateutil.parser.parse(dateText)
+        print (dateTime)
+
     ###################
     #   Bot Methods   #
     ###################
@@ -122,16 +150,12 @@ class PhilippeBot(DiscordBot):
         self.addCommand('random', self.getRandomStrip, lambda x: True, "Get a random comic")
         self.addCommand('prompt', self.getPrompt,      lambda x: True, "Get a random discussion prompt")
         self.addCommand('search', self.searchStrips,   lambda x: True, "Search comic dialogue", "[searchterms]")
+        self.addCommand('log',    self.logProgress,    lambda x: True, "Log your progress in the comic", "[comic link or date]")
 
     async def on_message(self, message):
-        indexLinkMatch = re.search(PhilippeBot.INDEX_LINK_PATTERN, message.content)
-
-        if indexLinkMatch:
-            indexLink = 'http://' + message.content[indexLinkMatch.start():indexLinkMatch.end()]
-            comicLink = indexLink.replace('index', 'comic')
-            contents = urllib.request.urlopen(indexLink).read().decode("utf-8")
-            titleText = PhilippeBot.parseTitle(contents)
-            await self.client.send_message(message.channel, PhilippeBot.linkWithTitle(comicLink, titleText))
+        comicLink = PhilippeBot.indexMatch(message.content)
+        if comicLink is not None:
+            await self.client.send_message(message.channel, comicLink)
 
         await super().on_message(message)
 
