@@ -6,7 +6,7 @@ import re
 import os
 from generic import DiscordBot, BotCommand
 import argparse
-import dateutil
+from datetime import datetime
 
 class PhilippeBot(DiscordBot):
     ###################
@@ -44,6 +44,8 @@ class PhilippeBot(DiscordBot):
     INDEX_LINK_PATTERN = 'achewood\.com\/index\.php\?date=\d+'
     SEARCH_URL = "http://www.ohnorobot.com/index.php?comic=636&s={}&search=Find"
     LUCKY_URL  = "http://www.ohnorobot.com/index.php?s={}&lucky=Let+the+Robot+Decide%21&comic=636"
+
+    LOGFILE = "data/philippe/progress.txt"
 
     ###################
     #     Helpers     #
@@ -93,6 +95,30 @@ class PhilippeBot(DiscordBot):
 
         return None
 
+    def writeLogs(self):
+        progFile = open(self.LOGFILE, "w")
+        for key, value in self.progressLogs.items():
+            progFile.write("{}~~{}".format(key, datetime.strftime(value, "%m%d%Y")))
+
+        progFile.close()
+
+    def readLogs(self):
+        try:
+            progFile = open(self.LOGFILE, "r")
+        except FileNotFoundError:
+            print("ERROR: No progress logs imported!")
+            return
+
+        logPattern = "(\d+)~~(.+)"
+        for line in progFile:
+            match = re.search(logPattern, line)
+            if match is not None:
+                self.progressLogs[match.group(1)] = datetime.strptime(match.group(2), "%m%d%Y")
+            else:
+                print("Error reading log: {}".format(line))
+
+        progFile.close()
+
     ###################
     #    Commands     #
     ###################
@@ -129,16 +155,60 @@ class PhilippeBot(DiscordBot):
     def logProgress(self, message, params):
         comicLink = PhilippeBot.indexMatch(params)
         dateText = ""
+        isValid = True
         if comicLink is not None:
             rPattern = "(.*date=)(\d+)"
             match = re.search(rPattern, comicLink)
             if match is not None:
-                dateText = m.group(2)
+                dateText = match.group(2)
+                dtime = datetime.strptime(dateText, "%m%d%Y")
         else:
-            dateText = params
+            formats = [
+                "%m-%d-%Y",
+                "%m/%d/%Y",
+                "%m/%d/%y",
+                "%x",
+                "%m-%d-%y",
+                "%B %d, %Y",
+                "%m%d%Y"
+            ]
 
-        dateTime = dateutil.parser.parse(dateText)
-        print (dateTime)
+            dtime = ""
+            for format in formats:
+                isValid = True
+                try:
+                    dtime = datetime.strptime(params, format)
+                except ValueError:
+                    isValid = False
+
+                if isValid:
+                    break
+
+        
+        if isValid:
+            print(dtime)
+            self.progressLogs[message.author.id] = dtime
+            self.writeLogs()
+            return "Logged {}!".format(dtime.strftime("%B %d, %Y"))
+        else:
+            return "Couldn't parse date. Try pasting a comic link or using the format MM-DD-YYYY"
+
+    async def getProgressLogs(self, message, params):
+        result = ""
+        longestName = 0
+        names = {}
+        for k in self.progressLogs:
+            names[k] = await self.client.get_user_info(k)
+            if len(names[k]) > longestName:
+                longestName = len(names[k])
+
+        for k,v in self.progressLogs.items():
+            spaceBuffer = longestName + 1 + len(names[k])
+            dateText = v.strftime("%b %d, %Y")
+            line = "{}{}- {}\n".format(names[k], ' '*spaceBuffer, dateText)
+            result += line
+
+        return result
 
     ###################
     #   Bot Methods   #
@@ -147,10 +217,14 @@ class PhilippeBot(DiscordBot):
     def __init__(self, prefix="!"):
         super().__init__(prefix, "Here comes a special bot! Here comes a special bot! Here comes a special bot!", "Bye bye!")
 
-        self.addCommand('random', self.getRandomStrip, lambda x: True, "Get a random comic")
-        self.addCommand('prompt', self.getPrompt,      lambda x: True, "Get a random discussion prompt")
-        self.addCommand('search', self.searchStrips,   lambda x: True, "Search comic dialogue", "[searchterms]")
-        self.addCommand('log',    self.logProgress,    lambda x: True, "Log your progress in the comic", "[comic link or date]")
+        self.addCommand('random', self.getRandomStrip,  lambda x: True, "Get a random comic")
+        self.addCommand('prompt', self.getPrompt,       lambda x: True, "Get a random discussion prompt")
+        self.addCommand('search', self.searchStrips,    lambda x: True, "Search comic dialogue", "[searchterms]")
+        #self.addCommand('log',    self.logProgress,     lambda x: True, "Log your progress in the comic", "[comic link or date]")
+        #self.addCommand('logs',   self.getProgressLogs, lambda x: True, "Print recorded progress logs")
+
+        self.progressLogs = {}
+        self.readLogs()
 
     async def on_message(self, message):
         comicLink = PhilippeBot.indexMatch(message.content)
