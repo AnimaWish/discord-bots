@@ -103,7 +103,7 @@ class DiscordBot:
         if message.author.voice.voice_channel == None:
             return "You are not in a voice channel!"
         captain = random.choice(message.author.voice.voice_channel.voice_members)
-        return random.choice(MettatonBot.CHOICE_STRINGS).format(captain.name)
+        return random.choice(DiscordBot.CHOICE_STRINGS).format(captain.name)
 
     ###################
     #  Event Methods  #
