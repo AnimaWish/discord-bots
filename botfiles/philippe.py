@@ -83,7 +83,7 @@ class PhilippeBot(DiscordBot):
             return False
 
     @staticmethod
-    def indexMatch(input):
+    def replaceIndexWithComic(input):
         indexLinkMatch = re.search(PhilippeBot.INDEX_LINK_PATTERN, input)
 
         if indexLinkMatch:
@@ -98,7 +98,9 @@ class PhilippeBot(DiscordBot):
     def writeLogs(self):
         progFile = open(self.LOGFILE, "w")
         for key, value in self.progressLogs.items():
-            progFile.write("{}~~{}".format(key, datetime.strftime(value, "%m%d%Y")))
+            name = value["name"]
+            date = datetime.strftime(value["date"], "%m%d%Y")
+            progFile.write("{}~~{}~~{}".format(key, name, date))
 
         progFile.close()
 
@@ -109,11 +111,11 @@ class PhilippeBot(DiscordBot):
             print("ERROR: No progress logs imported!")
             return
 
-        logPattern = "(\d+)~~(.+)"
+        logPattern = "(\d+)~~(.+)~~(.+)"
         for line in progFile:
             match = re.search(logPattern, line)
             if match is not None:
-                self.progressLogs[match.group(1)] = datetime.strptime(match.group(2), "%m%d%Y")
+                self.progressLogs[match.group(1)] = {"name": match.group(2), "date": datetime.strptime(match.group(3), "%m%d%Y")}
             else:
                 print("Error reading log: {}".format(line))
 
@@ -153,7 +155,7 @@ class PhilippeBot(DiscordBot):
         return result
 
     def logProgress(self, message, params):
-        comicLink = PhilippeBot.indexMatch(params)
+        comicLink = PhilippeBot.replaceIndexWithComic(params)
         dateText = ""
         isValid = True
         if comicLink is not None:
@@ -193,19 +195,17 @@ class PhilippeBot(DiscordBot):
         else:
             return "Couldn't parse date. Try pasting a comic link or using the format MM-DD-YYYY"
 
-    async def getProgressLogs(self, message, params):
+    def getProgressLogs(self, message, params):
         result = ""
         longestName = 0
-        names = {}
-        for k in self.progressLogs:
-            names[k] = await self.client.get_user_info(k)
-            if len(names[k]) > longestName:
-                longestName = len(names[k])
+        for k, v in self.progressLogs.items():
+            if len(v["name"]) > longestName:
+                longestName = len(v["name"])
 
         for k,v in self.progressLogs.items():
-            spaceBuffer = longestName + 1 + len(names[k])
-            dateText = v.strftime("%b %d, %Y")
-            line = "{}{}- {}\n".format(names[k], ' '*spaceBuffer, dateText)
+            spaceBuffer = longestName + 1 + len(v["name"])
+            dateText = v["date"].strftime("%b %d, %Y")
+            line = "{}{}- {}\n".format(v["name"], ' '*spaceBuffer, dateText)
             result += line
 
         return result
@@ -220,14 +220,14 @@ class PhilippeBot(DiscordBot):
         self.addCommand('random', self.getRandomStrip,  lambda x: True, "Get a random comic")
         self.addCommand('prompt', self.getPrompt,       lambda x: True, "Get a random discussion prompt")
         self.addCommand('search', self.searchStrips,    lambda x: True, "Search comic dialogue", "[searchterms]")
-        #self.addCommand('log',    self.logProgress,     lambda x: True, "Log your progress in the comic", "[comic link or date]")
-        #self.addCommand('logs',   self.getProgressLogs, lambda x: True, "Print recorded progress logs")
+        self.addCommand('log',    self.logProgress,     lambda x: True, "Log your progress in the comic", "[comic link or date]")
+        self.addCommand('logs',   self.getProgressLogs, lambda x: True, "Print recorded progress logs")
 
         self.progressLogs = {}
         self.readLogs()
 
     async def on_message(self, message):
-        comicLink = PhilippeBot.indexMatch(message.content)
+        comicLink = PhilippeBot.replaceIndexWithComic(message.content)
         if comicLink is not None:
             await self.client.send_message(message.channel, comicLink)
 
