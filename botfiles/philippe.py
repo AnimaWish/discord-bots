@@ -100,7 +100,8 @@ class PhilippeBot(DiscordBot):
         for key, value in self.progressLogs.items():
             name = value["name"]
             date = datetime.strftime(value["date"], "%m%d%Y")
-            progFile.write("{}~~{}~~{}\n".format(key, name, date))
+            updated = value["updated"].timestamp()
+            progFile.write("{}~~{}~~{}~~{}\n".format(key, name, date, updated))
 
         progFile.close()
 
@@ -111,11 +112,11 @@ class PhilippeBot(DiscordBot):
             print("ERROR: No progress logs imported!")
             return
 
-        logPattern = "(\d+)~~(.+)~~(.+)"
+        logPattern = "(\d+)~~(.+)~~(.+)~~(\d+)"
         for line in progFile:
             match = re.search(logPattern, line)
             if match is not None:
-                self.progressLogs[match.group(1)] = {"name": match.group(2), "date": datetime.strptime(match.group(3), "%m%d%Y")}
+                self.progressLogs[match.group(1)] = {"name": match.group(2), "date": datetime.strptime(match.group(3), "%m%d%Y"), "updated": datetime.fromtimestamp(match.group(4)))}
             else:
                 print("Error reading log: {}".format(line))
 
@@ -186,7 +187,7 @@ class PhilippeBot(DiscordBot):
 
         
         if isValid:
-            self.progressLogs[message.author.id] = {"name": message.author.name, "date": dtime}
+            self.progressLogs[message.author.id] = {"name": message.author.name, "date": dtime, "updated": datetime.now()}
             self.writeLogs()
             return "Logged {} for {}!".format(dtime.strftime("%B %d, %Y"), message.author.name)
         else:
@@ -199,10 +200,13 @@ class PhilippeBot(DiscordBot):
             if len(v["name"]) > longestName:
                 longestName = len(v["name"])
 
-        for k,v in self.progressLogs.items():
+        result = "{}{}| {}\n".format("Name", longestName + 1 - len("Name"), "Progress")
+
+        for k,v in sorted(self.progressLogs.items()):
             spaceBuffer = longestName + 1 - len(v["name"])
             dateText = v["date"].strftime("%b %d, %Y")
-            line = "{}{}| {}\n".format(v["name"], ' '*spaceBuffer, dateText)
+            delta = datetime.now() - v["updated"]
+            line = "{}{}| {} as of {} days ago\n".format(v["name"], ' '*spaceBuffer, dateText,updatedText, delta.days)
             result += line
 
         return "```\n{}\n```".format(result)
