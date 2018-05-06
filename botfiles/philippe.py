@@ -100,7 +100,7 @@ class PhilippeBot(DiscordBot):
         for key, value in self.progressLogs.items():
             name = value["name"]
             date = datetime.strftime(value["date"], "%m%d%Y")
-            progFile.write("{}~~{}~~{}".format(key, name, date))
+            progFile.write("{}~~{}~~{}\n".format(key, name, date))
 
         progFile.close()
 
@@ -155,15 +155,13 @@ class PhilippeBot(DiscordBot):
         return result
 
     def logProgress(self, message, params):
-        comicLink = PhilippeBot.replaceIndexWithComic(params)
         dateText = ""
         isValid = True
-        if comicLink is not None:
-            rPattern = "(.*date=)(\d+)"
-            match = re.search(rPattern, comicLink)
-            if match is not None:
-                dateText = match.group(2)
-                dtime = datetime.strptime(dateText, "%m%d%Y")
+        rPattern = "(.*date=)(\d+)"
+        match = re.search(rPattern, params)
+        if match is not None:
+            dateText = match.group(2)
+            dtime = datetime.strptime(dateText, "%m%d%Y")
         else:
             formats = [
                 "%m-%d-%Y",
@@ -188,10 +186,9 @@ class PhilippeBot(DiscordBot):
 
         
         if isValid:
-            print(dtime)
-            self.progressLogs[message.author.id] = dtime
+            self.progressLogs[message.author.id] = {"name": message.author.name, "date": dtime}
             self.writeLogs()
-            return "Logged {}!".format(dtime.strftime("%B %d, %Y"))
+            return "Logged {} for {}!".format(dtime.strftime("%B %d, %Y"), message.author.name)
         else:
             return "Couldn't parse date. Try pasting a comic link or using the format MM-DD-YYYY"
 
@@ -203,12 +200,12 @@ class PhilippeBot(DiscordBot):
                 longestName = len(v["name"])
 
         for k,v in self.progressLogs.items():
-            spaceBuffer = longestName + 1 + len(v["name"])
+            spaceBuffer = longestName + 1 - len(v["name"])
             dateText = v["date"].strftime("%b %d, %Y")
-            line = "{}{}- {}\n".format(v["name"], ' '*spaceBuffer, dateText)
+            line = "{}{}| {}\n".format(v["name"], ' '*spaceBuffer, dateText)
             result += line
 
-        return result
+        return "```\n{}\n```".format(result)
 
     ###################
     #   Bot Methods   #
