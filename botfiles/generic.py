@@ -65,7 +65,7 @@ class DiscordBot:
     # TODO generate this programmatically
     def getHelp(self, message, params):
         helpMessage = "*{}*\n\n**Available Commands:**\n".format(self.greeting)
-        for commandName, botCommand in self.commandMap.items():
+        for commandName, botCommand in sorted(self.commandMap.items()):
             if botCommand.permission(message.author) and len(botCommand.helpMessage) > 0:
                 commandField = self.prefix + commandName
                 if botCommand.helpParams is not None:

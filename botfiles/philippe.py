@@ -116,7 +116,11 @@ class PhilippeBot(DiscordBot):
         for line in progFile:
             match = re.search(logPattern, line)
             if match is not None:
-                self.progressLogs[match.group(1)] = {"name": match.group(2), "date": datetime.strptime(match.group(3), "%m%d%Y"), "updated": datetime.fromtimestamp(match.group(4)))}
+                self.progressLogs[match.group(1)] = {
+                    "name":    match.group(2), 
+                    "date":    datetime.strptime(match.group(3), "%m%d%Y"), 
+                    "updated": datetime.fromtimestamp(float(match.group(4)))
+                }
             else:
                 print("Error reading log: {}".format(line))
 
@@ -171,6 +175,7 @@ class PhilippeBot(DiscordBot):
                 "%x",
                 "%m-%d-%y",
                 "%B %d, %Y",
+                "%b %d, %Y",
                 "%m%d%Y"
             ]
 
@@ -200,14 +205,17 @@ class PhilippeBot(DiscordBot):
             if len(v["name"]) > longestName:
                 longestName = len(v["name"])
 
-        result = "{}{}| {}\n".format("Name", longestName + 1 - len("Name"), "Progress")
-
+        longestLine = 0
         for k,v in sorted(self.progressLogs.items()):
             spaceBuffer = longestName + 1 - len(v["name"])
             dateText = v["date"].strftime("%b %d, %Y")
             delta = datetime.now() - v["updated"]
-            line = "{}{}| {} as of {} days ago\n".format(v["name"], ' '*spaceBuffer, dateText,updatedText, delta.days)
+            line = "{}{}| {} as of {} days ago\n".format(v["name"], ' '*spaceBuffer, dateText, delta.days)
             result += line
+            longestLine = len(line)
+
+        legend = "{}{}| {}\n".format("Name", ' '*(longestName + 1 - len("Name")), "Progress")
+        result = legend + "-"*longestLine + "\n" + result 
 
         return "```\n{}\n```".format(result)
 
