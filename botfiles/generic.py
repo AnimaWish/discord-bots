@@ -22,6 +22,8 @@ class BotCommand:
             raise PermissionError("{}#{}:({})".format(message.author.name, message.author.discriminator, message.author.id))
 
 class DiscordBot:
+    WISH_USER_ID = '199401793032028160'
+
     MAX_DICE = 1000000
 
     CHOICE_STRINGS = [
@@ -57,6 +59,10 @@ class DiscordBot:
                 return True
 
         return False
+
+    @staticmethod
+    def memberIsWish(member):
+        return member.id == DiscordBot.WISH_USER_ID
 
     ###################
     #    Commands     #

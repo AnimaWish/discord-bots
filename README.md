@@ -10,8 +10,9 @@ To add a bot to a channel: https://discordapp.com/oauth2/authorize?&client_id=YO
 ## To Do
 * Create a Mother bot
   * DM Caius on unexpected shutdown
-  * Mother clean shutdown
   * Partition clientsessions/exceptions?
+  * Restarting needs to reload generic.py too
+  * task exception collection
 * More robust generic command handling (i.e. doing things that aren't send_message) 
   * allow callables to be returned by commands somehow? problems with async
 * Logging

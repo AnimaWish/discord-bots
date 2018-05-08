@@ -7,8 +7,6 @@ import os, sys
 import importlib
 import threading, subprocess
 
-client = discord.Client()
-
 class BotObject:
     def __init__(self, botName, token):
         self.token = token
@@ -168,17 +166,7 @@ def block(params, author):
 
 # Shut down everything
 def shutdown(params, author):
-    #TODO gracefully shutdown event loop - why is this so hard
-    for name in botMap:
-        killChild(name)
-
-    sys.exit(0)
-
-    # client.loop.run_until_complete(client.logout())
-    # try:
-    #     client.loop.run_until_complete(asyncio.gather(*asyncio.Task.all_tasks()))
-    # finally:
-    #     client.loop.close()
+    _stop_event.set()
 
 commandMap = {
     'help':     BotCommand(getHelp,     lambda x: True),
@@ -198,7 +186,6 @@ commandMap = {
 #  Event Methods  #
 ###################
 
-@client.event
 async def on_ready():
     #Report startup
     motherprint('Logged in as {} ({})'.format(client.user.name, client.user.id))
@@ -223,7 +210,6 @@ async def on_ready():
 
     motherprint('------')
 
-@client.event
 async def on_message(message):
     if message.author.id in blacklist:
         motherprint("Blocked message `{}` from {}#{}({})".format(message.content, message.author.name, message.author.discriminator, message.author.id))
@@ -253,6 +239,26 @@ async def on_message(message):
 #     Startup     #
 ###################
 
+@asyncio.coroutine
+def shutdown_coro():
+    motherprint("SHUTTING DOWN")
+    for name in botMap:
+        killChild(name)
+
+    yield from client.logout()
+    motherprint("SHUT DOWN IS COMPLETE")
+
+@asyncio.coroutine
+def checkForStopEvent():
+    while True:
+        if _stop_event.is_set():
+            yield from shutdown_coro()
+            break
+        try:
+            yield from asyncio.sleep(3)
+        except asyncio.CancelledError:
+            break
+
 def fetchToken(botName):
     dirname = os.path.dirname(__file__)
     secrets = open(os.path.join(dirname, "secrets.txt"), 'r')
@@ -263,4 +269,22 @@ def fetchToken(botName):
             secrets.close()
             return token
 
-client.run(fetchToken(__file__))
+
+_stop_event = threading.Event()
+
+loop = asyncio.new_event_loop()
+client = discord.Client(loop=loop)
+client.event(on_ready)
+client.event(on_message)
+
+checkForStopTask = loop.create_task(checkForStopEvent())
+
+try:
+    loop.run_until_complete(client.start(fetchToken(__file__)))
+except KeyboardInterrupt:
+    checkForStopTask.cancel()
+    loop.run_until_complete(shutdown_coro())
+except Exception as e:
+    motherprint("Exception: {}".format(e))
+finally:
+    loop.close()
