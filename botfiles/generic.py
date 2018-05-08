@@ -62,7 +62,6 @@ class DiscordBot:
     #    Commands     #
     ###################
 
-    # TODO generate this programmatically
     def getHelp(self, message, params):
         helpMessage = "*{}*\n\n**Available Commands:**\n".format(self.greeting)
         for commandName, botCommand in sorted(self.commandMap.items()):

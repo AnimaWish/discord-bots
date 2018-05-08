@@ -5,7 +5,7 @@ import urllib.request
 import re
 import os, sys
 import importlib
-import threading
+import threading, subprocess
 
 client = discord.Client()
 
@@ -53,6 +53,9 @@ VALID_USERS = [
 #     Helpers     #
 ###################
 
+def motherprint(pront):
+    print("MOTHER: {}".format(pront))
+
 def isValidUser(userId):
     return userId in VALID_USERS
 
@@ -74,19 +77,25 @@ def importBlacklist():
 def restartChild(botName):
     if botName in botMap:
         botObj = botMap[botName]
+
         killChild(botName)
+
+        motherprint("Restarting {}...".format(botName))
 
         botObj.reloadModule()
         threads[botName] = threading.Thread(target=botObj.bot.run, args=(botObj.token,), name="{}-thread".format(botName))
         threads[botName].start()
 
+        motherprint("Restarted {}.".format(botName))
+
 def killChild(botName):
     botObj = botMap[botName]
     if threads[botName] is not None:
+        motherprint("Shutting down {}...".format(botName))
         botObj.stop()
         threads[botName].join()
-        print("Shut down {}".format(botName))
         threads[botName] = None
+        motherprint("Shut down {}.".format(botName))
 
 ###################
 #    Commands     #
@@ -130,8 +139,6 @@ def restart(params, author):
 
     restartChild(botName)
 
-    print("Restarted {}".format(botName))
-
     #TODO hash file to make sure something actually changed
     #TODO https://stackoverflow.com/questions/684171/how-to-re-import-an-updated-package-while-in-python-interpreter
 
@@ -144,9 +151,8 @@ def kill(params, author):
 
 # Update local files
 def update(params, author):
-    bashCommand = "git pull"
-    process = subprocess.Popen(bashCommand.split(), cwd=os.path.dirname(os.path.abspath(__file__)))
-    output, error = process.communicate()
+    out = subprocess.check_output(["git", "pull"])
+    return out.decode("utf-8") 
 
 # Add a user to the blacklist
 def block(params, author):
@@ -162,7 +168,6 @@ def block(params, author):
 
 # Shut down everything
 def shutdown(params, author):
-    #TODO gracefully shutdown children
     #TODO gracefully shutdown event loop - why is this so hard
     for name in botMap:
         killChild(name)
@@ -196,34 +201,32 @@ commandMap = {
 @client.event
 async def on_ready():
     #Report startup
-    print('Logged in as')
-    print(client.user.name)
-    print(client.user.id)
+    motherprint('Logged in as {} ({})'.format(client.user.name, client.user.id))
     
     #Find Wish
     try:
         global wishUser
         wishUser = await client.get_user_info(WISH_USER_ID)
-        print("Found administrator: {}#{}".format(wishUser.name, wishUser.discriminator))
+        motherprint("Found administrator: {}#{}".format(wishUser.name, wishUser.discriminator))
     except Exception as e:
-        print(e)
-        print("NO ADMINISTRATOR FOUND")
+        motherprint(e)
+        motherprint("NO ADMINISTRATOR FOUND")
 
     #Initialize Blacklist
     importBlacklist()
-    print("Imported blacklist with {} members.".format(len(blacklist)))
+    motherprint("Imported blacklist with {} members.".format(len(blacklist)))
 
     #Start Children
     for botName in botMap.keys():
         botMap[botName] = BotObject(botName, fetchToken(botName + ".py"))
         restartChild(botName)
 
-    print('------')
+    motherprint('------')
 
 @client.event
 async def on_message(message):
     if message.author.id in blacklist:
-        print("Blocked message `{}` from {}#{}({})".format(message.content, message.author.name, message.author.discriminator, message.author.id))
+        motherprint("Blocked message `{}` from {}#{}({})".format(message.content, message.author.name, message.author.discriminator, message.author.id))
         return
 
     address = "mother "

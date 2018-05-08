@@ -232,7 +232,10 @@ class PhilippeBot(DiscordBot):
         self.addCommand('log',    self.logProgress,     lambda x: True, "Log your progress in the comic", "[comic link or date]")
         self.addCommand('logs',   self.getProgressLogs, lambda x: True, "Print recorded progress logs")
 
-        self.progressLogs = {}
+        self.progressLogs = {} # Value is another dict with "name", "date", "updated"
+
+    async def on_ready(self):
+        await super().on_ready()
         self.readLogs()
 
     async def on_message(self, message):
