@@ -8,12 +8,14 @@ discord.py API documentation: http://discordpy.readthedocs.io/en/latest/api.html
 To add a bot to a channel: https://discordapp.com/oauth2/authorize?&client_id=YOUR_CLIENT_ID_HERE&scope=bot&permissions=0
 
 ## To Do
-* Create a Mother bot
+* Mother
   * DM Caius on unexpected shutdown
   * Partition clientsessions/exceptions?
   * Restarting needs to reload generic.py too
   * task exception collection
-* More robust generic command handling (i.e. doing things that aren't send_message) 
-  * allow callables to be returned by commands somehow? problems with async
+* Generic
+  * More robust generic command handling (i.e. doing things that aren't send_message) 
+    * allow callables to be returned by commands somehow? problems with async
+  * Need a better pattern for persisting data
 * Logging
 * Daemon/Cronjob
