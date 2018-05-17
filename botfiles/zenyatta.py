@@ -4,10 +4,12 @@ import random
 import urllib.request
 import re
 import os
-from generic import DiscordBot, BotCommand
+import generic
 import argparse
+import importlib
 
-class ZenyattaBot(DiscordBot):
+importlib.reload(generic)
+class ZenyattaBot(generic.DiscordBot):
     ###################
     #    Constants    #
     ###################

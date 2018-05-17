@@ -4,10 +4,12 @@ import random
 import urllib.request
 import re
 import os
-from generic import DiscordBot, BotCommand
+import generic
 import argparse
+import importlib
 
-class MettatonBot(DiscordBot):
+importlib.reload(generic)
+class MettatonBot(generic.DiscordBot):
     ###################
     #    Constants    #
     ###################

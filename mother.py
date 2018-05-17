@@ -132,13 +132,14 @@ def echo(params, author):
 # Reload and restart a bot
 def restart(params, author):
     botName = params
-    if not botName in botMap:
-        return botName + " not found." 
+    if botName == "all":
+        for botName in botMap:
+            restartChild(botName)
+    else:
+        if not botName in botMap:
+            return botName + " not found." 
 
-    restartChild(botName)
-
-    #TODO hash file to make sure something actually changed
-    #TODO https://stackoverflow.com/questions/684171/how-to-re-import-an-updated-package-while-in-python-interpreter
+        restartChild(botName)
 
 def kill(params, author):
     botName = params

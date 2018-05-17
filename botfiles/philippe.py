@@ -4,11 +4,13 @@ import random
 import urllib.request
 import re
 import os
-from generic import DiscordBot, BotCommand
+import generic
 import argparse
 from datetime import datetime
+import importlib
 
-class PhilippeBot(DiscordBot):
+importlib.reload(generic)
+class PhilippeBot(generic.DiscordBot):
     ###################
     #    Constants    #
     ###################
