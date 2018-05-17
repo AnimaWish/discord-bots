@@ -3,7 +3,6 @@ import asyncio
 import random
 import urllib.request
 import re
-import os
 import generic
 import argparse
 from datetime import datetime

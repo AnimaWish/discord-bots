@@ -1,7 +1,6 @@
 import discord
 import asyncio
 import random
-import urllib.request
 import re
 import os
 import generic
@@ -23,7 +22,7 @@ class MettatonBot(generic.DiscordBot):
     ###################
     
     def getPose(self, message, params):
-        DIR = "assets/mettaton/poses/"# TODO Will this work with mother?
+        DIR = "assets/mettaton/poses/"
 
         poseCount = 0
         for root, dirs, files in os.walk(DIR):

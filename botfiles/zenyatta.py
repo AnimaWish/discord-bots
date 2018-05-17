@@ -1,9 +1,7 @@
 import discord
 import asyncio
 import random
-import urllib.request
 import re
-import os
 import generic
 import argparse
 import importlib
@@ -60,7 +58,7 @@ class ZenyattaBot(generic.DiscordBot):
     ###################
 
     def memberIsGentleman(self, author):
-        return DiscordBot.memberHasRole(author, ZenyattaBot.GENTLEMEN_ROLE_ID)
+        return generic.DiscordBot.memberHasRole(author, ZenyattaBot.GENTLEMEN_ROLE_ID)
 
     def mentionGents(self, text):
         return '<@&{}>'.format(ZenyattaBot.GENTLEMEN_ROLE_ID) + ' ' + text
@@ -89,8 +87,8 @@ class ZenyattaBot(generic.DiscordBot):
     #   Bot Methods   #
     ###################
 
-    def __init__(self, prefix="~"):
-        super().__init__(prefix, "Peace be upon you", "Passing into the Iris")
+    def __init__(self, prefix="!"):
+        super().__init__(prefix, "Peace be upon you.", "Passing into the Iris.")
 
         self.addCommand('character', self.getRandomCharacter,                             lambda x: True,         "Get a random OW character from the selected roles",   "[offense|defense|tank|support|any]")
         self.addCommand('captain',   self.chooseCaptain,                                  lambda x: True,         "Choose a random user from the current voice channel")

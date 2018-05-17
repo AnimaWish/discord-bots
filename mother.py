@@ -19,7 +19,7 @@ class BotObject:
     def reloadModule(self):
         self.module = importlib.reload(self.module)
         botClass = getattr(self.module, self.name.capitalize() + "Bot")
-        self.bot = botClass("~")
+        self.bot = botClass("!")
 
     def stop(self):
         self.bot.stop()
