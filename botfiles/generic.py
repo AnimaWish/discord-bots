@@ -123,6 +123,7 @@ class DiscordBot:
     async def on_ready(self):
         print('Logged in as {} ({})'.format(self.client.user.name, self.client.user.id))
         print('------')
+        self.loop.create_task(self.canaryLog())
 
     async def on_message(self, message):
         commandPattern = "^{}\S+\s*".format(self.prefix)
@@ -198,14 +199,13 @@ class DiscordBot:
         print(self.greeting)
 
         checkForStopTask = self.loop.create_task(self.checkForStopEvent())
-        canaryTask = self.loop.create_task(self.canaryLog())
         startTask = self.client.start(token)
         wait_tasks = asyncio.wait([startTask])
 
         try:
             self.loop.run_until_complete(wait_tasks)
         except KeyboardInterrupt:
-            canaryTask.cancel()
+            checkForStopTask.cancel()
         except Exception as e:
             print("Exception: {}".format(e))
         finally:
