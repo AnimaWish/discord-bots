@@ -5,6 +5,7 @@ import urllib.request
 import re
 import os, io
 import threading
+import datetime
 
 class BotCommand:
     # method must accept `message` and `params`, and return a string or None
@@ -23,6 +24,7 @@ class BotCommand:
 
 class DiscordBot:
     WISH_USER_ID = '199401793032028160'
+    LOGS_CHANNEL_ID = '450171692954943488'
 
     MAX_DICE = 1000000
 
@@ -114,6 +116,9 @@ class DiscordBot:
     #  Event Methods  #
     ###################
 
+    async def logToChannel(self, message):
+        await self.client.send_message(self.client.get_channel(LOGS_CHANNEL_ID), message)
+
     async def on_ready(self):
         print('Logged in as {} ({})'.format(self.client.user.name, self.client.user.id))
         print('------')
@@ -152,6 +157,15 @@ class DiscordBot:
             except asyncio.CancelledError:
                 break
 
+    @asyncio.coroutine
+    def canaryLog(self):
+        while True:
+            try:
+                self.logToChannel(str(datetime.datetime.now()))
+                yield from asyncio.sleep(300)
+            except asyncio.CancelledError:
+                break
+
     def stop(self):
         self._stop_event.set()
 
@@ -183,13 +197,14 @@ class DiscordBot:
         print(self.greeting)
 
         checkForStopTask = self.loop.create_task(self.checkForStopEvent())
+        canaryTask = self.loop.create_task(self.canaryLog())
         startTask = self.client.start(token)
         wait_tasks = asyncio.wait([startTask])
 
         try:
             self.loop.run_until_complete(wait_tasks)
         except KeyboardInterrupt:
-            checkForStopTask.cancel()
+            canaryTask.cancel()
         except Exception as e:
             print("Exception: {}".format(e))
         finally:
