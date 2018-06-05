@@ -10,7 +10,7 @@ To add a bot to a channel: https://discordapp.com/oauth2/authorize?&client_id=YO
 ## To Do
 * Mother
   * DM Caius on unexpected shutdown
-  * Partition clientsessions/exceptions?
+  * Children not in threads, call bot.run() inside wrapper that handles timeout error
   * task exception collection
   * inherit from generic
 * Generic
