@@ -107,7 +107,7 @@ class DiscordBot:
         if len(theList) == 1:
             theList = re.split('\s',params)
             
-        return random.choice(DiscordBot.CHOICE_STRINGS).format(random.choice(theList.strip()))
+        return random.choice(DiscordBot.CHOICE_STRINGS).format(random.choice(theList).strip())
 
     def chooseCaptain(self, message, params):
         if message.author.voice.voice_channel == None:
