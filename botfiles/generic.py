@@ -103,7 +103,10 @@ class DiscordBot:
             return "You rolled {}!".format(result)
 
     def chooseRand(self, message, params):
-        theList = re.split('[;|,\s]',params)
+        theList = re.split('[;|,]',params)
+        if len(theList) == 1:
+            theList = re.split('\s',params)
+            
         return random.choice(DiscordBot.CHOICE_STRINGS).format(random.choice(theList.strip()))
 
     def chooseCaptain(self, message, params):
