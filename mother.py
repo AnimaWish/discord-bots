@@ -6,6 +6,7 @@ import re
 import os, sys
 import importlib
 import threading, subprocess
+import time
 
 class BotObject:
     def __init__(self, botName, token):
@@ -280,12 +281,20 @@ client.event(on_message)
 
 checkForStopTask = loop.create_task(checkForStopEvent())
 
-try:
-    loop.run_until_complete(client.start(fetchToken(__file__)))
-except KeyboardInterrupt:
-    checkForStopTask.cancel()
-    loop.run_until_complete(shutdown_coro())
-except Exception as e:
-    motherprint("Exception: {}".format(e))
-finally:
-    loop.close()
+
+while True:
+    try:
+        try:
+            loop.run_until_complete(client.start(fetchToken(__file__)))
+        except KeyboardInterrupt:
+            checkForStopTask.cancel()
+            loop.run_until_complete(shutdown_coro())
+        except Exception as e:
+            motherprint("Exception: {}".format(e))
+        finally:
+            loop.close()
+    except Exception as e:
+        logFile = open("logs/" + time.time() + ".log", "w")
+        logFile.write(e)
+        logFile.close()
+        
