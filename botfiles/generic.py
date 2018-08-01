@@ -113,8 +113,8 @@ class DiscordBot:
         return random.choice(DiscordBot.CHOICE_STRINGS).format(random.choice(theList).strip())
 
     captainData = {
-        lastUpdate: 0,
-        captains: {}
+        'lastUpdate': 0,
+        'captains': {}
     }
 
     def chooseCaptain(self, message, params):
@@ -124,8 +124,8 @@ class DiscordBot:
         candidates = message.author.voice.voice_channel.voice_members
 
         # Reset weights after time passes
-        if datetime.datetime.now() - captainData[lastUpdate] > CAPTAIN_WEIGHT_RESET_COOLDOWN:
-            captainData[captains] = {}
+        if datetime.datetime.now() - captainData['lastUpdate'] > CAPTAIN_WEIGHT_RESET_COOLDOWN:
+            captainData['captains'] = {}
 
         class CandidateWeight:
             def __init__(name, weight):
@@ -138,7 +138,7 @@ class DiscordBot:
         # construct weights
         totalWeight = 0.0
         for candidate in candidates:
-            weight = 1.0/(CAPTAIN_WEIGHT_SEVERITY * captainsData.captains[candidate.name])
+            weight = 1.0/(CAPTAIN_WEIGHT_SEVERITY * captainData[captains[candidate.name]])
             totalWeight = totalWeight + weight
             candidateWeights.append(CandidateWeight(candidate.name, weight))
 
@@ -153,12 +153,12 @@ class DiscordBot:
                 break
 
         # increment weight
-        if captainName in captainData[captains]:
+        if captainName in captainData['captains']:
             captainData[captains[captainName]] = captainData[captains[captainName]] + 1.0
         else:
             captainData[captains[captainName]] = 0.0
 
-        captainData[lastUpdate] = datetime.datetime.now()
+        captainData['lastUpdate'] = datetime.datetime.now()
 
         return random.choice(DiscordBot.CHOICE_STRINGS).format(selectedCaptainName)
 
