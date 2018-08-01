@@ -138,7 +138,7 @@ class DiscordBot:
         # construct weights
         totalWeight = 0.0
         for candidate in candidates:
-            if captainName in self.captainData['captains']:
+            if candidate.name in self.captainData['captains']:
                 weight = 1.0/(DiscordBot.CAPTAIN_WEIGHT_SEVERITY * self.captainData['captains'][candidate.name])
             else:
                 weight = 1.0
@@ -157,10 +157,10 @@ class DiscordBot:
                 break
 
         # increment weight
-        if captainName in self.captainData['captains']:
-            self.captainData['captains'][captainName] = self.captainData['captains'][captainName] + 1.0
+        if selectedCaptainName in self.captainData['captains']:
+            self.captainData['captains'][selectedCaptainName] = self.captainData['captains'][selectedCaptainName] + 1.0
         else:
-            self.captainData['captains'][captainName] = 0.0
+            self.captainData['captains'][selectedCaptainName] = 1.0
 
         self.captainData['lastUpdate'] = datetime.datetime.now()
 
