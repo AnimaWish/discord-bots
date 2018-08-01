@@ -138,7 +138,11 @@ class DiscordBot:
         # construct weights
         totalWeight = 0.0
         for candidate in candidates:
-            weight = 1.0/(DiscordBot.CAPTAIN_WEIGHT_SEVERITY * self.captainData['captains'][candidate.name])
+            if captainName in self.captainData['captains']:
+                weight = 1.0/(DiscordBot.CAPTAIN_WEIGHT_SEVERITY * self.captainData['captains'][candidate.name])
+            else:
+                weight = 1.0
+
             totalWeight = totalWeight + weight
             candidateWeights.append(CandidateWeight(candidate.name, weight))
 
