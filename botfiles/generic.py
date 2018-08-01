@@ -41,6 +41,9 @@ class DiscordBot:
         "I'm a {} guy myself."
     ]
 
+    CAPTAIN_WEIGHT_RESET_COOLDOWN = datetime.timedelta(minutes=60)
+    CAPTAIN_WEIGHT_SEVERITY = 1.0
+
     ###################
     #     Helpers     #
     ###################
@@ -109,11 +112,51 @@ class DiscordBot:
             
         return random.choice(DiscordBot.CHOICE_STRINGS).format(random.choice(theList).strip())
 
+    captainData = {
+        lastUpdate: 0,
+        captains: {}
+    }
+
     def chooseCaptain(self, message, params):
         if message.author.voice.voice_channel == None:
             return "You are not in a voice channel!"
-        captain = random.choice(message.author.voice.voice_channel.voice_members)
-        return random.choice(DiscordBot.CHOICE_STRINGS).format(captain.name)
+
+        candidates = message.author.voice.voice_channel.voice_members
+
+        # Reset weights after time passes
+        if datetime.datetime.now() - captainData.lastUpdate > CAPTAIN_WEIGHT_RESET_COOLDOWN:
+            captainData.captains = {}
+
+        class CandidateWeight:
+            def __init__(name, weight):
+                self.name = name
+                self.weight = weight
+
+        # array of CandidateWeights
+        candidateWeights = []
+
+        # construct weights
+        totalWeight = 0.0
+        for candidate in candidates:
+            weight = 1.0/(CAPTAIN_WEIGHT_SEVERITY * captainsData.captains[candidate.name])
+            totalWeight = totalWeight + weight
+            candidateWeights.append(CandidateWeight(candidate.name, weight))
+
+        choice = random.uniform(0.0, totalWeight)
+
+        # search for winner
+        currentPos = 0.0
+        for candidateWeight in candidateWeights:
+            currentPos = currentPos + candidateWeight.weight
+            selectedCaptainName = candidateWeight.name
+            if currentPos >= choice:
+                break
+
+        # increment weight
+        captainData.captains[captainName] = captainData.captains[captainName] + 1.0
+        captainData.lastUpdate = datetime.datetime.now()
+
+        return random.choice(DiscordBot.CHOICE_STRINGS).format(selectedCaptainName)
 
     ###################
     #  Event Methods  #
