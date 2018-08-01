@@ -113,7 +113,7 @@ class DiscordBot:
         return random.choice(DiscordBot.CHOICE_STRINGS).format(random.choice(theList).strip())
 
     captainData = {
-        'lastUpdate': 0,
+        'lastUpdate': datetime.datetime.fromtimestamp(0),
         'captains': {}
     }
 
@@ -138,7 +138,7 @@ class DiscordBot:
         # construct weights
         totalWeight = 0.0
         for candidate in candidates:
-            weight = 1.0/(DiscordBot.CAPTAIN_WEIGHT_SEVERITY * self.captainData[captains[candidate.name]])
+            weight = 1.0/(DiscordBot.CAPTAIN_WEIGHT_SEVERITY * self.captainData['captains'][candidate.name])
             totalWeight = totalWeight + weight
             candidateWeights.append(CandidateWeight(candidate.name, weight))
 
@@ -154,9 +154,9 @@ class DiscordBot:
 
         # increment weight
         if captainName in self.captainData['captains']:
-            self.captainData[captains[captainName]] = self.captainData[captains[captainName]] + 1.0
+            self.captainData['captains'][captainName] = self.captainData['captains'][captainName] + 1.0
         else:
-            self.captainData[captains[captainName]] = 0.0
+            self.captainData['captains'][captainName] = 0.0
 
         self.captainData['lastUpdate'] = datetime.datetime.now()
 
