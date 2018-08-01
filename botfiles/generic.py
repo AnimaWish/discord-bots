@@ -128,7 +128,7 @@ class DiscordBot:
             self.captainData['captains'] = {}
 
         class CandidateWeight:
-            def __init__(name, weight):
+            def __init__(self, name, weight):
                 self.name = name
                 self.weight = weight
 
@@ -164,7 +164,12 @@ class DiscordBot:
 
         self.captainData['lastUpdate'] = datetime.datetime.now()
 
-        return random.choice(DiscordBot.CHOICE_STRINGS).format(selectedCaptainName)
+        stats = ""
+        if message.content == "!captain stats":
+            for candidateWeight in candidateWeights:
+                stats = "{}\n{} : {}".format(stats, candidateWeight.name, candidateWeight.weight)
+
+        return random.choice(DiscordBot.CHOICE_STRINGS).format(selectedCaptainName) + stats
 
     ###################
     #  Event Methods  #
