@@ -125,6 +125,7 @@ class DiscordBot:
 
         # Reset weights after time passes
         if datetime.datetime.now() - self.captainData['lastUpdate'] > DiscordBot.CAPTAIN_WEIGHT_RESET_COOLDOWN:
+            print("Resetting captain: {}".format(datetime.datetime.now() - self.captainData['lastUpdate']))
             self.captainData['captains'] = {}
 
         class CandidateWeight:
