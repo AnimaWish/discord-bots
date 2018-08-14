@@ -14,10 +14,9 @@ To add a bot to a channel: https://discordapp.com/oauth2/authorize?&client_id=YO
   * task exception collection
   * inherit from generic
 * Generic
-  * More robust generic command handling (i.e. doing things that aren't send_message) 
-    * allow callables to be returned by commands somehow? problems with async
   * Need a better pattern for persisting data
   * Regular expressions for command matching
-  * captain chooser weighting
+  * finish voting feature
+    * executeVote, callRaffle
 * Logging
 * Daemon/Cronjob
