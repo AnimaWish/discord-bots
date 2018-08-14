@@ -21,7 +21,7 @@ class MettatonBot(generic.DiscordBot):
     #    Commands     #
     ###################
     
-    def getPose(self, message, params):
+    async def getPose(self, message, params):
         DIR = "assets/mettaton/poses/"
 
         poseCount = 0
@@ -32,7 +32,7 @@ class MettatonBot(generic.DiscordBot):
 
         choice = random.randint(1, poseCount)
         poseFile = open(os.path.join(DIR, "{}.png".format(choice)), 'rb')
-        return poseFile
+        await self.client.send_file(message.channel, poseFile)
 
     ###################
     #   Bot Methods   #

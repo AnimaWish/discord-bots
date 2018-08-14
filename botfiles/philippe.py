@@ -130,20 +130,20 @@ class PhilippeBot(generic.DiscordBot):
     ###################
     #    Commands     #
     ###################
-    def getRandomStrip(self, message, params):
+    async def getRandomStrip(self, message, params):
         contents = urllib.request.urlopen('http://www.ohnorobot.com/random.pl?comic=636').read().decode("utf-8")
-        return PhilippeBot.getComicAndTitleFromPage(contents)
+        await self.client.send_file(message.channel, PhilippeBot.getComicAndTitleFromPage(contents))
 
-    def getPrompt(self, message, params):
+    async def getPrompt(self, message, params):
         prompt = random.choice(PhilippeBot.PROMPTS)
         prompt = re.sub('\[CHARACTER\]', random.choice(PhilippeBot.CHARACTERS), prompt)
-        return prompt
+        await self.client.send_file(message.channel, prompt)
 
-    def searchStrips(self, message, params):
+    async def searchStrips(self, message, params):
         linkSearchTerm = re.sub(' ', '+', params)
 
         if len(params) == 0:
-            return "I need a search term! e.g. `!search dirtiest dudes in town`"
+            await self.client.send_file(message.channel, "I need a search term! e.g. `!search dirtiest dudes in town`")
         
         searchResultsLink = PhilippeBot.SEARCH_URL.format(linkSearchTerm)
         luckyLink         = PhilippeBot.LUCKY_URL.format(linkSearchTerm)
@@ -158,9 +158,9 @@ class PhilippeBot(generic.DiscordBot):
         if bestGuess:
             result += "\n\n**Best Guess:** {}".format(bestGuess)
 
-        return result
+        await self.client.send_file(message.channel, result)
 
-    def logProgress(self, message, params):
+    async def logProgress(self, message, params):
         dateText = ""
         isValid = True
         rPattern = "(.*date=)(\d+)"
@@ -191,15 +191,15 @@ class PhilippeBot(generic.DiscordBot):
                 if isValid:
                     break
 
-        
+        returnVal = "Couldn't parse date. Try pasting a comic link or using the format MM-DD-YYYY"
         if isValid:
             self.progressLogs[message.author.id] = {"name": message.author.name, "date": dtime, "updated": datetime.now()}
             self.writeLogs()
-            return "Logged {} for {}!".format(dtime.strftime("%B %d, %Y"), message.author.name)
-        else:
-            return "Couldn't parse date. Try pasting a comic link or using the format MM-DD-YYYY"
+            returnVal = "Logged {} for {}!".format(dtime.strftime("%B %d, %Y"), message.author.name)           
 
-    def getProgressLogs(self, message, params):
+        await self.client.send_file(message.channel, returnVal)
+
+    async def getProgressLogs(self, message, params):
         result = ""
         longestName = 0
         for k, v in self.progressLogs.items():
@@ -218,7 +218,7 @@ class PhilippeBot(generic.DiscordBot):
         legend = "{}{}| {}\n".format("Name", ' '*(longestName + 1 - len("Name")), "Progress")
         result = legend + "-"*longestLine + "\n" + result 
 
-        return "```\n{}\n```".format(result)
+        await self.client.send_file(message.channel, "```\n{}\n```".format(result))
 
     ###################
     #   Bot Methods   #

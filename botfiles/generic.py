@@ -73,7 +73,7 @@ class DiscordBot:
     #    Commands     #
     ###################
 
-    def getHelp(self, message, params):
+    async def getHelp(self, message, params):
         helpMessage = "*{}*\n\n**Available Commands:**\n".format(self.greeting)
         for commandName, botCommand in sorted(self.commandMap.items()):
             if botCommand.permission(message.author) and len(botCommand.helpMessage) > 0:
@@ -84,42 +84,43 @@ class DiscordBot:
 
         helpMessage += "\nHit up Wish#6215 for feature requests/bugs, or visit my repository at https://github.com/AnimaWish/discord-bots"
 
-        return helpMessage
+        await self.client.send_message(message.channel, helpMessage)
 
-    def ping(self, message, params):
-        return "pong"
+    async def ping(self, message, params):
+        await self.client.send_message(message.channel, "pong")
 
-    def echo(self, message, params):
-        return params
+    async def echo(self, message, params):
+        await self.client.send_message(message.channel, params)
 
-    def getDieRoll(self, message, params):
+    async def getDieRoll(self, message, params):
             params = params.split("d")
             if len(params) != 2 or not (params[0].isdigit() and params[1].isdigit()):
-                return "Required syntax: `!roll XdY`"
+                await self.client.send_message(message.channel, "Required syntax: `!roll XdY`")
             elif int(params[0]) > DiscordBot.MAX_DICE:
-                return "I can't possibly hold {} dice!".format(params[0])
+                await self.client.send_message(message.channel, "I can't possibly hold {} dice!".format(params[0]))
             else:
                 result = 0
                 for x in range(0, int(params[0])):
                     result = result + random.randint(1, int(params[1]))
 
-            return "You rolled {}!".format(result)
+            await self.client.send_message(message.channel, "You rolled {}!".format(result))
 
-    def chooseRand(self, message, params):
+    async def chooseRand(self, message, params):
         theList = re.split('[;|,]',params)
         if len(theList) == 1:
             theList = re.split('\s',params)
             
-        return random.choice(DiscordBot.CHOICE_STRINGS).format(random.choice(theList).strip())
+        await self.client.send_message(message.channel, random.choice(DiscordBot.CHOICE_STRINGS).format(random.choice(theList).strip()))
 
     captainData = {
-        'lastUpdate': datetime.datetime.fromtimestamp(0),
+        'lastUpdate': datetime.datetime.fromordinal(1),
         'captains': {}
     }
 
-    def chooseCaptain(self, message, params):
+    async def chooseCaptain(self, message, params):
         if message.author.voice.voice_channel == None:
-            return "You are not in a voice channel!"
+            await self.client.send_message(message.channel, "You are not in a voice channel!")
+            return
 
         candidates = message.author.voice.voice_channel.voice_members
 
@@ -169,7 +170,80 @@ class DiscordBot:
             for candidateWeight in candidateWeights:
                 stats = "{}\n{} : {}".format(stats, candidateWeight.name, candidateWeight.weight)
 
-        return random.choice(DiscordBot.CHOICE_STRINGS).format(selectedCaptainName) + stats
+        await self.client.send_message(message.channel, random.choice(DiscordBot.CHOICE_STRINGS).format(selectedCaptainName) + stats)
+
+    class Referendum:
+        def __init__(self, initiatorID, text, choices, voteCount):
+            self.initiatorID = initiatorID
+            self.text = text
+            self.choices = []
+            self.emojiMap = {} # emojiMap[choiceID] = ":regional_indicator_LETTER:"
+            self.voteCount = voteCount
+
+            emojiCode = 127462 # :regional_identifier_a:
+            for i, choice in enumerate(choices):
+                if i > 19:
+                    break
+                self.choices.append(choice)
+                self.emojiMap[i] = chr(emojiCode)
+                emojiCode = emojiCode + 1
+
+            self.votes = {} #votes[userID] = [choiceIndex1, choiceIndex2, ...]
+
+    currentReferendums = {} #currentReferendums[message.ID] = Referendum
+    # !callvote Send a manned mission to mars. [yes, no, give money to the rich]
+    async def callVote(self, message, params):
+        for messageID in self.currentReferendums:
+            if self.currentReferendums[messageID].initiatorID == message.author.id:
+                await self.client.send_message("You already have a ballot on the floor! Type `!elect` to resolve the ballot!")
+                return
+
+        params = re.match("([^\[]+)\s*\[([^\]]+)\]\s*(\d+)?", params) # !callvote Elect a letter [a, b, c] numvotes
+        ballotText = params[1]
+        choices = re.split('[;|,]', params[2])
+        try:
+            voteCount = int(params[3])
+            if voteCount < 1:
+                voteCount = 1
+        except:
+            voteCount = 1
+
+        referendum = self.Referendum(message.author.id, ballotText, choices, voteCount)
+
+        def constructBallotMessage(referendum):
+            ballotMessage = "__**Referendum:**__ {}\n\n__**Choices**__".format(referendum.text)
+            for i, choice in enumerate(referendum.choices):
+                ballotMessage = "{}\n{} {}".format(ballotMessage, referendum.emojiMap[i], choice)
+
+            helpMessage = "You have one vote: your MOST RECENT vote will be the one that is counted."
+            if voteCount > 1:
+                helpMessage = "You have {} votes: your MOST RECENT {} votes will be the ones that are counted.".format(referendum.voteCount, referendum.voteCount)
+
+            ballotMessage = ballotMessage + "\n\n*Click an emoji to vote! " + helpMessage + "*"
+
+            return ballotMessage
+
+        postedMessage = await self.client.send_message(message.channel, constructBallotMessage(referendum))
+
+        self.currentReferendums[postedMessage.id] = referendum        
+
+        for i, choice in enumerate(referendum.choices):
+            try:
+                await self.client.add_reaction(postedMessage, referendum.emojiMap[i])
+            except discord.errors.Forbidden:
+                pass
+
+        updatedPostedMessage = await self.client.get_message(message.channel, postedMessage.id)
+
+        injectedReaction = False
+        for i, reaction in enumerate(updatedPostedMessage.reactions):
+            if not reaction.me:
+                injectedReaction = True
+
+            referendum.emojiMap[i] = reaction.emoji
+
+        if injectedReaction:
+            await self.client.edit_message(postedMessage, constructBallotMessage(referendum))
 
     ###################
     #  Event Methods  #
@@ -193,11 +267,11 @@ class DiscordBot:
                 command = self.commandMap[commandString]
                 params  = message.content[commandMatch.end():].strip()
                 try: 
-                    result = command.execute(params, message)
-                    if isinstance(result, io.IOBase):
-                        await self.client.send_file(message.channel, result)
-                    elif result is not None and len(result) > 0:
-                        await self.client.send_message(message.channel, result)
+                    await command.execute(params, message)
+                    # if isinstance(result, io.IOBase):
+                    #     await self.client.send_file(message.channel, result)
+                    # elif result is not None and len(result) > 0:
+                    #     await self.client.send_message(message.channel, result)
 
                 except PermissionError as err:
                     print("Insufficient permissions for user {}".format(err))
@@ -241,11 +315,14 @@ class DiscordBot:
 
         self.commandMap = {}
 
-        self.addCommand('help',   self.getHelp,    lambda x: True)
-        self.addCommand('echo',   self.echo,       lambda x: True)
-        self.addCommand('roll',   self.getDieRoll, lambda x: True, "Roll X Y-sided dice",                  "XdY")
-        self.addCommand('choose', self.chooseRand, lambda x: True, "Choose a random member from the list", "a,list,of,things")
-        self.addCommand('ping',   self.ping,       lambda x: True)
+        self.addCommand('help',     self.getHelp,    lambda x: True)
+        self.addCommand('echo',     self.echo,       lambda x: True)
+        self.addCommand('roll',     self.getDieRoll, lambda x: True, "Roll X Y-sided dice",                  "XdY")
+        self.addCommand('choose',   self.chooseRand, lambda x: True, "Choose a random member from the list", "a,list,of,things")
+        self.addCommand('ping',     self.ping,       lambda x: True)
+
+        self.addCommand('callvote', self.callVote,    lambda x: True, "Call a vote", "referendum text [choice a, choice b, choice c, ...]")
+        #self.addCommand('elect',    self.resolveVote, lambda x: True, "Count votes and decide a winner!")
 
         
         self.client.event(self.on_ready)

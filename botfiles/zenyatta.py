@@ -66,7 +66,7 @@ class ZenyattaBot(generic.DiscordBot):
     ###################
     #    Commands     #
     ###################
-    def getRandomCharacter(self, message, params):
+    async def getRandomCharacter(self, message, params):
         # TODO strip off brackets if user adds them
         splitCharacterRoles = set(re.split('[; |,\s]',params))
         pool = []
@@ -74,14 +74,14 @@ class ZenyattaBot(generic.DiscordBot):
             key = key.lower()
             if key == 'all' or key == 'any':
                 pool = ZenyattaBot.OVERWATCH_CHARACTERS['offense'] + ZenyattaBot.OVERWATCH_CHARACTERS['defense'] + ZenyattaBot.OVERWATCH_CHARACTERS['tank'] + ZenyattaBot.OVERWATCH_CHARACTERS['support']
-                break;
+                break
             if key in ZenyattaBot.OVERWATCH_CHARACTERS:
                 pool = pool + ZenyattaBot.OVERWATCH_CHARACTERS[key]
 
         if len(splitCharacterRoles) == 0 or len(pool) == 0:
             pool = ZenyattaBot.OVERWATCH_CHARACTERS['offense'] + ZenyattaBot.OVERWATCH_CHARACTERS['defense'] + ZenyattaBot.OVERWATCH_CHARACTERS['tank'] + ZenyattaBot.OVERWATCH_CHARACTERS['support']
 
-        return random.choice(ZenyattaBot.CHOICE_STRINGS).format(random.choice(pool))
+        await self.client.send_file(message.channel, random.choice(ZenyattaBot.CHOICE_STRINGS).format(random.choice(pool)))
      
     ###################
     #   Bot Methods   #
