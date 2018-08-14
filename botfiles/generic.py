@@ -41,7 +41,7 @@ class DiscordBot:
         "I'm a {} guy myself."
     ]
 
-    CAPTAIN_WEIGHT_RESET_COOLDOWN = datetime.timedelta(minutes=60)
+    CAPTAIN_WEIGHT_RESET_COOLDOWN = datetime.timedelta(minutes=240)
     CAPTAIN_WEIGHT_SEVERITY = 1.0
 
     ###################
@@ -144,13 +144,17 @@ class DiscordBot:
                 weight = 1.0
 
             totalWeight = totalWeight + weight
+            print("Constructing weights: {}, {}".format(candidate.name, weight))
             candidateWeights.append(CandidateWeight(candidate.name, weight))
 
         choice = random.uniform(0.0, totalWeight)
 
+        print("Choosing: {}".format(choice))
+
         # search for winner
         currentPos = 0.0
         for candidateWeight in candidateWeights:
+            print("Searching for winner... {}".format(candidateWeight.weight))
             currentPos = currentPos + candidateWeight.weight
             selectedCaptainName = candidateWeight.name
             if currentPos >= choice:
@@ -159,6 +163,7 @@ class DiscordBot:
         # increment weight
         if selectedCaptainName in self.captainData['captains']:
             self.captainData['captains'][selectedCaptainName] = self.captainData['captains'][selectedCaptainName] + 1.0
+            print(self.captainData['captains'][selectedCaptainName])
         else:
             self.captainData['captains'][selectedCaptainName] = 1.0
 
