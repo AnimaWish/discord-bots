@@ -125,7 +125,6 @@ class DiscordBot:
 
         # Reset weights after time passes
         if datetime.datetime.now() - self.captainData['lastUpdate'] > DiscordBot.CAPTAIN_WEIGHT_RESET_COOLDOWN:
-            print("Resetting captain: {}".format(datetime.datetime.now() - self.captainData['lastUpdate']))
             self.captainData['captains'] = {}
 
         class CandidateWeight:
@@ -145,17 +144,13 @@ class DiscordBot:
                 weight = 1.0
 
             totalWeight = totalWeight + weight
-            print("Constructing weights: {}, {}".format(candidate.name, weight))
             candidateWeights.append(CandidateWeight(candidate.name, weight))
 
         choice = random.uniform(0.0, totalWeight)
 
-        print("Choosing: {}".format(choice))
-
         # search for winner
         currentPos = 0.0
         for candidateWeight in candidateWeights:
-            print("Searching for winner... {}".format(candidateWeight.weight))
             currentPos = currentPos + candidateWeight.weight
             selectedCaptainName = candidateWeight.name
             if currentPos >= choice:
@@ -164,9 +159,8 @@ class DiscordBot:
         # increment weight
         if selectedCaptainName in self.captainData['captains']:
             self.captainData['captains'][selectedCaptainName] = self.captainData['captains'][selectedCaptainName] + 1.0
-            print(self.captainData['captains'][selectedCaptainName])
         else:
-            self.captainData['captains'][selectedCaptainName] = 1.0
+            self.captainData['captains'][selectedCaptainName] = 2.0
 
         self.captainData['lastUpdate'] = datetime.datetime.now()
 
