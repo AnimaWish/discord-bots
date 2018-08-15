@@ -5,15 +5,16 @@ import urllib.request
 import re
 import os, io
 import threading
-import datetime
+import datetime, time
 
 class BotCommand:
     # method must accept `message` and `params`, and return a string or None
     # permissionFunction expects a User/Member as an argument, and returns a bool
-    def __init__(self, method, permissionFunction, helpMessage="", helpParams=None):
+    def __init__(self, name, method, permissionFunction, helpMessage="", paramsHint=None):
+        self.name = name
         self.method = method
         self.permission = permissionFunction
-        self.helpParams = helpParams
+        self.paramsHint = paramsHint
         self.helpMessage = helpMessage
 
     def execute(self, params, message):
@@ -48,8 +49,8 @@ class DiscordBot:
     #     Helpers     #
     ###################
 
-    def addCommand(self, commandName, methodFunction, permissionFunction, helpMessage="", helpParams=None):
-        self.commandMap[commandName] = BotCommand(methodFunction, permissionFunction, helpMessage, helpParams)
+    def addCommand(self, commandName, methodFunction, permissionFunction, helpMessage="", paramsHint=None):
+        self.commandMap[commandName] = BotCommand(commandName, methodFunction, permissionFunction, helpMessage, paramsHint)
 
     def removeCommand(self, commandName):
         return self.commandMap.pop(commandName)
@@ -69,18 +70,22 @@ class DiscordBot:
     def memberIsWish(member):
         return member.id == DiscordBot.WISH_USER_ID
 
+    def buildCommandHint(self, command):
+        commandHint = self.prefix + command.name
+        if command.paramsHint is not None:
+            commandHint += " " + command.paramsHint
+
+        return commandHint
+
     ###################
     #    Commands     #
     ###################
 
     async def getHelp(self, message, params):
         helpMessage = "*{}*\n\n**Available Commands:**\n".format(self.greeting)
-        for commandName, botCommand in sorted(self.commandMap.items()):
-            if botCommand.permission(message.author) and len(botCommand.helpMessage) > 0:
-                commandField = self.prefix + commandName
-                if botCommand.helpParams is not None:
-                    commandField += " " + botCommand.helpParams
-                helpMessage += "    `{}` - {}\n".format(commandField, botCommand.helpMessage)
+        for name, cmd in sorted(self.commandMap.items()):
+            if cmd.permission(message.author) and len(cmd.helpMessage) > 0:
+                helpMessage += "    `{}` - {}\n".format(self.buildCommandHint(cmd), cmd.helpMessage)
 
         helpMessage += "\nHit up Wish#6215 for feature requests/bugs, or visit my repository at https://github.com/AnimaWish/discord-bots"
 
@@ -173,13 +178,16 @@ class DiscordBot:
         await self.client.send_message(message.channel, random.choice(DiscordBot.CHOICE_STRINGS).format(selectedCaptainName) + stats)
 
     class Referendum:
-        def __init__(self, initiatorID, text, choices, voteCount):
+        def __init__(self, initiatorID, text, choices, maxVoteCount):
             self.initiatorID = initiatorID
             self.text = text
             self.choices = []
-            self.emojiMap = {} # emojiMap[choiceID] = ":regional_indicator_LETTER:"
-            self.voteCount = voteCount
+            self.emojiMap = {} # emojiMap[choiceID] = emoji
+            self.maxVoteCount = maxVoteCount
+            self.votes = {} #votes[userID] = [choiceIndex1, choiceIndex2, ...]
+            self.closed = False
 
+            # Construct the emoji map
             emojiCode = 127462 # :regional_identifier_a:
             for i, choice in enumerate(choices):
                 if i > 19:
@@ -188,27 +196,75 @@ class DiscordBot:
                 self.emojiMap[i] = chr(emojiCode)
                 emojiCode = emojiCode + 1
 
-            self.votes = {} #votes[userID] = [choiceIndex1, choiceIndex2, ...]
+        def getChoiceFromEmoji(self, emoji):
+            # Get the choice index from the emoji
+            choiceIndex = None
+            for index, mapEmoji in self.emojiMap.items():
+                if mapEmoji == emoji:
+                    choiceIndex = index
+
+            return choiceIndex
+
+
+        def addVote(self, userID, emoji):
+            if self.closed:
+                return
+
+            addedChoiceIndex = self.getChoiceFromEmoji(emoji)
+            if addedChoiceIndex is None:
+                return
+
+            if userID not in self.votes:
+                self.votes[userID] = []
+
+            nextVoteIndex = len(self.votes[userID]) % self.maxVoteCount
+
+            if nextVoteIndex >= len(self.votes[userID]):
+                self.votes[userID].append(addedChoiceIndex)
+            else:
+                self.votes[userID][nextVoteIndex] = addedChoiceIndex
+
+        def removeVote(self, userID, emoji):
+            if self.closed:
+                return
+
+            removedChoiceIndex = self.getChoiceFromEmoji(emoji)
+            if removedChoiceIndex is None:
+                return
+
+            for voteIndex, existingChoiceIndex in enumerate(self.votes[userID]):
+                if existingChoiceIndex == removedChoiceIndex:
+                    self.votes[userID].pop(voteIndex)
+                    return
+
 
     currentReferendums = {} #currentReferendums[message.ID] = Referendum
     # !callvote Send a manned mission to mars. [yes, no, give money to the rich]
     async def callVote(self, message, params):
         for messageID in self.currentReferendums:
-            if self.currentReferendums[messageID].initiatorID == message.author.id:
-                await self.client.send_message("You already have a ballot on the floor! Type `!elect` to resolve the ballot!")
+            if self.currentReferendums[messageID].initiatorID == message.author.id and not self.currentReferendums[messageID].closed:
+                await self.client.send_message(message.channel, "You already have a referendum on the floor! Type `{}` to resolve the vote!".format(self.buildCommandHint(self.commandMap['elect'])))
                 return
 
+        # Parse parameters
         params = re.match("([^\[]+)\s*\[([^\]]+)\]\s*(\d+)?", params) # !callvote Elect a letter [a, b, c] numvotes
         ballotText = params[1]
         choices = re.split('[;|,]', params[2])
         try:
-            voteCount = int(params[3])
-            if voteCount < 1:
-                voteCount = 1
+            maxVoteCount = int(params[3])
+            if maxVoteCount < 1:
+                maxVoteCount = 1
         except:
-            voteCount = 1
+            maxVoteCount = 1
 
-        referendum = self.Referendum(message.author.id, ballotText, choices, voteCount)
+        if ballotText is None:
+            await self.client.send_message(message.channel, "You need text for your referendum! Try `{}`".format(self.buildCommandHint(self.commandMap['elect'])))
+            return
+        if len(choices) is None:
+            await self.client.send_message(message.channel, "You need choices for your referendum! Try `{}`".format(self.buildCommandHint(self.commandMap['elect'])))
+            return
+
+        referendum = self.Referendum(message.author.id, ballotText, choices, maxVoteCount)
 
         def constructBallotMessage(referendum):
             ballotMessage = "__**Referendum:**__ {}\n\n__**Choices**__".format(referendum.text)
@@ -216,8 +272,8 @@ class DiscordBot:
                 ballotMessage = "{}\n{} {}".format(ballotMessage, referendum.emojiMap[i], choice)
 
             helpMessage = "You have one vote: your MOST RECENT vote will be the one that is counted."
-            if voteCount > 1:
-                helpMessage = "You have {} votes: your MOST RECENT {} votes will be the ones that are counted.".format(referendum.voteCount, referendum.voteCount)
+            if maxVoteCount > 1:
+                helpMessage = "You have {} votes: your MOST RECENT {} votes will be the ones that are counted.".format(referendum.maxVoteCount, referendum.maxVoteCount)
 
             ballotMessage = ballotMessage + "\n\n*Click an emoji to vote! " + helpMessage + "*"
 
@@ -227,23 +283,91 @@ class DiscordBot:
 
         self.currentReferendums[postedMessage.id] = referendum        
 
+        # Add the ballot options as reactions. If we get a Forbidden error, that means that people added extra reactions before the bot could finish adding them.
+        # In that case, we're going to adjust the ballot to use their reactions as options.
+        injectedReaction = False
         for i, choice in enumerate(referendum.choices):
             try:
                 await self.client.add_reaction(postedMessage, referendum.emojiMap[i])
             except discord.errors.Forbidden:
-                pass
-
-        updatedPostedMessage = await self.client.get_message(message.channel, postedMessage.id)
-
-        injectedReaction = False
-        for i, reaction in enumerate(updatedPostedMessage.reactions):
-            if not reaction.me:
                 injectedReaction = True
-
-            referendum.emojiMap[i] = reaction.emoji
+                break
 
         if injectedReaction:
+            updatedPostedMessage = await self.client.get_message(message.channel, postedMessage.id)
+            for i, reaction in enumerate(updatedPostedMessage.reactions):
+                referendum.emojiMap[i] = reaction.emoji
+
             await self.client.edit_message(postedMessage, constructBallotMessage(referendum))
+
+    async def resolveVote(self, message, params):
+        # Find the referendum
+        noReferendum = True
+        referendum = None
+        referendumKey = None
+        for messageID in self.currentReferendums:
+            if self.currentReferendums[messageID].initiatorID == message.author.id:
+                noReferendum = False
+                referendum = self.currentReferendums[messageID]
+                referendumKey = messageID
+        if noReferendum:
+            await self.client.send_message(message.channel, "You don't have a referendum on the floor! Type `{}` to start a vote!".format(self.buildCommandHint(self.commandMap['callvote'])))
+            return
+
+        referendum.closed = True
+
+        wrapperString = ":ballot_box: :ballot_box: :ballot_box:"
+
+        # count the votes
+        choiceTallies = {}
+        for i, choice in enumerate(referendum.choices):
+            choiceTallies[i] = 0
+        for userID in referendum.votes:
+            for vote in referendum.votes[userID]:
+                choiceTallies[vote] = choiceTallies[vote] + 1
+
+        # determine the winner(s)
+        largestTally = -1
+        winnerIndices = []
+        for choiceIndex in choiceTallies:
+            if choiceTallies[choiceIndex] == largestTally:
+                winnerIndices.append(choiceIndex)
+            elif choiceTallies[choiceIndex] > largestTally:
+                largestTally = choiceTallies[choiceIndex]
+                winnerIndices = [choiceIndex]
+
+        resultMessageText = wrapperString + "\n\nRegarding the referendum, \"{}\", put forth by {}, the votes are in, and the winner is".format(referendum.text, message.server.get_member(referendum.initiatorID).mention)
+
+        resultsMessage = await self.client.send_message(message.channel, resultMessageText+ "\n\n" + wrapperString)
+
+        for i in range(3):
+            time.sleep(1)
+            resultMessageText = resultMessageText + "."
+            resultsMessage = await self.client.edit_message(resultsMessage, resultMessageText + "\n\n" + wrapperString)
+
+        time.sleep(1)
+
+        voteString = "vote"
+        if largestTally > 1:
+            voteString = "votes"
+
+        if len(winnerIndices) > 1:
+            winnerString = referendum.choices[winnerIndices[0]]
+            for winner in winnerIndices[1:]:
+                if winner == len(winnerIndices) - 1:
+                    winnerString = winnerString + " and " + referendum.choices[winner]
+                else:
+                    winnerString = winnerString + ", " + referendum.choices[winner]
+
+            resultMessageText += " a tie between {}, with {} {} each!".format(winnerString, largestTally, voteString)
+        elif len(winnerIndices) == 1:
+            resultMessageText += " {}, with {} {}!".format(referendum.choices[winnerIndices[0]], largestTally, voteString)
+
+        await self.client.edit_message(resultsMessage, resultMessageText + "\n\n" + wrapperString)
+
+        self.currentReferendums.pop(referendumKey)
+
+
 
     ###################
     #  Event Methods  #
@@ -275,6 +399,19 @@ class DiscordBot:
 
                 except PermissionError as err:
                     print("Insufficient permissions for user {}".format(err))
+
+    async def on_reaction_add(self, reaction, user):
+        print("react add")
+        if user.id != self.client.user.id and reaction.message.author.id == self.client.user.id:
+            if reaction.message.id in self.currentReferendums:
+                self.currentReferendums[reaction.message.id].addVote(user.id, reaction.emoji)
+
+    async def on_reaction_remove(self, reaction, user):
+        print("react remove")
+        if user.id != self.client.user.id and reaction.message.author.id == self.client.user.id:
+            if reaction.message.id in self.currentReferendums:
+                self.currentReferendums[reaction.message.id].removeVote(user.id, reaction.emoji)
+
 
     ###################
     #     Startup     #
@@ -316,17 +453,20 @@ class DiscordBot:
         self.commandMap = {}
 
         self.addCommand('help',     self.getHelp,    lambda x: True)
+        self.addCommand('ping',     self.ping,       lambda x: True)
         self.addCommand('echo',     self.echo,       lambda x: True)
+
         self.addCommand('roll',     self.getDieRoll, lambda x: True, "Roll X Y-sided dice",                  "XdY")
         self.addCommand('choose',   self.chooseRand, lambda x: True, "Choose a random member from the list", "a,list,of,things")
-        self.addCommand('ping',     self.ping,       lambda x: True)
 
         self.addCommand('callvote', self.callVote,    lambda x: True, "Call a vote", "referendum text [choice a, choice b, choice c, ...]")
-        #self.addCommand('elect',    self.resolveVote, lambda x: True, "Count votes and decide a winner!")
+        self.addCommand('elect',    self.resolveVote, lambda x: True, "Count votes and decide a winner!")
 
         
         self.client.event(self.on_ready)
         self.client.event(self.on_message)
+        self.client.event(self.on_reaction_add)
+        self.client.event(self.on_reaction_remove)
 
         self._stop_event = threading.Event()
 
