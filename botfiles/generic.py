@@ -336,10 +336,11 @@ class DiscordBot:
                 largestTally = choiceTallies[choiceIndex]
                 winnerIndices = [choiceIndex]
 
+        # Announce tally
         resultMessageText = wrapperString + "\n\nRegarding the referendum, \"{}\", put forth by {}, the votes are in, and the winner is".format(referendum.text, message.server.get_member(referendum.initiatorID).mention)
-
         resultsMessage = await self.client.send_message(message.channel, resultMessageText+ "\n\n" + wrapperString)
 
+        # Pause for effect
         for i in range(3):
             time.sleep(1)
             resultMessageText = resultMessageText + "."
@@ -347,26 +348,28 @@ class DiscordBot:
 
         time.sleep(1)
 
+        # Construct the winner announcement
         voteString = "vote"
         if largestTally > 1:
             voteString = "votes"
 
+        tieVote = False
+        winnerString = "\"{}\"".format(referendum.choices[winnerIndices[0]])
         if len(winnerIndices) > 1:
-            winnerString = referendum.choices[winnerIndices[0]]
-            for winner in winnerIndices[1:]:
-                if winner == len(winnerIndices) - 1:
-                    winnerString = winnerString + " and " + referendum.choices[winner]
+            tieVote = True
+            for i, winner in enumerate(winnerIndices[1:]):
+                nextWinner = "\"{}\"".format(referendum.choices[winner])
+                if i + 1 == len(winnerIndices) - 1:
+                    winnerString = winnerString + " and " + nextWinner
                 else:
-                    winnerString = winnerString + ", " + referendum.choices[winner]
-
+                    winnerString = winnerString + ", " + nextWinner
             resultMessageText += " a tie between {}, with {} {} each!".format(winnerString, largestTally, voteString)
         elif len(winnerIndices) == 1:
-            resultMessageText += " {}, with {} {}!".format(referendum.choices[winnerIndices[0]], largestTally, voteString)
+            resultMessageText += " {}, with {} {}!".format(winnerString, largestTally, voteString)
 
         await self.client.edit_message(resultsMessage, resultMessageText + "\n\n" + wrapperString)
 
         self.currentReferendums.pop(referendumKey)
-
 
 
     ###################
@@ -392,22 +395,15 @@ class DiscordBot:
                 params  = message.content[commandMatch.end():].strip()
                 try: 
                     await command.execute(params, message)
-                    # if isinstance(result, io.IOBase):
-                    #     await self.client.send_file(message.channel, result)
-                    # elif result is not None and len(result) > 0:
-                    #     await self.client.send_message(message.channel, result)
-
                 except PermissionError as err:
                     print("Insufficient permissions for user {}".format(err))
 
     async def on_reaction_add(self, reaction, user):
-        print("react add")
         if user.id != self.client.user.id and reaction.message.author.id == self.client.user.id:
             if reaction.message.id in self.currentReferendums:
                 self.currentReferendums[reaction.message.id].addVote(user.id, reaction.emoji)
 
     async def on_reaction_remove(self, reaction, user):
-        print("react remove")
         if user.id != self.client.user.id and reaction.message.author.id == self.client.user.id:
             if reaction.message.id in self.currentReferendums:
                 self.currentReferendums[reaction.message.id].removeVote(user.id, reaction.emoji)
