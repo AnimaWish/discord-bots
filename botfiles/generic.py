@@ -248,10 +248,10 @@ class DiscordBot:
 
         # Parse parameters
         params = re.match("([^\[]+)\s*\[([^\]]+)\]\s*(\d+)?", params) # !callvote Elect a letter [a, b, c] numvotes
-        ballotText = params[1]
-        choices = re.split('[;|,]', params[2])
+        ballotText = params.group(1)
+        choices = re.split('[;|,]', params.group(2))
         try:
-            maxVoteCount = int(params[3])
+            maxVoteCount = int(params.group(3))
             if maxVoteCount < 1:
                 maxVoteCount = 1
         except:
