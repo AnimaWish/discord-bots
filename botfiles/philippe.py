@@ -45,6 +45,7 @@ class PhilippeBot(generic.DiscordBot):
     INDEX_LINK_PATTERN = 'achewood\.com\/index\.php\?date=\d+'
     SEARCH_URL = "http://www.ohnorobot.com/index.php?comic=636&s={}&search=Find"
     LUCKY_URL  = "http://www.ohnorobot.com/index.php?s={}&lucky=Let+the+Robot+Decide%21&comic=636"
+    RANDOM_URL = "http://www.ohnorobot.com/random.php?comic=636"
 
     LOGFILE = "data/philippe/progress.txt"
 
@@ -131,7 +132,7 @@ class PhilippeBot(generic.DiscordBot):
     #    Commands     #
     ###################
     async def getRandomStrip(self, message, params):
-        contents = urllib.request.urlopen('http://www.ohnorobot.com/random.pl?comic=636').read().decode("utf-8")
+        contents = urllib.request.urlopen(PhilippeBot.RANDOM_URL).read().decode("utf-8")
         await self.client.send_message(message.channel, PhilippeBot.getComicAndTitleFromPage(contents))
 
     async def getPrompt(self, message, params):
