@@ -132,18 +132,18 @@ class PhilippeBot(generic.DiscordBot):
     ###################
     async def getRandomStrip(self, message, params):
         contents = urllib.request.urlopen('http://www.ohnorobot.com/random.pl?comic=636').read().decode("utf-8")
-        await self.client.send_file(message.channel, PhilippeBot.getComicAndTitleFromPage(contents))
+        await self.client.send_message(message.channel, PhilippeBot.getComicAndTitleFromPage(contents))
 
     async def getPrompt(self, message, params):
         prompt = random.choice(PhilippeBot.PROMPTS)
         prompt = re.sub('\[CHARACTER\]', random.choice(PhilippeBot.CHARACTERS), prompt)
-        await self.client.send_file(message.channel, prompt)
+        await self.client.send_message(message.channel, prompt)
 
     async def searchStrips(self, message, params):
         linkSearchTerm = re.sub(' ', '+', params)
 
         if len(params) == 0:
-            await self.client.send_file(message.channel, "I need a search term! e.g. `!search dirtiest dudes in town`")
+            await self.client.send_message(message.channel, "I need a search term! e.g. `!search dirtiest dudes in town`")
         
         searchResultsLink = PhilippeBot.SEARCH_URL.format(linkSearchTerm)
         luckyLink         = PhilippeBot.LUCKY_URL.format(linkSearchTerm)
@@ -158,7 +158,7 @@ class PhilippeBot(generic.DiscordBot):
         if bestGuess:
             result += "\n\n**Best Guess:** {}".format(bestGuess)
 
-        await self.client.send_file(message.channel, result)
+        await self.client.send_message(message.channel, result)
 
     async def logProgress(self, message, params):
         dateText = ""
@@ -197,7 +197,7 @@ class PhilippeBot(generic.DiscordBot):
             self.writeLogs()
             returnVal = "Logged {} for {}!".format(dtime.strftime("%B %d, %Y"), message.author.name)           
 
-        await self.client.send_file(message.channel, returnVal)
+        await self.client.send_message(message.channel, returnVal)
 
     async def getProgressLogs(self, message, params):
         result = ""
@@ -218,7 +218,7 @@ class PhilippeBot(generic.DiscordBot):
         legend = "{}{}| {}\n".format("Name", ' '*(longestName + 1 - len("Name")), "Progress")
         result = legend + "-"*longestLine + "\n" + result 
 
-        await self.client.send_file(message.channel, "```\n{}\n```".format(result))
+        await self.client.send_message(message.channel, "```\n{}\n```".format(result))
 
     ###################
     #   Bot Methods   #
