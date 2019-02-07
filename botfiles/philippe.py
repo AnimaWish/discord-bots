@@ -3,13 +3,13 @@ import asyncio
 import random
 import urllib.request
 import re
-import generic
+from .generic import DiscordBot
 import argparse
 from datetime import datetime
 import importlib
 
-importlib.reload(generic)
-class PhilippeBot(generic.DiscordBot):
+#importlib.reload(generic)
+class PhilippeBot(DiscordBot):
     ###################
     #    Constants    #
     ###################
@@ -84,6 +84,15 @@ class PhilippeBot(generic.DiscordBot):
         else:
             return False
 
+    # ohnorobot lucky link is broken as of 2/6/19
+    @staticmethod
+    def getLuckyIndex(contents):
+        pattern = "/index\.php\?date=\d+"
+        strings = re.findall(pattern, contents)
+        titleText = PhilippeBot.parseTitle(contents)
+        if len(strings) > 0:
+            return "http://achewood.com" + strings[0]
+
     @staticmethod
     def replaceIndexWithComic(input):
         indexLinkMatch = re.search(PhilippeBot.INDEX_LINK_PATTERN, input)
@@ -133,21 +142,23 @@ class PhilippeBot(generic.DiscordBot):
     ###################
     async def getRandomStrip(self, message, params):
         contents = urllib.request.urlopen(PhilippeBot.RANDOM_URL).read().decode("utf-8")
-        await self.client.send_message(message.channel, PhilippeBot.getComicAndTitleFromPage(contents))
+        await message.channel.send(PhilippeBot.getComicAndTitleFromPage(contents))
 
     async def getPrompt(self, message, params):
         prompt = random.choice(PhilippeBot.PROMPTS)
         prompt = re.sub('\[CHARACTER\]', random.choice(PhilippeBot.CHARACTERS), prompt)
-        await self.client.send_message(message.channel, prompt)
+        await message.channel.send(prompt)
 
     async def searchStrips(self, message, params):
         linkSearchTerm = re.sub(' ', '+', params)
 
         if len(params) == 0:
-            await self.client.send_message(message.channel, "I need a search term! e.g. `!search dirtiest dudes in town`")
+            await message.channel.send("I need a search term! e.g. `!search dirtiest dudes in town`")
         
         searchResultsLink = PhilippeBot.SEARCH_URL.format(linkSearchTerm)
-        luckyLink         = PhilippeBot.LUCKY_URL.format(linkSearchTerm)
+        
+        contents = urllib.request.urlopen(PhilippeBot.SEARCH_URL.format(linkSearchTerm)).read().decode("utf-8")
+        luckyLink = PhilippeBot.getLuckyIndex(contents)
 
         luckyContents = urllib.request.urlopen(luckyLink).read().decode("utf-8")
         bestGuess = PhilippeBot.getComicAndTitleFromPage(luckyContents)
@@ -159,7 +170,7 @@ class PhilippeBot(generic.DiscordBot):
         if bestGuess:
             result += "\n\n**Best Guess:** {}".format(bestGuess)
 
-        await self.client.send_message(message.channel, result)
+        await message.channel.send(result)
 
     async def logProgress(self, message, params):
         dateText = ""
@@ -198,7 +209,7 @@ class PhilippeBot(generic.DiscordBot):
             self.writeLogs()
             returnVal = "Logged {} for {}!".format(dtime.strftime("%B %d, %Y"), message.author.name)           
 
-        await self.client.send_message(message.channel, returnVal)
+        await message.channel.send(returnVal)
 
     async def getProgressLogs(self, message, params):
         result = ""
@@ -219,7 +230,7 @@ class PhilippeBot(generic.DiscordBot):
         legend = "{}{}| {}\n".format("Name", ' '*(longestName + 1 - len("Name")), "Progress")
         result = legend + "-"*longestLine + "\n" + result 
 
-        await self.client.send_message(message.channel, "```\n{}\n```".format(result))
+        await message.channel.send("```\n{}\n```".format(result))
 
     ###################
     #   Bot Methods   #
@@ -243,7 +254,7 @@ class PhilippeBot(generic.DiscordBot):
     async def on_message(self, message):
         comicLink = PhilippeBot.replaceIndexWithComic(message.content)
         if comicLink is not None:
-            await self.client.send_message(message.channel, comicLink)
+            await message.channel.send(comicLink)
 
         await super().on_message(message)
 

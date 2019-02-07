@@ -2,12 +2,11 @@ import discord
 import asyncio
 import random
 import re
-import generic
+from .generic import DiscordBot
 import argparse
 import importlib
 
-importlib.reload(generic)
-class ZenyattaBot(generic.DiscordBot):
+class ZenyattaBot(DiscordBot):
     ###################
     #    Constants    #
     ###################
@@ -58,7 +57,7 @@ class ZenyattaBot(generic.DiscordBot):
     ###################
 
     def memberIsGentleman(self, author):
-        return generic.DiscordBot.memberHasRole(author, ZenyattaBot.GENTLEMEN_ROLE_ID)
+        return ZenyattaBot.memberHasRole(author, ZenyattaBot.GENTLEMEN_ROLE_ID)
 
     def mentionGents(self, text):
         return '<@&{}>'.format(ZenyattaBot.GENTLEMEN_ROLE_ID) + ' ' + text
@@ -92,8 +91,8 @@ class ZenyattaBot(generic.DiscordBot):
 
         self.addCommand('character', self.getRandomCharacter,                             lambda x: True,         "Get a random OW character from the selected roles",   "[offense|defense|tank|support|any]")
         self.addCommand('captain',   self.chooseCaptain,                                  lambda x: True,         "Choose a random user from the current voice channel")
-        self.addCommand('bears',     lambda message, params: self.mentionGents(':bear:'), self.memberIsGentleman, ":bear:")
-        self.addCommand('pubg',      lambda message, params: self.mentionGents(':pubg:'), self.memberIsGentleman, ":b:")
+        # self.addCommand('bears',     lambda message, params: self.mentionGents(':bear:'), self.memberIsGentleman, ":bear:")
+        # self.addCommand('pubg',      lambda message, params: self.mentionGents(':pubg:'), self.memberIsGentleman, ":b:")
 
     async def on_ready(self):
         await super().on_ready()

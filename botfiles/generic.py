@@ -89,33 +89,33 @@ class DiscordBot:
 
         helpMessage += "\nHit up Wish#6215 for feature requests/bugs, or visit my repository at https://github.com/AnimaWish/discord-bots"
 
-        await self.client.send_message(message.channel, helpMessage)
+        await message.channel.send(helpMessage)
 
     async def ping(self, message, params):
-        await self.client.send_message(message.channel, "pong")
+        await message.channel.send("pong")
 
     async def echo(self, message, params):
-        await self.client.send_message(message.channel, params)
+        await message.channel.send(params)
 
     async def getDieRoll(self, message, params):
             params = params.split("d")
             if len(params) != 2 or not (params[0].isdigit() and params[1].isdigit()):
-                await self.client.send_message(message.channel, "Required syntax: `!roll XdY`")
+                await message.channel.send("Required syntax: `!roll XdY`")
             elif int(params[0]) > DiscordBot.MAX_DICE:
-                await self.client.send_message(message.channel, "I can't possibly hold {} dice!".format(params[0]))
+                await message.channel.send("I can't possibly hold {} dice!".format(params[0]))
             else:
                 result = 0
                 for x in range(0, int(params[0])):
                     result = result + random.randint(1, int(params[1]))
 
-            await self.client.send_message(message.channel, "You rolled {}!".format(result))
+            await message.channel.send("You rolled {}!".format(result))
 
     async def chooseRand(self, message, params):
         theList = re.split('[;|,]',params)
         if len(theList) == 1:
             theList = re.split('\s',params)
             
-        await self.client.send_message(message.channel, random.choice(DiscordBot.CHOICE_STRINGS).format(random.choice(theList).strip()))
+        await message.channel.send(random.choice(DiscordBot.CHOICE_STRINGS).format(random.choice(theList).strip()))
 
     captainData = {
         'lastUpdate': datetime.datetime.fromordinal(1),
@@ -123,11 +123,11 @@ class DiscordBot:
     }
 
     async def chooseCaptain(self, message, params):
-        if message.author.voice.voice_channel == None:
-            await self.client.send_message(message.channel, "You are not in a voice channel!")
+        if message.author.voice.channel == None:
+            await message.channel.send("You are not in a voice channel!")
             return
 
-        candidates = message.author.voice.voice_channel.voice_members
+        candidates = message.author.voice.channel.members
 
         # Reset weights after time passes
         if datetime.datetime.now() - self.captainData['lastUpdate'] > DiscordBot.CAPTAIN_WEIGHT_RESET_COOLDOWN:
@@ -175,7 +175,7 @@ class DiscordBot:
             for candidateWeight in candidateWeights:
                 stats = "{}\n{} : {}".format(stats, candidateWeight.name, candidateWeight.weight)
 
-        await self.client.send_message(message.channel, random.choice(DiscordBot.CHOICE_STRINGS).format(selectedCaptainName) + stats)
+        await message.channel.send(random.choice(DiscordBot.CHOICE_STRINGS).format(selectedCaptainName) + stats)
 
     class Referendum:
         def __init__(self, initiatorID, text, choices, maxVoteCount):
@@ -243,7 +243,7 @@ class DiscordBot:
     async def callVote(self, message, params):
         for messageID in self.currentReferendums:
             if self.currentReferendums[messageID].initiatorID == message.author.id and not self.currentReferendums[messageID].closed:
-                await self.client.send_message(message.channel, "You already have a referendum on the floor! Type `{}` to resolve the vote!".format(self.buildCommandHint(self.commandMap['elect'])))
+                await message.channel.send("You already have a referendum on the floor! Type `{}` to resolve the vote!".format(self.buildCommandHint(self.commandMap['elect'])))
                 return
 
         # Parse parameters
@@ -258,10 +258,10 @@ class DiscordBot:
             maxVoteCount = 1
 
         if ballotText is None:
-            await self.client.send_message(message.channel, "You need text for your referendum! Try `{}`".format(self.buildCommandHint(self.commandMap['elect'])))
+            await message.channel.send("You need text for your referendum! Try `{}`".format(self.buildCommandHint(self.commandMap['elect'])))
             return
         if len(choices) is None:
-            await self.client.send_message(message.channel, "You need choices for your referendum! Try `{}`".format(self.buildCommandHint(self.commandMap['elect'])))
+            await message.channel.send("You need choices for your referendum! Try `{}`".format(self.buildCommandHint(self.commandMap['elect'])))
             return
 
         referendum = self.Referendum(message.author.id, ballotText, choices, maxVoteCount)
@@ -279,7 +279,7 @@ class DiscordBot:
 
             return ballotMessage
 
-        postedMessage = await self.client.send_message(message.channel, constructBallotMessage(referendum))
+        postedMessage = await message.channel.send(constructBallotMessage(referendum))
 
         self.currentReferendums[postedMessage.id] = referendum        
 
@@ -311,7 +311,7 @@ class DiscordBot:
                 referendum = self.currentReferendums[messageID]
                 referendumKey = messageID
         if noReferendum:
-            await self.client.send_message(message.channel, "You don't have a referendum on the floor! Type `{}` to start a vote!".format(self.buildCommandHint(self.commandMap['callvote'])))
+            await message.channel.send("You don't have a referendum on the floor! Type `{}` to start a vote!".format(self.buildCommandHint(self.commandMap['callvote'])))
             return
 
         referendum.closed = True
@@ -338,7 +338,7 @@ class DiscordBot:
 
         # Announce tally
         resultMessageText = wrapperString + "\n\nRegarding the referendum, \"{}\", put forth by {}, the votes are in, and the winner is".format(referendum.text, message.server.get_member(referendum.initiatorID).mention)
-        resultsMessage = await self.client.send_message(message.channel, resultMessageText+ "\n\n" + wrapperString)
+        resultsMessage = await message.channel.send(resultMessageText+ "\n\n" + wrapperString)
 
         # Pause for effect
         for i in range(3):
@@ -438,8 +438,8 @@ class DiscordBot:
         self._stop_event.set()
 
     def __init__(self, prefix="!", greeting="Hello", farewell="Goodbye"):
-        self.loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(self.loop)
+        self.loop = asyncio.get_event_loop()
+        #asyncio.set_event_loop(self.loop)
         self.client = discord.Client(loop=self.loop)
 
         self.prefix = prefix
@@ -455,8 +455,8 @@ class DiscordBot:
         self.addCommand('roll',     self.getDieRoll, lambda x: True, "Roll X Y-sided dice",                  "XdY")
         self.addCommand('choose',   self.chooseRand, lambda x: True, "Choose a random member from the list", "a,list,of,things")
 
-        self.addCommand('callvote', self.callVote,    lambda x: True, "Call a vote", "referendum text [choice a, choice b, choice c, ...]")
-        self.addCommand('elect',    self.resolveVote, lambda x: True, "Count votes and decide a winner!")
+        # self.addCommand('callvote', self.callVote,    lambda x: True, "Call a vote", "[referendum text] [choice a], [choice b], [choice c], ...")
+        # self.addCommand('elect',    self.resolveVote, lambda x: True, "Count votes and decide a winner!")
 
         
         self.client.event(self.on_ready)
@@ -464,7 +464,7 @@ class DiscordBot:
         self.client.event(self.on_reaction_add)
         self.client.event(self.on_reaction_remove)
 
-        self._stop_event = threading.Event()
+        #self._stop_event = threading.Event()
 
 
     def run(self, token):      
