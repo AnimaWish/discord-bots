@@ -123,7 +123,7 @@ class DiscordBot:
     }
 
     async def chooseCaptain(self, message, params):
-        if message.author.voice.channel == None:
+        if message.author.voice == None or message.author.voice.channel == None:
             await message.channel.send("You are not in a voice channel!")
             return
 
@@ -232,10 +232,11 @@ class DiscordBot:
             if removedChoiceIndex is None:
                 return
 
-            for voteIndex, existingChoiceIndex in enumerate(self.votes[userID]):
-                if existingChoiceIndex == removedChoiceIndex:
-                    self.votes[userID].pop(voteIndex)
-                    return
+            if userID in self.votes:
+                for voteIndex, existingChoiceIndex in enumerate(self.votes[userID]):
+                    if existingChoiceIndex == removedChoiceIndex:
+                        self.votes[userID].pop(voteIndex)
+                        return
 
 
     currentReferendums = {} #currentReferendums[message.ID] = Referendum
@@ -246,22 +247,38 @@ class DiscordBot:
                 await message.channel.send("You already have a referendum on the floor! Type `{}` to resolve the vote!".format(self.buildCommandHint(self.commandMap['elect'])))
                 return
 
+        votePattern = "([^\?]+\?)\s*"
+        choicePattern = "[,;\s]*\"([^\"]+)\""
+
         # Parse parameters
-        params = re.match("([^\[]+)\s*\[([^\]]+)\]\s*(\d+)?", params) # !callvote Elect a letter [a, b, c] numvotes
-        ballotText = params.group(1)
-        choices = re.split('[;|,]', params.group(2))
-        try:
-            maxVoteCount = int(params.group(3))
-            if maxVoteCount < 1:
+        ballotMatch = re.match(votePattern, params) # !callvote Elect a letter [a, b, c] numvotes
+        choicesMatch = re.findall(choicePattern, params)
+        if ballotMatch == None:
+            ballotText = None
+        else:
+            ballotText = ballotMatch.group(1)
+            choices = choicesMatch
+
+            try:
+                # maxVoteCount = int(params.group(3))
                 maxVoteCount = 1
-        except:
-            maxVoteCount = 1
+                if maxVoteCount < 1:
+                    maxVoteCount = 1
+            except:
+                maxVoteCount = 1
 
         if ballotText is None:
-            await message.channel.send("You need text for your referendum! Try `{}`".format(self.buildCommandHint(self.commandMap['elect'])))
+            helpfulMessage = "You need text for your referendum! Try `{}`".format(self.buildCommandHint(self.commandMap['callvote']))
+            if params != "":
+                helpfulMessage += "\n*Psst, the question mark `?` is important for me to be able to read your referendum!*"
+
+            await message.channel.send(helpfulMessage)
             return
-        if len(choices) is None:
-            await message.channel.send("You need choices for your referendum! Try `{}`".format(self.buildCommandHint(self.commandMap['elect'])))
+        if len(choices) == 0:
+            helpfulMessage = "You need choices for your referendum! Try `{}`".format(self.buildCommandHint(self.commandMap['callvote']))
+            if len(re.sub(votePattern, "", params)) != 0:
+                helpfulMessage += "\n*Psst, Remember to surround your choices with `\"quotes\"`!*"
+            await message.channel.send(helpfulMessage)
             return
 
         referendum = self.Referendum(message.author.id, ballotText, choices, maxVoteCount)
@@ -275,7 +292,7 @@ class DiscordBot:
             if maxVoteCount > 1:
                 helpMessage = "You have {} votes: your MOST RECENT {} votes will be the ones that are counted.".format(referendum.maxVoteCount, referendum.maxVoteCount)
 
-            ballotMessage = ballotMessage + "\n\n*Click an emoji to vote! " + helpMessage + "*"
+            ballotMessage = ballotMessage + "\n\n*Click an emoji below to vote! " + helpMessage + "*"
 
             return ballotMessage
 
@@ -288,17 +305,17 @@ class DiscordBot:
         injectedReaction = False
         for i, choice in enumerate(referendum.choices):
             try:
-                await self.client.add_reaction(postedMessage, referendum.emojiMap[i])
+                await postedMessage.add_reaction(referendum.emojiMap[i])
             except discord.errors.Forbidden:
                 injectedReaction = True
                 break
 
         if injectedReaction:
-            updatedPostedMessage = await self.client.get_message(message.channel, postedMessage.id)
+            updatedPostedMessage = await message.channel.get_message(postedMessage.id)
             for i, reaction in enumerate(updatedPostedMessage.reactions):
                 referendum.emojiMap[i] = reaction.emoji
 
-            await self.client.edit_message(postedMessage, constructBallotMessage(referendum))
+            await postedMessage.edit(content=constructBallotMessage(referendum))
 
     async def resolveVote(self, message, params):
         # Find the referendum
@@ -337,14 +354,15 @@ class DiscordBot:
                 winnerIndices = [choiceIndex]
 
         # Announce tally
-        resultMessageText = wrapperString + "\n\nRegarding the referendum, \"{}\", put forth by {}, the votes are in, and the winner is".format(referendum.text, message.server.get_member(referendum.initiatorID).mention)
+        resultMessageText = wrapperString + "\n\nRegarding the referendum, \"{}\", put forth by {}, the votes are in, and the winner is".format(referendum.text, message.guild.get_member(referendum.initiatorID).mention)
         resultsMessage = await message.channel.send(resultMessageText+ "\n\n" + wrapperString)
 
         # Pause for effect
         for i in range(3):
-            time.sleep(1)
+            time.sleep(.5)
             resultMessageText = resultMessageText + "."
-            resultsMessage = await self.client.edit_message(resultsMessage, resultMessageText + "\n\n" + wrapperString)
+            newMessage = resultMessageText + "\n\n" + wrapperString
+            await resultsMessage.edit(content=newMessage)
 
         time.sleep(1)
 
@@ -354,11 +372,11 @@ class DiscordBot:
             voteString = "votes"
 
         tieVote = False
-        winnerString = "\"{}\"".format(referendum.choices[winnerIndices[0]])
+        winnerString = "{} \"{}\"".format(referendum.emojiMap[winnerIndices[0]], referendum.choices[winnerIndices[0]])
         if len(winnerIndices) > 1:
             tieVote = True
             for i, winner in enumerate(winnerIndices[1:]):
-                nextWinner = "\"{}\"".format(referendum.choices[winner])
+                nextWinner = "{} \"{}\"".format(referendum.emojiMap[winner], referendum.choices[winner])
                 if i + 1 == len(winnerIndices) - 1:
                     winnerString = winnerString + " and " + nextWinner
                 else:
@@ -367,7 +385,7 @@ class DiscordBot:
         elif len(winnerIndices) == 1:
             resultMessageText += " {}, with {} {}!".format(winnerString, largestTally, voteString)
 
-        await self.client.edit_message(resultsMessage, resultMessageText + "\n\n" + wrapperString)
+        await resultsMessage.edit(content=resultMessageText + "\n\n" + wrapperString)
 
         self.currentReferendums.pop(referendumKey)
 
@@ -455,9 +473,8 @@ class DiscordBot:
         self.addCommand('roll',     self.getDieRoll, lambda x: True, "Roll X Y-sided dice",                  "XdY")
         self.addCommand('choose',   self.chooseRand, lambda x: True, "Choose a random member from the list", "a,list,of,things")
 
-        # self.addCommand('callvote', self.callVote,    lambda x: True, "Call a vote", "[referendum text] [choice a], [choice b], [choice c], ...")
-        # self.addCommand('elect',    self.resolveVote, lambda x: True, "Count votes and decide a winner!")
-
+        self.addCommand('callvote', self.callVote,    lambda x: True, "Call a vote", "Kirk or Picard? \"Sheridan\", \"Adama\", \"Skywalker\"")
+        self.addCommand('elect',    self.resolveVote, lambda x: True, "Count votes and decide a winner!")
         
         self.client.event(self.on_ready)
         self.client.event(self.on_message)

@@ -30,8 +30,8 @@ class MettatonBot(DiscordBot):
                     poseCount += 1
 
         choice = random.randint(1, poseCount)
-        poseFile = open(os.path.join(DIR, "{}.png".format(choice)), 'r')
-        await message.channel.send(file=poseFile)
+        poseFile = open(os.path.join(DIR, "{}.png".format(choice)), 'rb')
+        await message.channel.send(file=discord.File(poseFile))
 
     ###################
     #   Bot Methods   #
@@ -40,7 +40,7 @@ class MettatonBot(DiscordBot):
     def __init__(self, prefix="!"):
         super().__init__(prefix, "OHHH YES!", "GUESS YOU DON'T WANT TO JOIN MY FAN CLUB...?")
 
-        #self.addCommand('pose',    self.getPose,       lambda x: True, "Strike a pose")
+        self.addCommand('pose',    self.getPose,       lambda x: True, "Strike a pose")
         self.addCommand('captain', self.chooseCaptain, lambda x: True, "Choose a random user from the current voice channel")
 
     async def on_ready(self):
