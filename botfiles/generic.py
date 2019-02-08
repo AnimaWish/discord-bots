@@ -247,11 +247,11 @@ class DiscordBot:
                 await message.channel.send("You already have a referendum on the floor! Type `{}` to resolve the vote!".format(self.buildCommandHint(self.commandMap['elect'])))
                 return
 
-        votePattern = "([^\?]+\?)\s*"
+        ballotPattern = "([^\?]+\?)\s*(\d*)"
         choicePattern = "[,;\s]*\"([^\"]+)\""
 
         # Parse parameters
-        ballotMatch = re.match(votePattern, params) # !callvote Elect a letter [a, b, c] numvotes
+        ballotMatch = re.match(ballotPattern, params) # !callvote Elect a letter [a, b, c] numvotes
         choicesMatch = re.findall(choicePattern, params)
         if ballotMatch == None:
             ballotText = None
@@ -260,12 +260,11 @@ class DiscordBot:
             choices = choicesMatch
 
             try:
-                # maxVoteCount = int(params.group(3))
-                maxVoteCount = len(choices)
-                if maxVoteCount < 1:
-                    maxVoteCount = 1
+                maxVoteCount = int(ballotMatch.group(2))
+                if maxVoteCount < 1 or maxVoteCount > len(choices):
+                    maxVoteCount = len(choices)
             except:
-                maxVoteCount = 1
+                maxVoteCount = len(choices)
 
         if ballotText is None:
             helpfulMessage = "You need text for your referendum! Try `{}`".format(self.buildCommandHint(self.commandMap['callvote']))
@@ -276,7 +275,7 @@ class DiscordBot:
             return
         if len(choices) == 0:
             helpfulMessage = "You need choices for your referendum! Try `{}`".format(self.buildCommandHint(self.commandMap['callvote']))
-            if len(re.sub(votePattern, "", params)) != 0:
+            if len(re.sub(ballotPattern, "", params)) != 0:
                 helpfulMessage += "\n*Psst, Remember to surround your choices with `\"quotes\"`!*"
             await message.channel.send(helpfulMessage)
             return
