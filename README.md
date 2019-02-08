@@ -10,15 +10,9 @@ https://stackoverflow.com/questions/51196568/create-task-asyncio-async-syntaxerr
 To add a bot to a channel: https://discordapp.com/oauth2/authorize?&client_id=YOUR_CLIENT_ID_HERE&scope=bot&permissions=0
 
 ## To Do
-* Mother
-  * DM Caius on unexpected shutdown
-  * Children not in threads, call bot.run() inside wrapper that handles timeout error
-  * task exception collection
-  * inherit from generic
 * Generic
   * Need a better pattern for persisting data
   * Regular expressions for command matching
-  * finish voting feature
-    * executeVote, callRaffle
+  * pass message to permissions checking function
 * Logging
 * Daemon/Cronjob

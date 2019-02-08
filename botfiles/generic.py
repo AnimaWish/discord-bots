@@ -82,12 +82,23 @@ class DiscordBot:
     ###################
 
     async def getHelp(self, message, params):
-        helpMessage = "*{}*\n\n**Available Commands:**\n".format(self.greeting)
+        foundCommand = False
         for name, cmd in sorted(self.commandMap.items()):
-            if cmd.permission(message.author) and len(cmd.helpMessage) > 0:
-                helpMessage += "    `{}` - {}\n".format(self.buildCommandHint(cmd), cmd.helpMessage)
+            if params == name:
+                foundCommand = True
+                if not cmd.permission(message.author):
+                    helpMessage = "You do not have permission for that command! try just `!help`."
+                else:
+                    helpMessage = "    `{}` - {}\n".format(self.buildCommandHint(cmd), cmd.helpMessage)
+                break
 
-        helpMessage += "\nHit up Wish#6215 for feature requests/bugs, or visit my repository at https://github.com/AnimaWish/discord-bots"
+        if not foundCommand:
+            helpMessage = "*{}*\n\n**Available Commands:**\n".format(self.greeting)
+            for name, cmd in sorted(self.commandMap.items()):
+                if cmd.permission(message.author) and len(cmd.helpMessage) > 0:
+                    helpMessage += "    `{}` - {}\n".format(self.buildCommandHint(cmd), cmd.helpMessage)
+
+            helpMessage += "\nHit up Wish#6215 for feature requests/bugs, or visit my repository at https://github.com/AnimaWish/discord-bots"
 
         await message.channel.send(helpMessage)
 
