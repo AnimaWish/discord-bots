@@ -24,8 +24,7 @@ class BotCommand:
             raise PermissionError("{}#{}:({})".format(message.author.name, message.author.discriminator, message.author.id))
 
 class DiscordBot:
-    WISH_USER_ID = '199401793032028160'
-    LOGS_CHANNEL_ID = '450171692954943488'
+    WISH_USER_ID = 199401793032028160
 
     MAX_DICE = 1000000
 
@@ -406,11 +405,6 @@ class DiscordBot:
     ###################
     #  Event Methods  #
     ###################
-
-    async def logToChannel(self, message):
-        #await self.client.send_message(self.client.get_server(DiscordBot.LOGS_SERVER_ID).get_channel(DiscordBot.LOGS_CHANNEL_ID), message)
-        print("{}: {}".format(self.client.user.name, message))
-
     async def on_ready(self):
         print('Logged in as {} ({})'.format(self.client.user.name, self.client.user.id))
         print('------')
