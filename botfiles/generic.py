@@ -261,7 +261,7 @@ class DiscordBot:
 
             try:
                 # maxVoteCount = int(params.group(3))
-                maxVoteCount = 1
+                maxVoteCount = len(choices)
                 if maxVoteCount < 1:
                     maxVoteCount = 1
             except:
@@ -288,11 +288,14 @@ class DiscordBot:
             for i, choice in enumerate(referendum.choices):
                 ballotMessage = "{}\n{} {}".format(ballotMessage, referendum.emojiMap[i], choice)
 
-            helpMessage = "You have one vote: your MOST RECENT vote will be the one that is counted."
-            if maxVoteCount > 1:
-                helpMessage = "You have {} votes: your MOST RECENT {} votes will be the ones that are counted.".format(referendum.maxVoteCount, referendum.maxVoteCount)
+            helpMessage = ""
+            if maxVoteCount != len(choices):
+                if maxVoteCount == 1:
+                    helpMessage = " You have one vote: your MOST RECENT vote will be the one that is counted."
+                else:
+                    helpMessage = " You have {} votes: your MOST RECENT {} votes will be the ones that are counted.".format(referendum.maxVoteCount, referendum.maxVoteCount)
 
-            ballotMessage = ballotMessage + "\n\n*Click an emoji below to vote! " + helpMessage + "*"
+            ballotMessage = ballotMessage + "\n\n*Click an emoji below to vote!" + helpMessage + "*"
 
             return ballotMessage
 
