@@ -94,7 +94,7 @@ class ZenyattaBot(DiscordBot):
             channelName = "new event (rename me!)"
             eventMessage = params
             if channelNameMatch:
-                channelName = channelNameMatch.group(1)
+                channelName = re.sub("[^\w -]", "", channelNameMatch.group(1)) # purify the name of the channel
                 eventMessage = re.sub(channelNamePattern, "", params)
 
             if len(eventMessage) == 0:
@@ -121,7 +121,7 @@ class ZenyattaBot(DiscordBot):
                 topic = eventMessage,
             )
 
-            newChannelMessage = await newChannel.send("__**Event Submitted By:**__ {}\n__**Event Details:**__\n{}".format(message.author.mention, eventMessage))
+            newChannelMessage = await newChannel.send("__**Event Submitted By:**__ {}\n__**Event Details:**__\n{}\n@everyone".format(message.author.mention, eventMessage))
             await newChannelMessage.pin()
             if not channelNameMatch:
                 await newChannel.send("Hey {}! Make sure to give this channel a name relevant to your event :sparkles:".format(message.author.mention))
