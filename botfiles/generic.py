@@ -65,10 +65,6 @@ class DiscordBot:
 
         return False
 
-    @staticmethod
-    def memberIsWish(member):
-        return member.id == DiscordBot.WISH_USER_ID
-
     def buildCommandHint(self, command):
         commandHint = self.prefix + command.name
         if command.paramsHint is not None:
@@ -438,29 +434,29 @@ class DiscordBot:
     #     Startup     #
     ###################
 
-    @asyncio.coroutine
-    def checkForStopEvent(self):
-        while True:
-            if self._stop_event.is_set():
-                print("Stop signal received")
-                yield from self.client.logout()
-                break
-            try:
-                yield from asyncio.sleep(3)
-            except asyncio.CancelledError:
-                break
+    # @asyncio.coroutine
+    # def checkForStopEvent(self):
+    #     while True:
+    #         if self._stop_event.is_set():
+    #             print("Stop signal received")
+    #             yield from self.client.logout()
+    #             break
+    #         try:
+    #             yield from asyncio.sleep(3)
+    #         except asyncio.CancelledError:
+    #             break
 
-    @asyncio.coroutine
-    def canaryLog(self):
-        while True:
-            try:
-                yield from self.logToChannel(str(datetime.datetime.now()))
-                yield from asyncio.sleep(300)
-            except asyncio.CancelledError:
-                break
+    # @asyncio.coroutine
+    # def canaryLog(self):
+    #     while True:
+    #         try:
+    #             yield from self.logToChannel(str(datetime.datetime.now()))
+    #             yield from asyncio.sleep(300)
+    #         except asyncio.CancelledError:
+    #             break
 
-    def stop(self):
-        self._stop_event.set()
+    # def stop(self):
+    #     self._stop_event.set()
 
     def __init__(self, prefix="!", greeting="Hello", farewell="Goodbye"):
         self.loop = asyncio.get_event_loop()
@@ -482,6 +478,8 @@ class DiscordBot:
 
         self.addCommand('callvote', self.callVote,    lambda x: True, "Call a vote", "Kirk or Picard? \"Sheridan\", \"Adama\", \"Skywalker\"")
         self.addCommand('elect',    self.resolveVote, lambda x: True, "Count votes and decide a winner!")
+
+        self.addCommand('captain', self.chooseCaptain, lambda x: True, "Choose a random user from the current voice channel")
         
         self.client.event(self.on_ready)
         self.client.event(self.on_message)
@@ -491,21 +489,21 @@ class DiscordBot:
         #self._stop_event = threading.Event()
 
 
-    def run(self, token):      
-        print(self.greeting)
+    # def run(self, token):      
+    #     print(self.greeting)
 
-        checkForStopTask = self.loop.create_task(self.checkForStopEvent())
-        startTask = self.client.start(token)
-        wait_tasks = asyncio.wait([startTask])
+    #     checkForStopTask = self.loop.create_task(self.checkForStopEvent())
+    #     startTask = self.client.start(token)
+    #     wait_tasks = asyncio.wait([startTask])
 
-        try:
-            self.loop.run_until_complete(wait_tasks)
-        except KeyboardInterrupt:
-            checkForStopTask.cancel()
-        except Exception as e:
-            print("Exception: {}".format(e))
-        finally:
-            self.loop.run_until_complete(self.client.logout())
-            self.loop.close()
+    #     try:
+    #         self.loop.run_until_complete(wait_tasks)
+    #     except KeyboardInterrupt:
+    #         checkForStopTask.cancel()
+    #     except Exception as e:
+    #         print("Exception: {}".format(e))
+    #     finally:
+    #         self.loop.run_until_complete(self.client.logout())
+    #         self.loop.close()
 
-        print(self.farewell)
+    #     print(self.farewell)

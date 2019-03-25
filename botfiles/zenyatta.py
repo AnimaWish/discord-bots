@@ -20,43 +20,6 @@ class ZenyattaBot(DiscordBot):
     EVENTS_CHANNEL_ID = 542851422333567007
     EVENT_PLANNING_CATEGORY_ID = 542857613524598804
 
-    OVERWATCH_CHARACTERS = {
-        'offense': [
-            'Doomfist',
-            'Genji',
-            'McCree',
-            'Pharah',
-            'Reaper',
-            'Soldier: 76',
-            'Sombra',
-            'Tracer'
-        ],
-        'defense': [
-            'Bastion',
-            'Hanzo',
-            'Junkrat',
-            'Mei',
-            'Torbjörn',
-            'Widowmaker',
-        ],
-        'tank': [
-            'D.Va',
-            'Orisa',
-            'Reinhardt',
-            'Roadhog',
-            'Winston',
-            'Zarya'
-        ],
-        'support': [
-            'Ana',
-            'Brigitte',
-            'Lúcio',
-            'Mercy',
-            'Moira',
-            'Symmetra'
-        ]
-    }
-
     ###################
     #     Helpers     #
     ###################
@@ -135,11 +98,7 @@ class ZenyattaBot(DiscordBot):
     def __init__(self, prefix="!"):
         super().__init__(prefix, "Peace be upon you.", "Passing into the Iris.")
 
-        # self.addCommand('character', self.getRandomCharacter,                             lambda x: True,         "Get a random OW character from the selected roles",   "[offense|defense|tank|support|any]")
-        self.addCommand('captain',   self.chooseCaptain,                                  lambda x: True,         "Choose a random user from the current voice channel")
         self.addCommand('event',     self.createEvent,                                    lambda x: True, "Create an event", "[Event Name Here] whatever you want to say")
-        self.addCommand('bears',     lambda message, params: self.mentionGents(':bear:'), self.memberIsGentleman, ":bear:")
-        self.addCommand('pubg',      lambda message, params: self.mentionGents(':pubg:'), self.memberIsGentleman, ":b:")
 
     async def on_ready(self):
         await super().on_ready()
