@@ -3,11 +3,12 @@ import asyncio
 import random
 import re
 import os
-from .generic import DiscordBot
+from .vote import VoteBot
+from .events import EventBot
 import argparse
 import importlib
 
-class MettatonBot(DiscordBot):
+class MettatonBot(VoteBot, EventBot):
     ###################
     #    Constants    #
     ###################
@@ -43,8 +44,8 @@ class MettatonBot(DiscordBot):
         self.addCommand('pose',    self.getPose,       lambda x: True, "Strike a pose")
         self.addCommand('captain', self.chooseCaptain, lambda x: True, "Choose a random user from the current voice channel")
 
-    async def on_ready(self):
-        await super().on_ready()
+    # async def on_ready(self):
+    #     await super().on_ready()
 
     async def on_message(self, message):
         await super().on_message(message)

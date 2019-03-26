@@ -100,8 +100,8 @@ class ZenyattaBot(DiscordBot):
 
         self.addCommand('event',     self.createEvent,                                    lambda x: True, "Create an event", "[Event Name Here] whatever you want to say")
 
-    async def on_ready(self):
-        await super().on_ready()
+    # async def on_ready(self):
+    #     await super().on_ready()
 
     async def on_message(self, message):
         await super().on_message(message)

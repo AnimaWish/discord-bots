@@ -247,8 +247,10 @@ class PhilippeBot(DiscordBot):
 
         self.progressLogs = {} # Value is another dict with "name", "date", "updated"
 
+        self.addEventListener("on_ready", "philippeOnReady", self.on_ready)
+
     async def on_ready(self):
-        await super().on_ready()
+        # await super().on_ready()
         self.readLogs()
 
     async def on_message(self, message):
