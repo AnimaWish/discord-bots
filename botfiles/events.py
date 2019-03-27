@@ -27,9 +27,10 @@ emojiMap_reverse = {
 }
 
 class EventInfo:
-    def __init__(self, dateTime, channelID):
+    def __init__(self, dateTime, channelID, datetimeString):
         self.dateTime = int(dateTime)
         self.channelID = int(channelID)
+        self.humanDateTime = datetimeString
 
 class NotEventCategoryError(Exception):
     '''This is not in the events category'''
@@ -69,8 +70,15 @@ class EventBot(DiscordBot):
 
     # parse the bot code
     def decodeEventInfo(self, message):
-        pattern = "\`\$<(.+)>\`"
-        match = re.search(pattern, message)
+        timePattern = "\*\*When:\*\* (.+)\n"
+        match = re.search(timePattern, message)
+        if match == None:
+            print("failed to decode event info from message {\n" + message + "\n}")
+            return None
+        timeString = match.group(1)
+
+        codePattern = "\`\$<(.+)>\`"
+        match = re.search(codePattern, message)
         if match == None:
             print("failed to decode event info from message {\n" + message + "\n}")
             return None
@@ -78,7 +86,7 @@ class EventBot(DiscordBot):
         data = code.split(".")
         if len(data) != 2:
             return None
-        return EventInfo(data[0], data[1])
+        return EventInfo(data[0], data[1], timeString)
 
     # events are mapped message.id => Eventinfo{dateTime, channelID}
     # where message is the eventList message, and channelID is the channel associated with the event
@@ -87,10 +95,6 @@ class EventBot(DiscordBot):
             self.guildEventMap[guildID] = {}
             async for message in self.guildChannelMap[guildID][EVENT_LIST_CHANNEL_NAME].history():
                 self.guildEventMap[guildID][message.id] = self.decodeEventInfo(message.content)
-
-        print("Check it:")
-        print(self.guildEventMap)
-        print("--------")
 
     async def getConfigs(self):
         for guild in self.client.guilds:
@@ -137,6 +141,24 @@ class EventBot(DiscordBot):
 
         return str(timestamp)
 
+    # Given a channel ID, find the message in the event-list channel that corresponds to it
+    async def getEventMessageFromChannel(self, guildID, channelID):
+        # get the message ID in the event List
+        eventListMessageID = None
+        for messageID in self.guildEventMap[guildID].keys():
+            if self.guildEventMap[guildID][messageID].channelID == channelID:
+                eventListMessageID = messageID
+                break
+        if eventListMessageID == None:
+            raise EventNotFoundError
+
+        # get the message object
+        async for eventListMessage in self.guildChannelMap[guildID][EVENT_LIST_CHANNEL_NAME].history():
+            if eventListMessage.id == eventListMessageID:
+                return eventListMessage
+
+        raise EventNotFoundError
+
     # returns a map {
     #   'yes': [list, of, users],
     #   'no': [list, of, users],
@@ -146,22 +168,7 @@ class EventBot(DiscordBot):
         if channel.category_id != self.guildChannelMap[channel.guild.id][EVENTS_CATEGORY_NAME].id:
             raise NotEventCategoryError()
 
-        # get the message ID in the event List
-        eventListMessageID = None
-        for messageID in self.guildEventMap[channel.guild.id].keys():
-            if self.guildEventMap[channel.guild.id][messageID].channelID == channel.id:
-                eventListMessageID = messageID
-                break
-        if eventListMessageID == None:
-            raise EventNotFoundError
-
-        # get the message object
-        eventMessage = None
-        async for eventListMessage in self.guildChannelMap[channel.guild.id][EVENT_LIST_CHANNEL_NAME].history():
-            if eventListMessage.id == eventListMessageID:
-                eventMessage = eventListMessage
-        if eventMessage == None:
-            raise EventNotFoundError
+        eventMessage = await self.getEventMessageFromChannel(channel.guild.id, channel.id)
 
         # get the reactions off the message
         results = {}
@@ -196,11 +203,12 @@ class EventBot(DiscordBot):
     # !event `event-name` 1/2/19 7:00pm `here is a description`
     async def createEvent(self, message, params):
         if message.channel.id == self.guildChannelMap[message.guild.id][EVENT_CREATION_CHANNEL_NAME].id:
+            print (params)
             pattern = "\`(.+)\`\s+(.+)\s+\`(.+)\`"
-            match = re.match(pattern, params)
+            match = re.match(pattern, params, re.DOTALL)
 
             if not match:
-                await message.channel.send("Sorry, I didn't understand that at all. Make sure you have the correct format! ``!event `event name` 1/2/19 7:00pm `here is a description```")
+                await message.channel.send("Sorry, I didn't understand that at all. Make sure you have the correct format! ```!event `event name` 1/2/19 7:00pm `here is a description````")
                 return
 
             eventName = match.group(1)
@@ -236,7 +244,7 @@ class EventBot(DiscordBot):
                 name = channelName, 
                 overwrites = overwrites,
                 category = self.guildChannelMap[message.guild.id][EVENTS_CATEGORY_NAME],
-                topic = eventDetails,
+                topic = eventName,
             )
 
             eventListMessage = "**What:** {}\n".format(eventName) + "**When:** {}\n".format(eventDateTime_human) + "**Details:**\n{}\n".format(eventDetails) + self.encodeEventInfo(eventDateTime_bot, newChannel.id)
@@ -246,6 +254,7 @@ class EventBot(DiscordBot):
             await eventListMessage.add_reaction(emojiMap["no"])
             await eventListMessage.add_reaction(emojiMap["maybe"])
 
+            await self.getEvents()
         # newChannelMessage = await newChannel.send("__**Event Submitted By:**__ {}\n__**Event Details:**__\n{}\n@everyone".format(message.author.mention, eventMessage))
         # await newChannelMessage.pin()
         # if not channelNameMatch:
@@ -256,21 +265,58 @@ class EventBot(DiscordBot):
     async def getGuestList(self, message, params):
         try:
             results = await self.getUsersForEvent(message.channel)
+            responseTemplate = ":sparkles:**__Current Guest List__**:sparkles:\n:white_check_mark: **Going:**\n{}\n:no_entry_sign: **Not Going:**\n{}\n:grey_question: **Maybe:**\n{}"
+            rsvpLists = []
+            for memberList in [results['yes'], results['no'], results['maybe']]:
+                rsvpList = ""
+                for member in memberList:
+                    rsvpList += "- " + member.name + "\n"
+
+                rsvpLists.append(rsvpList)
+
+            response = responseTemplate.format(rsvpLists[0], rsvpLists[1], rsvpLists[2])
+            await message.channel.send(response)
+
         except NotEventCategoryError:
             await message.channel.send("This is not an event channel!")
         except EventNotFoundError:
             await message.channel.send("Something has gone horribly wrong, I don't know what event this is!")
 
-        responseTemplate = ":sparkles:**__Current Guest List__**:sparkles:\n:white_check_mark: **Going:**\n{}\n\n:no_entry_sign: **Not Going:**\n{}\n\n:grey_question: **Maybe:**\n{}"
-        rsvpLists = []
-        for memberList in [results['yes'], results['no'], results['maybe']]:
-            rsvpList = ""
-            for member in memberList:
-                rsvpList += "- " + member.name + "\n"
+    async def mentionGuests(self, message, params):
+        try:
+            results = await self.getUsersForEvent(message.channel)
 
-            rsvpLists.append(rsvpList)
+            pingList = results['yes'] + results['maybe']
 
-        response = responseTemplate.format(rsvpLists[0], rsvpLists[1], rsvpLists[2])
+            response = ""
+            for member in pingList:
+                response += member.mention + " "
+
+            if len(response) == 0:
+                response = "Nobody has RSVP'd :("
+
+            await message.channel.send(response)
+
+        except NotEventCategoryError:
+            await message.channel.send("This is not an event channel!")
+        except EventNotFoundError:
+            await message.channel.send("Something has gone horribly wrong, I don't know what event this is!")
+
+    async def listEvents(self, message, params):
+        events = []
+        for messageID in self.guildEventMap[message.channel.guild.id]:
+            event = self.guildEventMap[message.channel.guild.id][messageID]
+            if datetime.datetime.fromtimestamp(event.dateTime) > datetime.datetime.now():
+                dt = datetime.datetime.fromtimestamp(event.dateTime)
+                channel = message.channel.guild.get_channel(event.channelID)
+                if channel is not None:
+                    events.append(event.humanDateTime + " - " + channel.topic)
+
+        response = "There are no upcoming events!"
+        if len(events) > 0:
+            response = ":sparkles:__**Upcoming Events**__:sparkles:\n"
+            for eventString in events:
+                response += eventString + "\n"            
 
         await message.channel.send(response)
 
@@ -296,8 +342,11 @@ class EventBot(DiscordBot):
     def __init__(self, prefix="!", greeting="Hello", farewell="Goodbye"):
         super().__init__(prefix, "Peace be upon you.", "Passing into the Iris.")
 
-        self.addCommand('event', self.createEvent, lambda x: True, "Create an event", "`event-name` 1/2/19 7:00pm `here is a description`")
-        self.addCommand('guests', self.getGuestList, lambda x: True, "Get guest list",  "")
+        self.addCommand('event-create', self.createEvent, lambda x: True, "Create an event", "`event-name` 1/2/19 7:00pm `here is a description`")
+        self.addCommand('event-guests', self.getGuestList, lambda x: True, "Get guest list",  "")
+        self.addCommand('event-announce', self.mentionGuests, lambda x: True, "Pings everyone who has RSVP'd yes or maybe",  "")
+        self.addCommand('event-list', self.listEvents, lambda x: True, "List all upcoming events",  "")
+
 
         # self.addEventListener("on_reaction_add", "addReactionEvent", self.on_reaction_add_events)
         self.addEventListener("on_ready", "readyEvent", self.on_ready_events)
