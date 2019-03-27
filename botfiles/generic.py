@@ -217,15 +217,17 @@ class DiscordBot:
                     print("Insufficient permissions for user {}".format(err))
 
     async def on_reaction_add(self, reaction, user):
-        for listenerID in self.eventListeners["on_reaction_add"].keys():
-            await self.eventListeners["on_reaction_add"][listenerID](reaction, user)
+        if "on_reaction_add" in self.eventListeners:
+            for listenerID in self.eventListeners["on_reaction_add"].keys():
+                await self.eventListeners["on_reaction_add"][listenerID](reaction, user)
     #     if user.id != self.client.user.id and reaction.message.author.id == self.client.user.id:
     #         if reaction.message.id in self.currentReferendums:
     #             self.currentReferendums[reaction.message.id].addVote(user.id, reaction.emoji)
 
     async def on_reaction_remove(self, reaction, user):
-        for listenerID in self.eventListeners["on_reaction_remove"].keys():
-            await self.eventListeners["on_reaction_remove"][listenerID](reaction, user)
+        if "on_reaction_remove" in self.eventListeners:
+            for listenerID in self.eventListeners["on_reaction_remove"].keys():
+                await self.eventListeners["on_reaction_remove"][listenerID](reaction, user)
     #     if user.id != self.client.user.id and reaction.message.author.id == self.client.user.id:
     #         if reaction.message.id in self.currentReferendums:
     #             self.currentReferendums[reaction.message.id].removeVote(user.id, reaction.emoji)

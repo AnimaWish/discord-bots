@@ -26,6 +26,17 @@ emojiMap_reverse = {
     "❔": "maybe",
 }
 
+class EventInfo:
+    def __init__(self, dateTime, channelID):
+        self.dateTime = int(dateTime)
+        self.channelID = int(channelID)
+
+class NotEventCategoryError(Exception):
+    '''This is not in the events category'''
+
+class EventNotFoundError(Exception):
+    '''A connection is broken; either the eventList is missing an entry, or the events category is missing a channel'''
+
 class EventBot(DiscordBot):
     guildChannelMap = {}
 
@@ -36,30 +47,50 @@ class EventBot(DiscordBot):
     #     Helpers     #
     ###################
 
-    class EventInfo:
-        def __init__(self, dateTime, channelID):
-            self.dateTime = dateTime
-            self.channelID = channelID
+    # def encodeEventInfo(self, dateTime, channelID):
+    #     toEncode = str.encode(dateTime + "." + str(channelID))
+    #     return "`$<" + str(base64.b64encode(toEncode)) + ">`"
 
+    # # parse the bot code
+    # def decodeEventInfo(self, message):
+    #     pattern = "\`\$<b'(.+)'>\`"
+    #     match = re.search(pattern, message)
+    #     if match == None:
+    #         print("failed to decode event info from message {\n" + message + "\n}")
+    #         return
+    #     code = match.group(1)
+    #     result = base64.b64decode(str.encode(code))
+    #     data = str(result).split(".")
+    #     return EventInfo(data[0][2:], data[1][:-2]) #substrings because base64 str shit outputs b'whatwecareabout'
 
     def encodeEventInfo(self, dateTime, channelID):
-        toEncode = str.encode(dateTime + "." + str(channelID))
-        return "`$<" + str(base64.b64encode(toEncode)) + ">`"
+        code = dateTime + "." + str(channelID)
+        return "`$<" + code + ">`"
 
     # parse the bot code
     def decodeEventInfo(self, message):
-        pattern = "`$<(.+)>`"
-        match = re.match(pattern, message)
+        pattern = "\`\$<(.+)>\`"
+        match = re.search(pattern, message)
+        if match == None:
+            print("failed to decode event info from message {\n" + message + "\n}")
+            return None
         code = match.group(1)
-        result = base64.b64decode(code)
-        data = result.split(".")
+        data = code.split(".")
+        if len(data) != 2:
+            return None
         return EventInfo(data[0], data[1])
 
+    # events are mapped message.id => Eventinfo{dateTime, channelID}
+    # where message is the eventList message, and channelID is the channel associated with the event
     async def getEvents(self):
         for guildID in self.guildChannelMap.keys():
             self.guildEventMap[guildID] = {}
             async for message in self.guildChannelMap[guildID][EVENT_LIST_CHANNEL_NAME].history():
-                self.guildEventMap[guildID][message.id] = self.decodeEventInfo(message.contents)
+                self.guildEventMap[guildID][message.id] = self.decodeEventInfo(message.content)
+
+        print("Check it:")
+        print(self.guildEventMap)
+        print("--------")
 
     async def getConfigs(self):
         for guild in self.client.guilds:
@@ -106,39 +137,57 @@ class EventBot(DiscordBot):
 
         return str(timestamp)
 
-    async def getUsersForEvent(self, message):
-        if message.channel.category_id != self.guildChannelMap[message.guild.id][EVENTS_CATEGORY_NAME]:
-            return None
+    # returns a map {
+    #   'yes': [list, of, users],
+    #   'no': [list, of, users],
+    #   'maybe': [list, of, users]
+    # }
+    async def getUsersForEvent(self, channel):
+        if channel.category_id != self.guildChannelMap[channel.guild.id][EVENTS_CATEGORY_NAME].id:
+            raise NotEventCategoryError()
 
         # get the message ID in the event List
         eventListMessageID = None
-        for eventMessageID in self.guildEventMap[message.guild.id].keys():
-            if self.guildEventMap[message.guild.id][eventMessageID].channelID == message.channel.id:
-                eventListMessageID = eventMessageID
+        for messageID in self.guildEventMap[channel.guild.id].keys():
+            if self.guildEventMap[channel.guild.id][messageID].channelID == channel.id:
+                eventListMessageID = messageID
                 break
         if eventListMessageID == None:
-            return None
+            raise EventNotFoundError
 
         # get the message object
         eventMessage = None
-        async for message in self.guildChannelMap[message.guild.id][EVENT_LIST_CHANNEL_NAME].history():
-            if message.id == eventListMessageID:
-                eventMessage = message
+        async for eventListMessage in self.guildChannelMap[channel.guild.id][EVENT_LIST_CHANNEL_NAME].history():
+            if eventListMessage.id == eventListMessageID:
+                eventMessage = eventListMessage
         if eventMessage == None:
-            return None
+            raise EventNotFoundError
 
         # get the reactions off the message
         results = {}
         userVoteCounts = {}
         for reaction in eventMessage.reactions:
-            results[emojiMap_reverse[str(reaction)]] = []
+            reactionString = emojiMap_reverse[str(reaction)] # reaction is "✅", reactionString is "yes"
+            results[reactionString] = []
             async for user in reaction.users():
-                results[reaction].append(user)
+                if user.id == self.client.user.id:
+                    continue
+                results[reactionString].append(user)
                 if user.id not in userVoteCounts:
                     userVoteCounts[user.id] = 0
                 userVoteCounts[user.id] = userVoteCounts[user.id] + 1
 
+        # if someone answers multiple they become a maybe
+        maybes = []
+        for reactionString in ['yes', 'no']:
+            for i in range(len(results[reactionString])):
+                user = results[reactionString][i]
+                if userVoteCounts[user.id] > 1:
+                    maybes.append(user)
+                    results[reactionString].pop(i)
+        results['maybe'] = list(set(maybes) | set(results['maybe']))
 
+        return results
 
     ###################
     #    Commands     #
@@ -204,6 +253,27 @@ class EventBot(DiscordBot):
         else:
             await message.channel.send("You need to do this in an `#event-creation` channel")
 
+    async def getGuestList(self, message, params):
+        try:
+            results = await self.getUsersForEvent(message.channel)
+        except NotEventCategoryError:
+            await message.channel.send("This is not an event channel!")
+        except EventNotFoundError:
+            await message.channel.send("Something has gone horribly wrong, I don't know what event this is!")
+
+        responseTemplate = ":sparkles:**__Current Guest List__**:sparkles:\n:white_check_mark: **Going:**\n{}\n\n:no_entry_sign: **Not Going:**\n{}\n\n:grey_question: **Maybe:**\n{}"
+        rsvpLists = []
+        for memberList in [results['yes'], results['no'], results['maybe']]:
+            rsvpList = ""
+            for member in memberList:
+                rsvpList += "- " + member.name + "\n"
+
+            rsvpLists.append(rsvpList)
+
+        response = responseTemplate.format(rsvpLists[0], rsvpLists[1], rsvpLists[2])
+
+        await message.channel.send(response)
+
     ###################
     #     Events      #
     ###################
@@ -213,9 +283,8 @@ class EventBot(DiscordBot):
     async def on_ready_events(self):
         await self.getConfigs()
 
-    # async def on_reaction_add_events(self, reaction, user):
-    #     print(reaction.emoji)
-    #     print("reaction added 2")
+    #async def on_reaction_add_events(self, reaction, user):
+
         # if user.id != self.client.user.id and reaction.message.author.id == self.client.user.id:
         #     if reaction.message.id in self.currentReferendums:
         #         self.currentReferendums[reaction.message.id].addVote(user.id, reaction.emoji)
@@ -227,7 +296,8 @@ class EventBot(DiscordBot):
     def __init__(self, prefix="!", greeting="Hello", farewell="Goodbye"):
         super().__init__(prefix, "Peace be upon you.", "Passing into the Iris.")
 
-        self.addCommand('event', self.createEvent, lambda x: True, "Create an event", "[Event Name Here] whatever you want to say")
+        self.addCommand('event', self.createEvent, lambda x: True, "Create an event", "`event-name` 1/2/19 7:00pm `here is a description`")
+        self.addCommand('guests', self.getGuestList, lambda x: True, "Get guest list",  "")
 
-        #self.addEventListener("on_reaction_add", "addReactionEvent", self.on_reaction_add_events)
+        # self.addEventListener("on_reaction_add", "addReactionEvent", self.on_reaction_add_events)
         self.addEventListener("on_ready", "readyEvent", self.on_ready_events)

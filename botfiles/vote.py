@@ -229,8 +229,7 @@ class VoteBot(DiscordBot):
     #     Events      #
     ###################
 
-    async def _on_reaction_add_vote(self, reaction, user):
-        print("reaction added 1")
+    async def on_reaction_add_vote(self, reaction, user):
         if user.id != self.client.user.id and reaction.message.author.id == self.client.user.id:
             if reaction.message.id in self.currentReferendums:
                 self.currentReferendums[reaction.message.id].addVote(user.id, reaction.emoji)
@@ -252,5 +251,5 @@ class VoteBot(DiscordBot):
         self.addCommand('elect',    self.resolveVote, lambda x: True, "Count votes and decide a winner!")
 
         
-        #self.addEventListener("on_reaction_add",    "voteEventAdd",    self.on_reaction_add)
-        self.addEventListener("on_reaction_remove", "voteEventRemove", self.on_reaction_remove)
+        #self.addEventListener("on_reaction_add",    "voteEventAdd",    self.on_reaction_add_vote)
+        self.addEventListener("on_reaction_remove", "voteEventRemove", self.on_reaction_remove_vote)
