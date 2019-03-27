@@ -26,9 +26,12 @@ emojiMap_reverse = {
     "❔": "maybe",
 }
 
+TIME_PATTERN = "\*\*When:\*\* (.+)\n"
+TIME_FMT = "**When:** {}\n"
+
 class EventInfo:
-    def __init__(self, dateTime, channelID, datetimeString):
-        self.dateTime = int(dateTime)
+    def __init__(self, channelID, datetimeString):
+        #self.dateTime = int(dateTime)
         self.channelID = int(channelID)
         self.humanDateTime = datetimeString
 
@@ -64,14 +67,37 @@ class EventBot(DiscordBot):
     #     data = str(result).split(".")
     #     return EventInfo(data[0][2:], data[1][:-2]) #substrings because base64 str shit outputs b'whatwecareabout'
 
+    # def encodeEventInfo(self, dateTime, channelID):
+    #     code = dateTime + "." + str(channelID)
+    #     return "`$<" + code + ">`"
+
+    # # parse the bot code
+    # def decodeEventInfo(self, message):
+    #     TIME_PATTERN = "\*\*When:\*\* (.+)\n"
+    #     match = re.search(TIME_PATTERN, message)
+    #     if match == None:
+    #         print("failed to decode event info from message {\n" + message + "\n}")
+    #         return None
+    #     timeString = match.group(1)
+
+    #     codePattern = "\`\$<(.+)>\`"
+    #     match = re.search(codePattern, message)
+    #     if match == None:
+    #         print("failed to decode event info from message {\n" + message + "\n}")
+    #         return None
+    #     code = match.group(1)
+    #     data = code.split(".")
+    #     if len(data) != 2:
+    #         return None
+    #     return EventInfo(data[0], data[1], timeString)
+
     def encodeEventInfo(self, dateTime, channelID):
-        code = dateTime + "." + str(channelID)
+        code = str(channelID)
         return "`$<" + code + ">`"
 
     # parse the bot code
     def decodeEventInfo(self, message):
-        timePattern = "\*\*When:\*\* (.+)\n"
-        match = re.search(timePattern, message)
+        match = re.search(TIME_PATTERN, message)
         if match == None:
             print("failed to decode event info from message {\n" + message + "\n}")
             return None
@@ -84,9 +110,9 @@ class EventBot(DiscordBot):
             return None
         code = match.group(1)
         data = code.split(".")
-        if len(data) != 2:
+        if len(data) != 1:
             return None
-        return EventInfo(data[0], data[1], timeString)
+        return EventInfo(channelID=data[0], datetimeString=timeString)
 
     # events are mapped message.id => Eventinfo{dateTime, channelID}
     # where message is the eventList message, and channelID is the channel associated with the event
@@ -94,7 +120,9 @@ class EventBot(DiscordBot):
         for guildID in self.guildChannelMap.keys():
             self.guildEventMap[guildID] = {}
             async for message in self.guildChannelMap[guildID][EVENT_LIST_CHANNEL_NAME].history():
-                self.guildEventMap[guildID][message.id] = self.decodeEventInfo(message.content)
+                result = self.decodeEventInfo(message.content)
+                if result is not None:
+                    self.guildEventMap[guildID][message.id] = result
 
     async def getConfigs(self):
         for guild in self.client.guilds:
@@ -116,7 +144,7 @@ class EventBot(DiscordBot):
 
         await self.getEvents()
 
-
+    # checks that the time is in an accepted format
     def parseDateTime(self, string):
         dateFormats = [
             "%m/%d/%y %I:%M%p",
@@ -129,23 +157,30 @@ class EventBot(DiscordBot):
             "%m/%d/%Y at %I:%M %p",
         ]
 
-        timestamp = None
+
         for dfmt in dateFormats:
             try:
                 dt = datetime.datetime.strptime(string, dfmt)
-                timestamp = int((dt - datetime.datetime(1970, 1, 1)) / datetime.timedelta(seconds=1))
-                timestamp = timestamp
-                break
+                return dt
             except ValueError:
-                timestamp = None
+                pass
 
-        return str(timestamp)
+        return None
+
+    def fetchDateTimeFromEventListMessageContents(self, message):
+        match = re.search(TIME_PATTERN, message)
+        if match == None:
+            print("failed to decode event info from message {\n" + message + "\n}")
+            return None
+        timeString = match.group(1)
+
+        return timeString
 
     # Given a channel ID, find the message in the event-list channel that corresponds to it
     async def getEventMessageFromChannel(self, guildID, channelID):
         # get the message ID in the event List
         eventListMessageID = None
-        for messageID in self.guildEventMap[guildID].keys():
+        for messageID in self.guildEventMap[guildID]:
             if self.guildEventMap[guildID][messageID].channelID == channelID:
                 eventListMessageID = messageID
                 break
@@ -203,12 +238,11 @@ class EventBot(DiscordBot):
     # !event `event-name` 1/2/19 7:00pm `here is a description`
     async def createEvent(self, message, params):
         if message.channel.id == self.guildChannelMap[message.guild.id][EVENT_CREATION_CHANNEL_NAME].id:
-            print (params)
-            pattern = "\`(.+)\`\s+(.+)\s+\`(.+)\`"
+            pattern = "(.+)\s+(\d+\/\d+\/\d+ \d+:\d+\s*\w[mM])\s+(.+)"
             match = re.match(pattern, params, re.DOTALL)
 
             if not match:
-                await message.channel.send("Sorry, I didn't understand that at all. Make sure you have the correct format! ```!event `event name` 1/2/19 7:00pm `here is a description````")
+                await message.channel.send("Sorry, I didn't understand that at all. Make sure you have the correct format! ```!event Cool Party!!! 1/2/19 7:00pm This is the description of your party!```")
                 return
 
             eventName = match.group(1)
@@ -247,7 +281,7 @@ class EventBot(DiscordBot):
                 topic = eventName,
             )
 
-            eventListMessage = "**What:** {}\n".format(eventName) + "**When:** {}\n".format(eventDateTime_human) + "**Details:**\n{}\n".format(eventDetails) + self.encodeEventInfo(eventDateTime_bot, newChannel.id)
+            eventListMessage = "**What:** {}\n".format(eventName) + TIME_FMT.format(eventDateTime_human) + "**Details:**\n{}\n".format(eventDetails) + self.encodeEventInfo(eventDateTime_bot, newChannel.id)
 
             eventListMessage = await self.guildChannelMap[message.guild.id][EVENT_LIST_CHANNEL_NAME].send(eventListMessage)
             await eventListMessage.add_reaction(emojiMap["yes"])
@@ -255,10 +289,6 @@ class EventBot(DiscordBot):
             await eventListMessage.add_reaction(emojiMap["maybe"])
 
             await self.getEvents()
-        # newChannelMessage = await newChannel.send("__**Event Submitted By:**__ {}\n__**Event Details:**__\n{}\n@everyone".format(message.author.mention, eventMessage))
-        # await newChannelMessage.pin()
-        # if not channelNameMatch:
-        #     await newChannel.send("Hey {}! Make sure to give this channel a name relevant to your event :sparkles:".format(message.author.mention))
         else:
             await message.channel.send("You need to do this in an `#event-creation` channel")
 
@@ -306,8 +336,12 @@ class EventBot(DiscordBot):
         events = []
         for messageID in self.guildEventMap[message.channel.guild.id]:
             event = self.guildEventMap[message.channel.guild.id][messageID]
-            if datetime.datetime.fromtimestamp(event.dateTime) > datetime.datetime.now():
-                dt = datetime.datetime.fromtimestamp(event.dateTime)
+            dt = self.parseDateTime(event.humanDateTime)
+            if dt == None:
+                await message.channel.send("Something has gone horribly wrong, I forgot what time an event starts!")
+                return
+
+            if dt > datetime.datetime.now():
                 channel = message.channel.guild.get_channel(event.channelID)
                 if channel is not None:
                     events.append(event.humanDateTime + " - " + channel.topic)
@@ -319,6 +353,40 @@ class EventBot(DiscordBot):
                 response += eventString + "\n"            
 
         await message.channel.send(response)
+
+    async def updateEventDate(self, message, params):
+        try:
+            eventMessage = await self.getEventMessageFromChannel(message.channel.guild.id, message.channel.id)
+
+            eventDateTime_bot = self.parseDateTime(params)
+            if eventDateTime_bot == None:
+                await message.channel.send("Sorry, I couldn't read when the party starts! Make sure you match the format `1/2/19 7:00pm` precisely.")
+                return
+
+            newEventMessageContent = re.sub(TIME_PATTERN, TIME_FMT.format(params), eventMessage.content, 1)
+            await eventMessage.edit(content=newEventMessageContent)
+            await self.getEvents()
+            await self.appendEventDescription(message, "Updated Start Time")
+
+        except NotEventCategoryError:
+            await message.channel.send("This is not an event channel!")
+        except EventNotFoundError:
+            await message.channel.send("Something has gone horribly wrong, I don't know what event this is!")
+
+    # make sure to use params and not message.content
+    async def appendEventDescription(self, message, params):
+        try:
+            eventMessage = await self.getEventMessageFromChannel(message.channel.guild.id, message.channel.id)
+
+            if len(params) == 0:
+                await message.channel.send("Speak up!")
+
+            await eventMessage.edit(content=eventMessage.content + "\nEdit: " + params + "\n")
+
+        except NotEventCategoryError:
+            await message.channel.send("This is not an event channel!")
+        except EventNotFoundError:
+            await message.channel.send("Something has gone horribly wrong, I don't know what event this is!")
 
     ###################
     #     Events      #
@@ -342,10 +410,13 @@ class EventBot(DiscordBot):
     def __init__(self, prefix="!", greeting="Hello", farewell="Goodbye"):
         super().__init__(prefix, "Peace be upon you.", "Passing into the Iris.")
 
-        self.addCommand('event-create', self.createEvent, lambda x: True, "Create an event", "`event-name` 1/2/19 7:00pm `here is a description`")
+        self.addCommand('event-create', self.createEvent, lambda x: True, "Create an event", "cool party name! 1/2/19 7:00pm here is a description")
         self.addCommand('event-guests', self.getGuestList, lambda x: True, "Get guest list",  "")
         self.addCommand('event-announce', self.mentionGuests, lambda x: True, "Pings everyone who has RSVP'd yes or maybe",  "")
         self.addCommand('event-list', self.listEvents, lambda x: True, "List all upcoming events",  "")
+        self.addCommand('event-time', self.updateEventDate, lambda x: True, "Update the time of the event",  "")
+        self.addCommand('event-date', self.updateEventDate, lambda x: True, "",  "")
+        self.addCommand('event-update', self.appendEventDescription, lambda x: True, "Add more information to the event listing", "")
 
 
         # self.addEventListener("on_reaction_add", "addReactionEvent", self.on_reaction_add_events)
