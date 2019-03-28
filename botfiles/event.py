@@ -194,6 +194,9 @@ class EventBot(DiscordBot):
 
     async def createEvent(self, message, params):
         if message.channel.id == self.guildChannelMap[message.guild.id][EVENT_CREATION_CHANNEL_NAME].id:
+            if len(params) == 0:
+                await message.channel.send("You need three things to create an event: a name, a time, and a description.\n Try something like this: `!event-create cool party name 1/2/19 7:00pm here is a description`")
+                return
             # Parse out the time first
             dateTimePattern = "\d+\/\d+\/\d+\s+(at\s*)?\d+(:\d+)?\s*\w[mM]"
             dateTimeMatch = re.search(dateTimePattern, params)
