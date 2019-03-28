@@ -210,7 +210,7 @@ class EventBot(DiscordBot):
                 return
 
             # Get the rest of the information for the party
-            pattern = "(.+\s+)?(\d\/.+[mM])(\s+(.+))?"
+            pattern = "(.+\s+)?{}(\s+.+)?".format(dateTimePattern)
             match = re.match(pattern, params, re.DOTALL)
             if not match:
                 await message.channel.send("Sorry, I didn't understand that at all. Make sure you have the correct format! ```!event Cool Party!!! 1/2/19 7:00pm This is the description of your party!```")
@@ -228,9 +228,11 @@ class EventBot(DiscordBot):
 
             # Get the event details
             eventDetails = match.group(4)
-            if eventDetails == None or len(eventDetails) < 2:
+            if eventDetails == None or len(eventDetails.strip()) == 0:
                 await message.channel.send("Sorry, what was your party about? Add a description!")
                 return
+
+            eventDetails = eventDetails.strip()
 
             # Create the new channel
             robotRole = message.guild.me.top_role.id
