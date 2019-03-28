@@ -123,11 +123,6 @@ class DiscordBot:
             
         await message.channel.send(random.choice(DiscordBot.CHOICE_STRINGS).format(random.choice(theList).strip()))
 
-    captainData = {
-        'lastUpdate': datetime.datetime.fromordinal(1),
-        'captains': {}
-    }
-
     async def chooseCaptain(self, message, params):
         if message.author.voice == None or message.author.voice.channel == None:
             await message.channel.send("You are not in a voice channel!")
@@ -237,3 +232,8 @@ class DiscordBot:
         self.client.event(self.on_message)
         self.client.event(self.on_reaction_add)
         self.client.event(self.on_reaction_remove)
+
+        self.captainData = {
+            'lastUpdate': datetime.datetime.fromordinal(1),
+            'captains': {}
+        }

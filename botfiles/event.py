@@ -42,9 +42,6 @@ class EventNotFoundError(Exception):
     '''A connection is broken; either the eventList is missing an entry, or the events category is missing a channel'''
 
 class EventBot(DiscordBot):
-    guildChannelMap = {}
-    guildEventMap = {}
-
     ###################
     #     Helpers     #
     ###################
@@ -387,3 +384,6 @@ class EventBot(DiscordBot):
         self.addCommand('event-time', self.updateEventDate, lambda x: True, "Update the time of the event",  "4/20/19 7:00pm")
         self.addCommand('event-date', self.updateEventDate, lambda x: True, "",  "")
         self.addCommand('event-update', self.appendEventDescription, lambda x: True, "Add more information to the event listing", "new information for your event")
+
+        self.guildChannelMap = {}
+        self.guildEventMap = {}
