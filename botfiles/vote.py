@@ -71,8 +71,6 @@ class VoteBot(DiscordBot):
                         self.votes[userID].pop(voteIndex)
                         return
 
-
-    currentReferendums = {} #currentReferendums[message.ID] = Referendum
     # !callvote Send a manned mission to mars. [yes, no, give money to the rich]
     async def callVote(self, message, params):
         for messageID in self.currentReferendums:
@@ -133,7 +131,7 @@ class VoteBot(DiscordBot):
 
         postedMessage = await message.channel.send(constructBallotMessage(referendum))
 
-        self.currentReferendums[postedMessage.id] = referendum        
+        self.currentReferendums[postedMessage.id] = referendum
 
         # Add the ballot options as reactions. If we get a Forbidden error, that means that people added extra reactions before the bot could finish adding them.
         # In that case, we're going to adjust the ballot to use their reactions as options.
@@ -162,6 +160,7 @@ class VoteBot(DiscordBot):
                 noReferendum = False
                 referendum = self.currentReferendums[messageID]
                 referendumKey = messageID
+                break
         if noReferendum:
             await message.channel.send("You don't have a referendum on the floor! Type `{}` to start a vote!".format(self.buildCommandHint(self.commandMap['callvote'])))
             return
@@ -222,7 +221,7 @@ class VoteBot(DiscordBot):
 
         await resultsMessage.edit(content=resultMessageText + "\n\n" + wrapperString)
 
-        self.currentReferendums.pop(referendumKey)
+        self.currentReferendums.pop(referendumKey, None)
 
 
     ###################
@@ -236,7 +235,7 @@ class VoteBot(DiscordBot):
                 self.currentReferendums[reaction.message.id].addVote(user.id, reaction.emoji)
 
     async def on_reaction_remove(self, reaction, user):
-        await super().on_reaction_remove()
+        await super().on_reaction_remove(reaction, user)
         if user.id != self.client.user.id and reaction.message.author.id == self.client.user.id:
             if reaction.message.id in self.currentReferendums:
                 self.currentReferendums[reaction.message.id].removeVote(user.id, reaction.emoji)
@@ -251,3 +250,4 @@ class VoteBot(DiscordBot):
 
         self.addCommand('callvote', self.callVote,    lambda x: True, "Call a vote", "Kirk or Picard? \"Sheridan\", \"Adama\", \"Skywalker\"")
         self.addCommand('elect',    self.resolveVote, lambda x: True, "Count votes and decide a winner!")
+        self.currentReferendums = {} #currentReferendums[message.ID] = Referendum
