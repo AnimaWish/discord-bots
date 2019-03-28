@@ -4,11 +4,10 @@ import random
 import re
 import os
 from .vote import VoteBot
-from .events import EventBot
 import argparse
 import importlib
 
-class MettatonBot(VoteBot, EventBot):
+class MettatonBot(VoteBot):
     ###################
     #    Constants    #
     ###################
@@ -42,13 +41,6 @@ class MettatonBot(VoteBot, EventBot):
         super().__init__(prefix, "OHHH YES!", "GUESS YOU DON'T WANT TO JOIN MY FAN CLUB...?")
 
         self.addCommand('pose',    self.getPose,       lambda x: True, "Strike a pose")
-        self.addCommand('captain', self.chooseCaptain, lambda x: True, "Choose a random user from the current voice channel")
-
-    # async def on_ready(self):
-    #     await super().on_ready()
-
-    async def on_message(self, message):
-        await super().on_message(message)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Mettaton Bot')

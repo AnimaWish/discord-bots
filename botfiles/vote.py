@@ -229,12 +229,14 @@ class VoteBot(DiscordBot):
     #     Events      #
     ###################
 
-    async def on_reaction_add_vote(self, reaction, user):
+    async def on_reaction_add(self, reaction, user):
+        await super().on_reaction_add(reaction, user)
         if user.id != self.client.user.id and reaction.message.author.id == self.client.user.id:
             if reaction.message.id in self.currentReferendums:
                 self.currentReferendums[reaction.message.id].addVote(user.id, reaction.emoji)
 
-    async def on_reaction_remove_vote(self, reaction, user):
+    async def on_reaction_remove(self, reaction, user):
+        await super().on_reaction_remove()
         if user.id != self.client.user.id and reaction.message.author.id == self.client.user.id:
             if reaction.message.id in self.currentReferendums:
                 self.currentReferendums[reaction.message.id].removeVote(user.id, reaction.emoji)
@@ -249,7 +251,3 @@ class VoteBot(DiscordBot):
 
         self.addCommand('callvote', self.callVote,    lambda x: True, "Call a vote", "Kirk or Picard? \"Sheridan\", \"Adama\", \"Skywalker\"")
         self.addCommand('elect',    self.resolveVote, lambda x: True, "Count votes and decide a winner!")
-
-        
-        #self.addEventListener("on_reaction_add",    "voteEventAdd",    self.on_reaction_add_vote)
-        self.addEventListener("on_reaction_remove", "voteEventRemove", self.on_reaction_remove_vote)

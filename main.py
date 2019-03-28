@@ -17,9 +17,9 @@ def fetchToken(botName):
 
 if __name__ == "__main__":
     bots = {
-       # "philippe": botfiles.PhilippeBot(),
+        "philippe": botfiles.PhilippeBot(),
         "mettaton": botfiles.MettatonBot(),
-      #  "zenyatta": botfiles.ZenyattaBot(),
+        "zenyatta": botfiles.ZenyattaBot(),
     }
 
     loop = asyncio.get_event_loop()

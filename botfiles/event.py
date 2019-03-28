@@ -365,9 +365,13 @@ class EventBot(DiscordBot):
     # Need to namespace event functions
     #
 
-    async def on_ready_events(self):
+    async def on_ready(self):
+        await super().on_ready()
         self.getConfigs()
         await self.getEvents()
+
+    async def on_reaction_add(self, reaction, user):
+        await super().on_reaction_add(reaction, user)
 
     ###################
     #   Bot Methods   #
@@ -383,6 +387,3 @@ class EventBot(DiscordBot):
         self.addCommand('event-time', self.updateEventDate, lambda x: True, "Update the time of the event",  "4/20/19 7:00pm")
         self.addCommand('event-date', self.updateEventDate, lambda x: True, "",  "")
         self.addCommand('event-update', self.appendEventDescription, lambda x: True, "Add more information to the event listing", "new information for your event")
-
-        # self.addEventListener("on_reaction_add", "addReactionEvent", self.on_reaction_add_events)
-        self.addEventListener("on_ready", "readyEvent", self.on_ready_events)

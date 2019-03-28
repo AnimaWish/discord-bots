@@ -73,17 +73,6 @@ class DiscordBot:
         return commandHint
 
     ###################
-    #  Event Helpers  #
-    ###################
-
-    def addEventListener(self, eventName, eventId, func):
-        if eventName not in self.eventListeners:
-            self.eventListeners[eventName] = {}
-
-        self.eventListeners[eventName][eventId] = func
-
-
-    ###################
     #    Commands     #
     ###################
 
@@ -200,8 +189,6 @@ class DiscordBot:
     async def on_ready(self):
         print('Logged in as {} ({})'.format(self.client.user.name, self.client.user.id))
         print('------')
-        for listenerID in self.eventListeners["on_ready"].keys():
-            await self.eventListeners["on_ready"][listenerID]()
 
     async def on_message(self, message):
         commandPattern = "^{}\S+\s*".format(self.prefix)
@@ -217,53 +204,17 @@ class DiscordBot:
                     print("Insufficient permissions for user {}".format(err))
 
     async def on_reaction_add(self, reaction, user):
-        if "on_reaction_add" in self.eventListeners:
-            for listenerID in self.eventListeners["on_reaction_add"].keys():
-                await self.eventListeners["on_reaction_add"][listenerID](reaction, user)
-    #     if user.id != self.client.user.id and reaction.message.author.id == self.client.user.id:
-    #         if reaction.message.id in self.currentReferendums:
-    #             self.currentReferendums[reaction.message.id].addVote(user.id, reaction.emoji)
+        pass
 
     async def on_reaction_remove(self, reaction, user):
-        if "on_reaction_remove" in self.eventListeners:
-            for listenerID in self.eventListeners["on_reaction_remove"].keys():
-                await self.eventListeners["on_reaction_remove"][listenerID](reaction, user)
-    #     if user.id != self.client.user.id and reaction.message.author.id == self.client.user.id:
-    #         if reaction.message.id in self.currentReferendums:
-    #             self.currentReferendums[reaction.message.id].removeVote(user.id, reaction.emoji)
-
+        pass
 
     ###################
     #     Startup     #
     ###################
 
-    # @asyncio.coroutine
-    # def checkForStopEvent(self):
-    #     while True:
-    #         if self._stop_event.is_set():
-    #             print("Stop signal received")
-    #             yield from self.client.logout()
-    #             break
-    #         try:
-    #             yield from asyncio.sleep(3)
-    #         except asyncio.CancelledError:
-    #             break
-
-    # @asyncio.coroutine
-    # def canaryLog(self):
-    #     while True:
-    #         try:
-    #             yield from self.logToChannel(str(datetime.datetime.now()))
-    #             yield from asyncio.sleep(300)
-    #         except asyncio.CancelledError:
-    #             break
-
-    # def stop(self):
-    #     self._stop_event.set()
-
     def __init__(self, prefix="!", greeting="Hello", farewell="Goodbye"):
         self.loop = asyncio.get_event_loop()
-        #asyncio.set_event_loop(self.loop)
         self.client = discord.Client(loop=self.loop)
 
         self.prefix = prefix
@@ -280,34 +231,9 @@ class DiscordBot:
         self.addCommand('roll',     self.getDieRoll, lambda x: True, "Roll X Y-sided dice",                  "XdY")
         self.addCommand('choose',   self.chooseRand, lambda x: True, "Choose a random member from the list", "a,list,of,things")
 
-        self.addCommand('callvote', self.callVote,    lambda x: True, "Call a vote", "Kirk or Picard? \"Sheridan\", \"Adama\", \"Skywalker\"")
-        self.addCommand('elect',    self.resolveVote, lambda x: True, "Count votes and decide a winner!")
-
         self.addCommand('captain', self.chooseCaptain, lambda x: True, "Choose a random user from the current voice channel")
         
         self.client.event(self.on_ready)
         self.client.event(self.on_message)
         self.client.event(self.on_reaction_add)
         self.client.event(self.on_reaction_remove)
-
-        #self._stop_event = threading.Event()
-
-
-    # def run(self, token):      
-    #     print(self.greeting)
-
-    #     checkForStopTask = self.loop.create_task(self.checkForStopEvent())
-    #     startTask = self.client.start(token)
-    #     wait_tasks = asyncio.wait([startTask])
-
-    #     try:
-    #         self.loop.run_until_complete(wait_tasks)
-    #     except KeyboardInterrupt:
-    #         checkForStopTask.cancel()
-    #     except Exception as e:
-    #         print("Exception: {}".format(e))
-    #     finally:
-    #         self.loop.run_until_complete(self.client.logout())
-    #         self.loop.close()
-
-    #     print(self.farewell)
