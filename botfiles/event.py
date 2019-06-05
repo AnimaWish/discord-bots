@@ -216,7 +216,7 @@ class EventBot(DiscordBot):
             pattern = "(.+\s+)?{}(\s+.+)?".format(dateTimePattern)
             match = re.match(pattern, params, re.DOTALL)
             if not match:
-                await message.channel.send("Sorry, I didn't understand that at all. Make sure you have the correct format! ```!event Cool Party!!! 1/2/19 7:00pm This is the description of your party!```")
+                await message.channel.send("Sorry, I didn't understand that at all. Make sure you have the correct format! ```!event-create Cool Party!!! 1/2/19 7:00pm This is the description of your party!```") # TODO use buildCommandHint
                 return
 
             # Get the name of the event and generate the channel name from it
@@ -226,7 +226,7 @@ class EventBot(DiscordBot):
                 return
             channelName = re.sub("[^\w -]", "", eventName)
             if len(channelName) > MAX_EVENT_NAME_LENGTH:
-                await message.channel.send("Slow down bucko! Every good party has a succinct name!")
+                await message.channel.send("Slow down bucko! Keep that party name succinct!")
                 return
 
             # Get the event details
