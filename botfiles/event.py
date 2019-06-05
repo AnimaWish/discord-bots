@@ -239,13 +239,13 @@ class EventBot(DiscordBot):
 
             # Create the new channel
             robotRole = message.guild.me.top_role.id
-            overwrites = {
-                message.guild.default_role: discord.PermissionOverwrite(read_messages=False),
-                message.guild.get_role(robotRole): discord.PermissionOverwrite(read_messages=True),
-            }
+            # overwrites = {
+            #     message.guild.default_role: discord.PermissionOverwrite(read_messages=False),
+            #     message.guild.get_role(robotRole): discord.PermissionOverwrite(read_messages=True),
+            # }
             newChannel = await message.guild.create_text_channel(
                 name = channelName, 
-                overwrites = overwrites,
+                # overwrites = overwrites,
                 category = self.guildChannelMap[message.guild.id][EVENTS_CATEGORY_NAME],
                 topic = eventName,
             )
