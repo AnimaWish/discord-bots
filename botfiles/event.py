@@ -87,17 +87,20 @@ class EventBot(DiscordBot):
                     eventInfo = self.decodeEventInfo(message.content)
                     if eventInfo is not None:
                         channel = self.client.get_channel(eventInfo.channelID)
-                        self.guildEventMap[guildID][message.id] = eventInfo
+                        if channel is None:
+                            print("Could not import event, channel [" + str(eventInfo.channelID) + "] not found")
+                        elif channel.category_id == self.guildChannelMap[channel.guild.id][EVENTS_CATEGORY_NAME].id:
+                            self.guildEventMap[guildID][message.id] = eventInfo
 
-                        # migrate
-                        if eventInfo.messageID == -1:
-                            eventInfo.messageID = await self.generatePinnedInfoMessage(channel)
-                            await self.migrateEventListing(message, eventInfo)
+                            # migrate
+                            if eventInfo.messageID == -1:
+                                eventInfo.messageID = await self.generatePinnedInfoMessage(channel)
+                                await self.migrateEventListing(message, eventInfo)
 
-                        pinnedMessage = await channel.fetch_message(eventInfo.messageID)
-                        if not pinnedMessage.pinned:
-                            await channel.send("Who's the scoundrel unpinning my messages?")
-                            await pinnedMessage.pin()
+                            pinnedMessage = await channel.fetch_message(eventInfo.messageID)
+                            if not pinnedMessage.pinned:
+                                await channel.send("Who's the scoundrel unpinning my messages?")
+                                await pinnedMessage.pin()
 
     def getConfigs(self):
         for guild in self.client.guilds:
