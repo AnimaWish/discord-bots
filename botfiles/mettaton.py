@@ -4,10 +4,11 @@ import random
 import re
 import os
 from .vote import VoteBot
+from .event import EventBot
 import argparse
 import importlib
 
-class MettatonBot(VoteBot):
+class MettatonBot(EventBot, VoteBot):
     ###################
     #    Constants    #
     ###################
@@ -38,7 +39,7 @@ class MettatonBot(VoteBot):
     ###################
 
     def __init__(self, prefix="!"):
-        super().__init__(prefix, "OHHH YES!", "GUESS YOU DON'T WANT TO JOIN MY FAN CLUB...?")
+        super().__init__("%", "OHHH YES!", "GUESS YOU DON'T WANT TO JOIN MY FAN CLUB...?")
 
         self.addCommand('pose',    self.getPose,       lambda x: True, "Strike a pose")
 

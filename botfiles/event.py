@@ -28,11 +28,13 @@ emojiMap_reverse = {
 
 TIME_PATTERN = "\*\*When:\*\* (.+)\n"
 TIME_FMT = "**When:** {}\n"
+CODE_PATTERN = "\`\$<(.+)>\`"
 
 class EventInfo:
-    def __init__(self, channelID, datetimeString):
+    def __init__(self, channelID, messageID, datetimeString):
         #self.dateTime = int(dateTime)
         self.channelID = int(channelID)
+        self.messageID = int(messageID)
         self.humanDateTime = datetimeString
 
 class NotEventCategoryError(Exception):
@@ -46,8 +48,8 @@ class EventBot(DiscordBot):
     #     Helpers     #
     ###################
 
-    def encodeEventInfo(self,channelID):
-        code = str(channelID)
+    def encodeEventInfo(self, channelID, messageID):
+        code = str(channelID) + "." + str(messageID)
         return "`$<" + code + ">`"
 
     # parse the bot code
@@ -58,16 +60,22 @@ class EventBot(DiscordBot):
             return None
         timeString = match.group(1)
 
-        codePattern = "\`\$<(.+)>\`"
-        match = re.search(codePattern, message)
+        match = re.search(CODE_PATTERN, message)
         if match == None:
             print("failed to decode event info from message {\n" + message + "\n}")
             return None
         code = match.group(1)
         data = code.split(".")
-        if len(data) != 1:
+
+        if len(data) == 0 or len(data) > 2:
             return None
-        return EventInfo(channelID=data[0], datetimeString=timeString)
+
+        # backwards compat
+        messageID = -1
+        if len(data) > 1:
+            messageID = data[1]
+
+        return EventInfo(channelID=data[0], messageID = messageID, datetimeString=timeString)
 
     # events are mapped message.id => Eventinfo{dateTime, channelID}
     # where message is the eventList message, and channelID is the channel associated with the event
@@ -76,9 +84,20 @@ class EventBot(DiscordBot):
             self.guildEventMap[guildID] = {}
             async for message in self.guildChannelMap[guildID][EVENT_LIST_CHANNEL_NAME].history():
                 if message.author.id == self.client.user.id:
-                    result = self.decodeEventInfo(message.content)
-                    if result is not None:
-                        self.guildEventMap[guildID][message.id] = result
+                    eventInfo = self.decodeEventInfo(message.content)
+                    if eventInfo is not None:
+                        channel = self.client.get_channel(eventInfo.channelID)
+                        self.guildEventMap[guildID][message.id] = eventInfo
+
+                        # migrate
+                        if eventInfo.messageID == -1:
+                            eventInfo.messageID = await self.generatePinnedInfoMessage(channel)
+                            await self.migrateEventListing(message, eventInfo)
+
+                        pinnedMessage = await channel.fetch_message(eventInfo.messageID)
+                        if not pinnedMessage.pinned:
+                            await channel.send("Who's the scoundrel unpinning my messages?")
+                            await pinnedMessage.pin()
 
     def getConfigs(self):
         for guild in self.client.guilds:
@@ -124,6 +143,20 @@ class EventBot(DiscordBot):
                 pass
 
         return None
+
+    async def constructGuestList(self, channel):
+        results = await self.getUsersForEvent(channel)
+        responseTemplate = ":sparkles:**__Current Guest List__**:sparkles:\n:white_check_mark: **Going:**\n{}\n:no_entry_sign: **Not Going:**\n{}\n:grey_question: **Maybe:**\n{}"
+        rsvpLists = []
+        for memberList in [results['yes'], results['no'], results['maybe']]:
+            rsvpList = ""
+            for member in memberList:
+                rsvpList += "- " + member.name + "\n"
+
+            rsvpLists.append(rsvpList)
+
+        return responseTemplate.format(rsvpLists[0], rsvpLists[1], rsvpLists[2])
+        
 
     def fetchDateTimeFromEventListMessageContents(self, message):
         match = re.search(TIME_PATTERN, message)
@@ -189,6 +222,21 @@ class EventBot(DiscordBot):
 
         return results
 
+    async def generatePinnedInfoMessage(self, channel):
+        message = await channel.send(await self.constructGuestList(channel))
+        await message.pin()
+        return message.id
+
+    async def migrateEventListing(self, message, eventInfo):
+        match = re.search(CODE_PATTERN, message.content)
+        if match == None:
+            message.channel.send("oh god someone help me I can't see")
+
+        newContent = message.content[:match.start()] + self.encodeEventInfo(eventInfo.channelID, eventInfo.messageID) + message.content[match.end():]
+
+        await message.edit(content=newContent)
+
+
     ###################
     #    Commands     #
     ###################
@@ -251,8 +299,10 @@ class EventBot(DiscordBot):
                 topic = '@ ' + eventDateTime_human,
             )
 
+            newChannel.send()
+
             # Create the message for event-list channel
-            eventListMessage = "**What:** {}\n".format(eventName) + TIME_FMT.format(eventDateTime_human) + "**Details:**\n{}\n".format(eventDetails) + self.encodeEventInfo(newChannel.id)
+            eventListMessage = ":sparkles:**__New Event__**:sparkles:\n**What:** {}\n".format(eventName) + TIME_FMT.format(eventDateTime_human) + "**Channel:**{}\n".format(newChannel.mention) + "**Details:**\n{}\n".format(eventDetails) + self.encodeEventInfo(newChannel.id)
             eventListMessage = await self.guildChannelMap[message.guild.id][EVENT_LIST_CHANNEL_NAME].send(eventListMessage)
             await eventListMessage.add_reaction(emojiMap["yes"])
             await eventListMessage.add_reaction(emojiMap["no"])
@@ -265,19 +315,7 @@ class EventBot(DiscordBot):
 
     async def getGuestList(self, message, params):
         try:
-            results = await self.getUsersForEvent(message.channel)
-            responseTemplate = ":sparkles:**__Current Guest List__**:sparkles:\n:white_check_mark: **Going:**\n{}\n:no_entry_sign: **Not Going:**\n{}\n:grey_question: **Maybe:**\n{}"
-            rsvpLists = []
-            for memberList in [results['yes'], results['no'], results['maybe']]:
-                rsvpList = ""
-                for member in memberList:
-                    rsvpList += "- " + member.name + "\n"
-
-                rsvpLists.append(rsvpList)
-
-            response = responseTemplate.format(rsvpLists[0], rsvpLists[1], rsvpLists[2])
-            await message.channel.send(response)
-
+            await message.channel.send(self.constructGuestList(message.channel))
         except NotEventCategoryError:
             await message.channel.send("This is not an event channel!")
         except EventNotFoundError:
