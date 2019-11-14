@@ -14,7 +14,7 @@ A repo for Caius' Discord Bots
 * Add your bot to a channel by visiting `https://discordapp.com/oauth2/authorize?&client_id=YOUR_CLIENT_ID_HERE&scope=bot&permissions=0`
 * run `python3 main.py`
 
-discord.py API documentation: https://discordpy.readthedocs.io/en/rewrite/api.html
+discord.py API documentation: https://discordpy.readthedocs.io/
 
 ## To Do
 * Generic

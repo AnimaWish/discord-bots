@@ -248,7 +248,7 @@ class EventBot(DiscordBot):
                 name = channelName, 
                 # overwrites = overwrites,
                 category = self.guildChannelMap[message.guild.id][EVENTS_CATEGORY_NAME],
-                topic = eventName,
+                topic = '@ ' + eventDateTime_human,
             )
 
             # Create the message for event-list channel
@@ -339,6 +339,7 @@ class EventBot(DiscordBot):
             newEventMessageContent = re.sub(TIME_PATTERN, TIME_FMT.format(params), eventMessage.content, 1)
             await eventMessage.edit(content=newEventMessageContent)
             await self.getEvents()
+            await message.channel.edit(topic='@ ' + params)
             await self.appendEventDescription(message, "Updated Start Time")
 
         except NotEventCategoryError:
@@ -352,9 +353,11 @@ class EventBot(DiscordBot):
             eventMessage = await self.getEventMessageFromChannel(message.channel.guild.id, message.channel.id)
 
             if len(params) == 0:
-                await message.channel.send("Speak up!")
+                await message.channel.send("Speak up! What do you want me to add to the description?")
+                return
 
             await eventMessage.edit(content=eventMessage.content + "\nEdit: " + params + "\n")
+            await message.channel.send("Got it! Updated the event listing.")
 
         except NotEventCategoryError:
             await message.channel.send("This is not an event channel!")
