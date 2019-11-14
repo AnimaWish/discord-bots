@@ -75,8 +75,10 @@ class VoteBot(DiscordBot):
     async def callVote(self, message, params):
         for messageID in self.currentReferendums:
             if self.currentReferendums[messageID].initiatorID == message.author.id and not self.currentReferendums[messageID].closed:
-                await message.channel.send("You already have a referendum on the floor! Type `{}` to resolve the vote!".format(self.buildCommandHint(self.commandMap['elect'])))
-                return
+                await message.channel.send("You already have a referendum on the floor! I'll resolve that one first:\n")
+                await self.resolveVote(message, "")
+                await message.channel.send("And now for the new one:\n")
+                break
 
         ballotPattern = "([^\?]+\?)\s*(\d*)"
         choicePattern = "[,;\s]*\"([^\"]+)\""
