@@ -3,12 +3,12 @@ import asyncio
 import random
 import re
 import os
-from .vote import VoteBot
+from .simplevote import SimpleVoteBot
 from .event import EventBot
 import argparse
 import importlib
 
-class MettatonBot(EventBot, VoteBot):
+class MettatonBot(EventBot, SimpleVoteBot):
     ###################
     #    Constants    #
     ###################

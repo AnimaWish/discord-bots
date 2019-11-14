@@ -3,12 +3,12 @@ import asyncio
 import random
 import re
 from .generic import DiscordBot
-from .vote import VoteBot
+from .simplevote import SimpleVoteBot
 from .event import EventBot
 import argparse
 import importlib
 
-class ZenyattaBot(EventBot, VoteBot):
+class ZenyattaBot(EventBot, SimpleVoteBot):
     ###################
     #    Constants    #
     ###################

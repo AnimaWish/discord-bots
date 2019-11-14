@@ -43,7 +43,7 @@ class VoteBot(DiscordBot):
             if self.closed:
                 return
 
-            addedChoiceIndex = self.getChoiceFromEmoji(emoji)
+            addedChoiceIndex = self.getChoiceFromEmoji(emoji) # TODO this is broken
             if addedChoiceIndex is None:
                 return
 
@@ -230,17 +230,21 @@ class VoteBot(DiscordBot):
     #     Events      #
     ###################
 
-    async def on_reaction_add(self, reaction, user):
-        await super().on_reaction_add(reaction, user)
-        if user.id != self.client.user.id and reaction.message.author.id == self.client.user.id:
-            if reaction.message.id in self.currentReferendums:
-                self.currentReferendums[reaction.message.id].addVote(user.id, reaction.emoji)
+    async def on_raw_reaction_add(self, payload):
+        await super().on_raw_reaction_add(payload)
+        channel = self.client.get_channel(payload.channel_id)
+        message = await channel.fetch_message(payload.message_id)
+        if payload.user_id != self.client.user.id and message.author.id == self.client.user.id:
+            if payload.message_id in self.currentReferendums:
+                self.currentReferendums[payload.message_id].addVote(payload.user_id, payload.emoji)
 
-    async def on_reaction_remove(self, reaction, user):
-        await super().on_reaction_remove(reaction, user)
-        if user.id != self.client.user.id and reaction.message.author.id == self.client.user.id:
-            if reaction.message.id in self.currentReferendums:
-                self.currentReferendums[reaction.message.id].removeVote(user.id, reaction.emoji)
+    async def on_raw_reaction_remove(self, payload):
+        await super().on_raw_reaction_remove(payload)
+        channel = self.client.get_channel(payload.channel_id)
+        message = await channel.fetch_message(payload.message_id)
+        if payload.user_id != self.client.user.id and message.author.id == self.client.user.id:
+            if payload.message_id in self.currentReferendums:
+                self.currentReferendums[payload.message_id].removeVote(payload.user_id, payload.emoji)
 
 
     ###################
@@ -248,7 +252,7 @@ class VoteBot(DiscordBot):
     ###################
 
     def __init__(self, prefix="!", greeting="Hello", farewell="Goodbye"):
-        super().__init__(prefix, "Peace be upon you.", "Passing into the Iris.")
+        super().__init__(prefix, greeting, farewell)
 
         self.addCommand('callvote', self.callVote,    lambda x: True, "Call a vote", "Kirk or Picard? \"Sheridan\", \"Adama\", \"Skywalker\"")
         self.addCommand('elect',    self.resolveVote, lambda x: True, "Count votes and decide a winner!")

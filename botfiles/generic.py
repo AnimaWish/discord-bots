@@ -217,10 +217,10 @@ class DiscordBot:
                 except PermissionError as err:
                     print("Insufficient permissions for user {}".format(err))
 
-    async def on_reaction_add(self, reaction, user):
+    async def on_raw_reaction_add(self, payload):
         pass
 
-    async def on_reaction_remove(self, reaction, user):
+    async def on_raw_reaction_remove(self, payload):
         pass
 
     ###################
@@ -249,8 +249,8 @@ class DiscordBot:
         
         self.client.event(self.on_ready)
         self.client.event(self.on_message)
-        self.client.event(self.on_reaction_add)
-        self.client.event(self.on_reaction_remove)
+        self.client.event(self.on_raw_reaction_add)
+        self.client.event(self.on_raw_reaction_remove)
 
         self.captainData = {
             'lastUpdate': datetime.datetime.fromordinal(1),
