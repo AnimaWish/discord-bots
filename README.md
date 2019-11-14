@@ -21,6 +21,7 @@ discord.py API documentation: https://discordpy.readthedocs.io/en/rewrite/api.ht
   * Need a better pattern for persisting data
   * Regular expressions for command matching
   * pass message to permissions checking function
+  	* i can't remember why this is to do but this might still be a good idea
   * command pattern needs sub-commands
+  * better help message structure
 * Logging
-* Daemon/Cronjob

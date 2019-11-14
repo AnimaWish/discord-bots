@@ -75,9 +75,10 @@ class EventBot(DiscordBot):
         for guildID in self.guildChannelMap.keys():
             self.guildEventMap[guildID] = {}
             async for message in self.guildChannelMap[guildID][EVENT_LIST_CHANNEL_NAME].history():
-                result = self.decodeEventInfo(message.content)
-                if result is not None:
-                    self.guildEventMap[guildID][message.id] = result
+                if message.author.id == self.client.user.id:
+                    result = self.decodeEventInfo(message.content)
+                    if result is not None:
+                        self.guildEventMap[guildID][message.id] = result
 
     def getConfigs(self):
         for guild in self.client.guilds:

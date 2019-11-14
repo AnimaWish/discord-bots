@@ -117,11 +117,30 @@ class DiscordBot:
             await message.channel.send("You rolled {}!".format(result))
 
     async def chooseRand(self, message, params):
-        theList = re.split('[;|,]',params)
-        if len(theList) == 1:
-            theList = re.split('\s',params)
-            
-        await message.channel.send(random.choice(DiscordBot.CHOICE_STRINGS).format(random.choice(theList).strip()))
+        a = re.match('^\d+', params)
+
+        chooseNum = 1
+        if a is not None:
+            chooseNum = int(a.group(0))
+            theList = re.split('[;|,]',params[len(a.group(0)) + 1:])
+        else:
+            theList = re.split('[;|,]',params)
+
+        if chooseNum > len(theList):
+            chooseNum = len(theList)
+
+        choices = []
+        for i in range(chooseNum):
+            choices.append(theList.pop(random.randint(0, len(theList) - 1)).strip())
+
+        resultString = choices[0]
+        if len(choices) > 1:
+            resultString = ", ".join(choices[0:-1])
+            if len(choices) > 2:
+                resultString = resultString + ","
+            resultString = resultString + " and " + choices[-1]
+
+        await message.channel.send(random.choice(DiscordBot.CHOICE_STRINGS).format(resultString))
 
     async def chooseCaptain(self, message, params):
         if message.author.voice == None or message.author.voice.channel == None:
