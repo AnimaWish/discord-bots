@@ -39,9 +39,9 @@ class MettatonBot(EventBot, SimpleVoteBot):
     ###################
 
     def __init__(self, prefix="!"):
-        super().__init__("%", "OHHH YES!", "GUESS YOU DON'T WANT TO JOIN MY FAN CLUB...?")
+        super().__init__(prefix, "OHHH YES!", "GUESS YOU DON'T WANT TO JOIN MY FAN CLUB...?")
 
-        self.addCommand('pose',    self.getPose,       lambda x: True, "Strike a pose")
+        self.addCommand('pose', self.getPose, lambda x: True, "Strike a pose")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Mettaton Bot')

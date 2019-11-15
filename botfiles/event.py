@@ -302,10 +302,11 @@ class EventBot(DiscordBot):
                 topic = '@ ' + eventDateTime_human,
             )
 
-            newChannel.send()
+            pinnedMessage = await newChannel.send("Nobody has RSVP'd yet!")
+            await pinnedMessage.pin()
 
             # Create the message for event-list channel
-            eventListMessage = ":sparkles:**__New Event__**:sparkles:\n**What:** {}\n".format(eventName) + TIME_FMT.format(eventDateTime_human) + "**Channel:**{}\n".format(newChannel.mention) + "**Details:**\n{}\n".format(eventDetails) + self.encodeEventInfo(newChannel.id)
+            eventListMessage = ":sparkles:**__New Event__**:sparkles:\n**What:** {}\n".format(eventName) + TIME_FMT.format(eventDateTime_human) + "**Channel:** {}\n".format(newChannel.mention) + "**Details:**\n{}\n".format(eventDetails) + self.encodeEventInfo(newChannel.id, pinnedMessage.id)
             eventListMessage = await self.guildChannelMap[message.guild.id][EVENT_LIST_CHANNEL_NAME].send(eventListMessage)
             await eventListMessage.add_reaction(emojiMap["yes"])
             await eventListMessage.add_reaction(emojiMap["no"])
@@ -417,15 +418,33 @@ class EventBot(DiscordBot):
         self.getConfigs()
         await self.getEvents()
 
-    async def on_reaction_add(self, reaction, user):
-        await super().on_reaction_add(reaction, user)
+    async def on_raw_reaction_add(self, payload):
+        await super().on_raw_reaction_add(payload)
+        await self.updateGuestList(payload)
+
+    async def on_raw_reaction_remove(self, payload):
+        await super().on_raw_reaction_remove(payload)
+        await self.updateGuestList(payload)
+
+    async def updateGuestList(self, reactionPayload):
+        if self.guildChannelMap[reactionPayload.guild_id][EVENT_LIST_CHANNEL_NAME].id == reactionPayload.channel_id:
+            eventListingMessage = await self.guildChannelMap[reactionPayload.guild_id][EVENT_LIST_CHANNEL_NAME].fetch_message(reactionPayload.message_id)
+
+            if eventListingMessage.author.id == self.client.user.id and eventListingMessage.id in self.guildEventMap[eventListingMessage.guild.id]:
+                eventInfo = self.guildEventMap[eventListingMessage.guild.id][eventListingMessage.id]
+
+                eventChannel = self.client.get_channel(eventInfo.channelID)
+                pinnedMessage = await eventChannel.fetch_message(eventInfo.messageID)
+                newContent = await self.constructGuestList(eventChannel)
+
+                await pinnedMessage.edit(content = newContent)
 
     ###################
     #   Bot Methods   #
     ###################
 
     def __init__(self, prefix="!", greeting="Hello", farewell="Goodbye"):
-        super().__init__(prefix, "Peace be upon you.", "Passing into the Iris.")
+        super().__init__(prefix, greeting, farewell)
 
         self.addCommand('event-create', self.createEvent, lambda x: True, "Create an event", "cool party name! 1/2/19 7:00pm here is a description")
         self.addCommand('event-guests', self.getGuestList, lambda x: True, "Get guest list",  "")

@@ -25,3 +25,4 @@ discord.py API documentation: https://discordpy.readthedocs.io/
   * command pattern needs sub-commands
   * better help message structure
 * Logging
+* Unit testing :scream:

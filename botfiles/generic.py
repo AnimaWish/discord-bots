@@ -31,14 +31,21 @@ class DiscordBot:
     CHOICE_STRINGS = [
         "I choose... {}!",
         "How about {}?",
-        "Result hazy, try again later (jk do {})",
+        "Result hazy, try again later. (jk do {})",
         "{}, obviously!",
         "Choose {}.",
         "Whatever you do, DON'T pick {} (wink)",
-        "Signs point to {}",
+        "Signs point to {}.",
         "*cracks open fortune cookie, finds message that says \"{}\"*",
-        "My lawyers advise {}",
-        "I'm a {} guy myself."
+        "My lawyers advise {}.",
+        "I'm a(n) {} guy myself.",
+        "The choice was always going to be {}.",
+        "{}!",
+        "The voices tell me to choose {}.",
+        "As if it was a choice! {} is the only way to move forward!",
+        "Pick {}, just this once.",
+        "If I had a nickel for every time it was {}...",
+        ":sparkle:{}:sparkle:",
     ]
 
     CAPTAIN_WEIGHT_RESET_COOLDOWN = datetime.timedelta(minutes=240)
