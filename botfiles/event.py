@@ -92,10 +92,10 @@ class EventBot(DiscordBot):
                         elif channel.category_id == self.guildChannelMap[channel.guild.id][EVENTS_CATEGORY_NAME].id:
                             self.guildEventMap[guildID][message.id] = eventInfo
 
-                            # migrate
-                            if eventInfo.messageID == -1:
-                                eventInfo.messageID = await self.generatePinnedInfoMessage(channel)
-                                await self.migrateEventListing(message, eventInfo)
+                            # migration code
+                            # if eventInfo.messageID == -1:
+                            #     eventInfo.messageID = await self.generatePinnedInfoMessage(channel)
+                            #     await self.migrateEventListing(message, eventInfo)
 
                             pinnedMessage = await channel.fetch_message(eventInfo.messageID)
                             if not pinnedMessage.pinned:
@@ -319,7 +319,7 @@ class EventBot(DiscordBot):
 
     async def getGuestList(self, message, params):
         try:
-            await message.channel.send(self.constructGuestList(message.channel))
+            await message.channel.send(await self.constructGuestList(message.channel))
         except NotEventCategoryError:
             await message.channel.send("This is not an event channel!")
         except EventNotFoundError:
