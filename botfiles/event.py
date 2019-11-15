@@ -221,7 +221,7 @@ class EventBot(DiscordBot):
                 user = results[reactionString][i]
                 if userVoteCounts[user.id] > 1:
                     maybes.append(user)
-                    popIndices.push(i)
+                    popIndices.append(i)
 
             for i in reversed(popIndices):
                 results[reactionString].pop(i)
