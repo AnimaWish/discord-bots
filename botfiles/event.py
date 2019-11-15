@@ -216,11 +216,16 @@ class EventBot(DiscordBot):
         # if someone answers multiple they become a maybe
         maybes = []
         for reactionString in ['yes', 'no']:
+            popIndices = []
             for i in range(len(results[reactionString])):
                 user = results[reactionString][i]
                 if userVoteCounts[user.id] > 1:
                     maybes.append(user)
-                    results[reactionString].pop(i)
+                    popIndices.push(i)
+
+            for i in reversed(popIndices):
+                results[reactionString].pop(i)
+
         results['maybe'] = list(set(maybes) | set(results['maybe']))
 
         return results
