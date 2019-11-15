@@ -4,11 +4,10 @@ import random
 import re
 import os
 from .simplevote import SimpleVoteBot
-from .event import EventBot
 import argparse
 import importlib
 
-class MettatonBot(EventBot, SimpleVoteBot):
+class MettatonBot(SimpleVoteBot):
     ###################
     #    Constants    #
     ###################
