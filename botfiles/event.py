@@ -26,16 +26,18 @@ emojiMap_reverse = {
     "❔": "maybe",
 }
 
+EVENT_TITLE_PATTERN = "\*\*What:\*\* (.+)\n"
 TIME_PATTERN = "\*\*When:\*\* (.+)\n"
 TIME_FMT = "**When:** {}\n"
 CODE_PATTERN = "\`\$<(.+)>\`"
 
 class EventInfo:
-    def __init__(self, channelID, messageID, datetimeString):
+    def __init__(self, channelID, messageID, datetimeString, title):
         #self.dateTime = int(dateTime)
         self.channelID = int(channelID)
         self.messageID = int(messageID)
         self.humanDateTime = datetimeString
+        self.title = title
 
 class NotEventCategoryError(Exception):
     '''This is not in the events category'''
@@ -54,6 +56,11 @@ class EventBot(DiscordBot):
 
     # parse the bot code
     def decodeEventInfo(self, message):
+        match = re.search(EVENT_TITLE_PATTERN, message)
+        name = ""
+        if match != None:
+            name = match.group(1)
+
         match = re.search(TIME_PATTERN, message)
         if match == None:
             print("failed to decode event info from message {\n" + message + "\n}")
@@ -75,7 +82,7 @@ class EventBot(DiscordBot):
         if len(data) > 1:
             messageID = data[1]
 
-        return EventInfo(channelID=data[0], messageID = messageID, datetimeString=timeString)
+        return EventInfo(channelID=data[0], messageID = messageID, datetimeString=timeString, title=name)
 
     # events are mapped message.id => Eventinfo{dateTime, channelID}
     # where message is the eventList message, and channelID is the channel associated with the event
@@ -213,8 +220,8 @@ class EventBot(DiscordBot):
                     userVoteCounts[user.id] = 0
                 userVoteCounts[user.id] = userVoteCounts[user.id] + 1
 
-        # if someone answers multiple they become a maybe
-        maybes = []
+        # if someone answers multiple they become a maybes
+        maybe = []
         for reactionString in ['yes', 'no']:
             popIndices = []
             for i in range(len(results[reactionString])):
@@ -361,7 +368,7 @@ class EventBot(DiscordBot):
             if dt > datetime.datetime.now():
                 channel = message.channel.guild.get_channel(event.channelID)
                 if channel is not None:
-                    events.append((dt, channel.topic))
+                    events.append((dt, event.title))
 
         events.sort()
 
