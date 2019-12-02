@@ -318,7 +318,7 @@ class EventBot(DiscordBot):
             await pinnedMessage.pin()
 
             # Create the message for event-list channel
-            eventListMessage = ":sparkles:**__New Event__**:sparkles:\n**What:** {}\n".format(eventName) + TIME_FMT.format(eventDateTime_human) + "**Channel:** {}\n".format(newChannel.mention) + "**Details:**\n{}\n".format(eventDetails) + self.encodeEventInfo(newChannel.id, pinnedMessage.id)
+            eventListMessage = ":sparkles:**__New Event__**:sparkles:\n**What:** {}\n".format(eventName) + TIME_FMT.format(eventDateTime_human) + "**Channel:**  {}\n".format(newChannel.mention) + "**Details:**\n{}\n".format(eventDetails) + self.encodeEventInfo(newChannel.id, pinnedMessage.id)
             eventListMessage = await self.guildChannelMap[message.guild.id][EVENT_LIST_CHANNEL_NAME].send(eventListMessage)
             await eventListMessage.add_reaction(emojiMap["yes"])
             await eventListMessage.add_reaction(emojiMap["no"])
@@ -368,7 +368,7 @@ class EventBot(DiscordBot):
             if dt > datetime.datetime.now():
                 channel = message.channel.guild.get_channel(event.channelID)
                 if channel is not None:
-                    events.append((dt, event.title))
+                    events.append((dt, event.title, channel.mention))
 
         events.sort()
 
@@ -376,7 +376,7 @@ class EventBot(DiscordBot):
         if len(events) > 0:
             response = ":sparkles:__**Upcoming Events**__:sparkles:\n"
             for event_tuple in events:
-                eventString = event_tuple[0].strftime("**%m/%d/%y** at **%I:%M %p**") + " - " + event_tuple[1]
+                eventString = "{} - {} ({})".format(event_tuple[0].strftime("**%m/%d/%y** at **%I:%M %p**"), event_tuple[1], event_tuple[2])
                 response += eventString + "\n"            
 
         await message.channel.send(response)
