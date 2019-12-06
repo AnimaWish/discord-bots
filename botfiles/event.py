@@ -220,8 +220,8 @@ class EventBot(DiscordBot):
                     userVoteCounts[user.id] = 0
                 userVoteCounts[user.id] = userVoteCounts[user.id] + 1
 
-        # if someone answers multiple they become a maybes
-        maybe = []
+        # if someone answers multiple they become a maybe
+        maybes = []
         for reactionString in ['yes', 'no']:
             popIndices = []
             for i in range(len(results[reactionString])):

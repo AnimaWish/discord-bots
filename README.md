@@ -23,5 +23,9 @@ discord.py API documentation: https://discordpy.readthedocs.io/
   	* i can't remember why this is to do but this might still be a good idea
   * command pattern needs sub-commands
   * better help message structure
+* Event
+  * Plus Ones
 * Logging
+  * Full logs saved to disk (?)
+  * Bots should self identify in print statements
 * Unit testing :scream:
