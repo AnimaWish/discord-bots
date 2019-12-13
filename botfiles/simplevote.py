@@ -16,7 +16,8 @@ class SimpleVoteBot(DiscordBot):
         ballotMatch = re.match(ballotPattern, params)
 
         if ballotMatch == None:
-            message.channel.send("I couldn't read your referendum. It should look like this: `!vote An Important Question? Choice A, Choice B, Choice C`. Remember the question mark and the commas, punctuation is important for robots!")
+            await message.channel.send("I couldn't read your referendum. It should look like this: `!vote An Important Question? Choice A, Choice B, Choice C`. Remember the question mark and the commas, punctuation is important for robots!")
+            return
 
         ballotText = ballotMatch.group(1)
         choices = ballotMatch.group(2).split(",")[:20]
