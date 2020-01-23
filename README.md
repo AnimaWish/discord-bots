@@ -23,6 +23,7 @@ discord.py API documentation: https://discordpy.readthedocs.io/
   	* i can't remember why this is to do but this might still be a good idea
   * command pattern needs sub-commands
   * better help message structure
+  * botCommands are mapped to lists of callbacks, not just one
 * Event
   * Plus Ones
 * Logging
