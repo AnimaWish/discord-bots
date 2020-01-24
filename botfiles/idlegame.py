@@ -30,7 +30,6 @@ class IdleGameBot(DiscordBot):
                     }
 
                     self.income = self.calculateBaseIncome()
-
                 else:
                     pass #TODO import from string
 
@@ -109,6 +108,7 @@ class IdleGameBot(DiscordBot):
             self.buildingMessageObjects = {} # maps BLDG string constants to messages
 
             self.bankMarketStatus = "BANK_STATUS_BULL" # toggles at regular intervals
+            self.correctMarketUserIDs = [] # userIDs of players who have toggled the bull/camel emoji
 
             self.counter = 0 # time keeper
             self.lastInteraction = datetime.datetime.now() # updated to now whenever there are reactions/messages in the game channel
@@ -149,20 +149,14 @@ class IdleGameBot(DiscordBot):
 
             self.slumberLevel = tempSlumberLevel
 
-            # Determine who gets the bank market bonus
-            correctMarketUserIDs = []
-            for reaction in self.buildingMessageObjects["BLDG_BANK"].reactions:
-                if reaction == self.bankMarketStatus:
-                    async for user in reaction.users():
-                        correctMarketUserIDs.append(user.id)
-
             # PLAYER INCOME
             for userID in self.players:
                 player = self.players[userID]
                 income = player.income
 
-                if player.discordUserObject.id in correctMarketUserIDs:
-                    income["$"] *= 1.05
+                incomeToPrint = income["$"]
+                if player.discordUserObject.id in self.correctMarketUserIDs:
+                    incomeToPrint *= 1.25
 
                 player.currencyTotal["$"] += math.ceil(income["$"])
 
@@ -180,6 +174,7 @@ class IdleGameBot(DiscordBot):
                     self.bankMarketStatus = "BANK_STATUS_BULL"
                 await self.buildingMessageObjects["BLDG_BANK"].clear_reactions()
                 await self.buildingMessageObjects["BLDG_BANK"].add_reaction(self.KEY_TO_EMOJI_MAP[self.bankMarketStatus])
+                self.correctMarketUserIDs = []
 
             # check for timed event triggers
             for key in self.eventCounters:
@@ -215,7 +210,12 @@ class IdleGameBot(DiscordBot):
                             pass
 
                     if payload.message_id == self.buildingMessageObjects["BLDG_BANK"].id:
-                        pass
+                        if payload.emoji.name == self.KEY_TO_EMOJI_MAP[self.bankMarketStatus]:
+                            if toggledOn:
+                                self.correctMarketUserIDs.append(payload.user_id)
+                            else:
+                                self.correctMarketUserIDs.remove(payload.user_id)
+
                     elif payload.message_id == self.buildingMessageObjects["BLDG_SHOP_1"].id:
                         SHOP_1_ITEMS = [
                             "ITEM_LEMON",
@@ -253,9 +253,9 @@ class IdleGameBot(DiscordBot):
             resultString += "_This money, like most money, is just a number in a computer._\n\n"
 
             if self.bankMarketStatus == "BANK_STATUS_BULL":
-                resultString += ":cow2: _We're currently in a __bull__ market! Select the bull to get 5\% interest on your account!_ :cow2:\n\n"
+                resultString += ":cow2: _We're currently in a __bull__ market! Select the bull to get 25\% extra income!_ :cow2:\n\n"
             else:
-                resultString += ":camel: _We're currently in a __camel__ market! Select the camel to get 5\% interest on your account!_ :camel:\n\n"
+                resultString += ":camel: _We're currently in a __camel__ market! Select the camel to get 25\% extra income!_ :camel:\n\n"
 
 
             longestNameLength = 0
@@ -274,11 +274,18 @@ class IdleGameBot(DiscordBot):
             resultString += "```"
             for userID in self.players:
                 player = self.players[userID]
+                bonusString = ""
+                mult = 1.0
+                if userID in self.correctMarketUserIDs:
+                    bonusString = " ^"
+                    mult = 1.25
+
                 currentCurrStr = self.currencyString("$", player.currencyTotal["$"])
-                resultString += "{} = {} + {}/sec\n".format(
+                resultString += "{} = {} + {}/sec{}\n".format(
                     player.discordUserObject.name + ' '*(longestNameLength - len(player.discordUserObject.name)),
                     currentCurrStr + ' '*(longestDollarTotalLength - len(currentCurrStr)),
-                    self.currencyString("$", player.income["$"])
+                    self.currencyString("$", math.ceil(player.income["$"] * mult)),
+                    bonusString
                 )
             resultString += "```"
 
