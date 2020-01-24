@@ -18,17 +18,43 @@ class IdleGameBot(DiscordBot):
                 self.discordUserObject = discordUserObject
 
                 if importString == "":
-                    self.currency = {
-                        "DOLLARS": 0,
+                    self.currencyTotal = {
+                        "$": 0,
                     }
 
                     self.items = {
-                        "LEMONS":         0,
-                        "MELONS":         0,
-                        "MONEY_PRINTERS": 0,
+                        "ALLOWANCE":          1,
+                        "ITEM_LEMON":         0,
+                        "ITEM_MELON":         0,
+                        "ITEM_MONEY_PRINTER": 0,
                     }
+
+                    self.income = self.calculateBaseIncome()
+
                 else:
                     pass #TODO import from string
+
+            def updateItems(self, itemChanges):
+                for itemKey in itemChanges:
+                    self.items[itemKey] += itemChanges[itemKey]
+                self.income = self.calculateBaseIncome()
+
+            def calculateBaseIncome(self):
+                incomeResult = {
+                    "$": 0
+                }
+
+                incomeResult["$"] += self.items["ALLOWANCE"]
+                incomeResult["$"] += self.items["ITEM_LEMON"]
+                incomeResult["$"] += 5 * self.items["ITEM_MELON"]
+                incomeResult["$"] += 50 * self.items["ITEM_MONEY_PRINTER"]
+
+                return incomeResult
+
+            # Remember that positive currencyTuples mean ADDING TO currencyTotal!
+            def transact(self, currencyTuple):
+                self.currencyTotal[currencyTuple[0]] += currencyTuple[1]
+
 
         KEY_TO_EMOJI_MAP = {
             "ITEM_LEMON":         "🍋",
@@ -68,6 +94,13 @@ class IdleGameBot(DiscordBot):
             "🐪": "BANK_STATUS_CAMEL",
         }
 
+        ITEM_COSTS = {
+            "ITEM_LEMON": ["$", -5],#["$", 100],
+            "ITEM_MELON": ["$", -990],
+            "ITEM_MONEY_PRINTER": ["$", -48000],
+            "ITEM_BROKEN_HOUSE": ["$", -1000000],
+        }
+
         def __init__(self, client, guild, gameChannel):
             self.client = client
             self.guild = guild
@@ -79,12 +112,12 @@ class IdleGameBot(DiscordBot):
 
             self.counter = 0 # time keeper
             self.lastInteraction = datetime.datetime.now() # updated to now whenever there are reactions/messages in the game channel
-            self.slumber = False # tracks if the bot is "slumbering" (still running but less aggressively updating UI)
+            self.slumberLevel = 0 # tracks if the bot is "slumbering" (still running but less aggressively updating UI)
             self.eventCounters = {} # maps EVENT string constants to counters (these counters tick down, not up)
             self.eventMessages = {} # maps EVENT string constants to message objects
 
         async def initializeBuildings(self):
-            self.buildingMessageObjects["BLDG_CONFIG"] = await self.channel.send(":wrench:")
+            self.buildingMessageObjects["BLDG_CONFIG"] = await self.channel.send(":construction:")
 
             self.buildingMessageObjects["BLDG_BANK"] = await self.channel.send(self.generateBankMessage())
 
@@ -103,12 +136,18 @@ class IdleGameBot(DiscordBot):
 
             await self.buildingMessageObjects["BLDG_CONFIG"].edit(content=self.encodeState())
 
-
         async def onTick(self):
-            SLUMBER_MINUTES_THRESHOLD = 30
+            tempSlumberLevel = 0
+            SLUMBER_MINUTES_THRESHOLDS = [.5, 10]
+            SLUMBER_LEVEL_UPDATE_RATES = [1, 5, 30]
             self.counter += 1
 
-            self.slumber = datetime.datetime.now() - self.lastInteraction > datetime.timedelta(minutes=SLUMBER_MINUTES_THRESHOLD)
+            lastInteractDelta = datetime.datetime.now() - self.lastInteraction
+            for i in range(len(SLUMBER_MINUTES_THRESHOLDS)):
+                if lastInteractDelta > datetime.timedelta(minutes=SLUMBER_MINUTES_THRESHOLDS[i]):
+                    tempSlumberLevel = i + 1
+
+            self.slumberLevel = tempSlumberLevel
 
             # Determine who gets the bank market bonus
             correctMarketUserIDs = []
@@ -120,27 +159,20 @@ class IdleGameBot(DiscordBot):
             # PLAYER INCOME
             for userID in self.players:
                 player = self.players[userID]
-                income = {
-                    "DOLLARS": 0,
-                }
-
-                income["DOLLARS"] += player.items["LEMONS"]
-                income["DOLLARS"] += 5 * player.items["MELONS"]
-                income["DOLLARS"] += 50 * player.items["MONEY_PRINTERS"]
+                income = player.income
 
                 if player.discordUserObject.id in correctMarketUserIDs:
-                    income["DOLLARS"] *= 1.05
+                    income["$"] *= 1.05
 
-                player.currency["DOLLARS"] += math.ceil(income["DOLLARS"])
+                player.currencyTotal["$"] += math.ceil(income["$"])
 
-            if self.counter % 15 == 0: 
-                if not self.slumber:
-                    await self.buildingMessageObjects["BLDG_BANK"].edit(content=self.generateBankMessage())
+            if self.counter % SLUMBER_LEVEL_UPDATE_RATES[self.slumberLevel] == 0: 
+                await self.buildingMessageObjects["BLDG_BANK"].edit(content=self.generateBankMessage())
 
             if self.counter % 60 == 0:
                 await self.buildingMessageObjects["BLDG_CONFIG"].edit(content=self.encodeState())
 
-            if self.counter % (SLUMBER_MINUTES_THRESHOLD * 60) == 0:
+            if self.counter % (60 * 30) == 0: 
                 # Reset bank market status
                 if self.bankMarketStatus == "BANK_STATUS_BULL":
                     self.bankMarketStatus = "BANK_STATUS_CAMEL"
@@ -148,9 +180,6 @@ class IdleGameBot(DiscordBot):
                     self.bankMarketStatus = "BANK_STATUS_BULL"
                 await self.buildingMessageObjects["BLDG_BANK"].clear_reactions()
                 await self.buildingMessageObjects["BLDG_BANK"].add_reaction(self.KEY_TO_EMOJI_MAP[self.bankMarketStatus])
-
-                if self.slumber:
-                    await self.buildingMessageObjects["BLDG_BANK"].edit(content=self.generateBankMessage())
 
             # check for timed event triggers
             for key in self.eventCounters:
@@ -178,22 +207,34 @@ class IdleGameBot(DiscordBot):
         async def reactionToggled(self, payload, toggledOn):
             if payload.channel_id == self.channel.id:
                 if payload.user_id in self.players.keys():
+                    player = self.players[payload.user_id]
                     self.lastInteraction = datetime.datetime.now()
 
                     for key in self.eventMessages:
                         if self.eventMessages[key].id == payload.message_id:
                             pass
 
-                    if payload.message_id == self.buildingMessageObjects["BLDG_BANK"]:
+                    if payload.message_id == self.buildingMessageObjects["BLDG_BANK"].id:
                         pass
-                    elif payload.message_id == self.buildingMessageObjects["BLDG_SHOP_1"]:
-                        self.players[payload.user_id].items
+                    elif payload.message_id == self.buildingMessageObjects["BLDG_SHOP_1"].id:
+                        SHOP_1_ITEMS = [
+                            "ITEM_LEMON",
+                            "ITEM_MELON",
+                            "ITEM_MONEY_PRINTER"
+                        ]
+
+                        for shopItem in SHOP_1_ITEMS:
+                            if payload.emoji.name == self.KEY_TO_EMOJI_MAP[shopItem]:
+                                itemCost = self.ITEM_COSTS[shopItem]
+                                if player.currencyTotal[itemCost[0]] > itemCost[1]:
+                                    player.updateItems({shopItem: 1})
+                                    player.transact(self.ITEM_COSTS[shopItem])
                         
-                    elif payload.message_id == self.buildingMessageObjects["BLDG_LOTTERY"]:
+                    elif payload.message_id == self.buildingMessageObjects["BLDG_LOTTERY"].id:
                         pass
                 else:
-                    user = await self.client.get_user(payload.user_id)
-                    helpfulMessage = await self.channel.send("{} you are not registered with the game. Type `!register` to join!".format(user.mention()))
+                    user = self.client.get_user(payload.user_id)
+                    helpfulMessage = await self.channel.send("{} you are not registered with the game. Type `!register` to join!".format(user.mention))
                     helpfulMessage.delete(delay=15)
 
         ##################
@@ -202,8 +243,10 @@ class IdleGameBot(DiscordBot):
 
         def generateBankMessage(self):
             bankEmojiString = ":bank::bank::bank:"
-            if self.slumber:
+            if self.slumberLevel == 1:
                 bankEmojiString = ":bank::bank::zzz:"
+            elif self.slumberLevel == 2:
+                bankEmojiString = ":bank::zzz::zzz:"
             resultString =  "`~~~~~~~~~~~~~~~~~~~~~~~`\n"
             resultString += bankEmojiString + " **BANK** " + bankEmojiString + "\n"
             resultString += "`~~~~~~~~~~~~~~~~~~~~~~~`\n\n"
@@ -216,17 +259,27 @@ class IdleGameBot(DiscordBot):
 
 
             longestNameLength = 0
+            longestDollarTotalLength = 0
             # figure out what length to buffer names at
             for userID in self.players:
                 player = self.players[userID]
+
                 if len(player.discordUserObject.name) > longestNameLength:
                     longestNameLength = len(player.discordUserObject.name)
+
+                currencyLength = len(self.currencyString("$", player.currencyTotal["$"]))
+                if currencyLength > longestDollarTotalLength:
+                    longestDollarTotalLength = currencyLength
 
             resultString += "```"
             for userID in self.players:
                 player = self.players[userID]
-                bufferSpaces = ' '*(longestNameLength - len(player.discordUserObject.name))
-                resultString += player.discordUserObject.name + bufferSpaces + self.currencyString("$", player.currency["DOLLARS"])
+                currentCurrStr = self.currencyString("$", player.currencyTotal["$"])
+                resultString += "{} = {} + {}/sec\n".format(
+                    player.discordUserObject.name + ' '*(longestNameLength - len(player.discordUserObject.name)),
+                    currentCurrStr + ' '*(longestDollarTotalLength - len(currentCurrStr)),
+                    self.currencyString("$", player.income["$"])
+                )
             resultString += "```"
 
             return resultString
@@ -234,30 +287,35 @@ class IdleGameBot(DiscordBot):
         # self.currencyString("$", "123456") => "$123,456"
         # self.currencyString("%", "123456789") => "%123m"
         def currencyString(self, unit, currencyInteger):
+            negativeString = ""
+            if currencyInteger < 0:
+                negativeString = "-"
+                currencyInteger = currencyInteger * -1
+
             def doCommas(numStr):
-                result = numStr[-3:-1]
-                numStr = numStr[0:-4]
-                while len(numStr) > 2:
-                    result = numStr[-3:-1] + "," + result
-                    numStr = numStr[0:-4]
-                return result
+                if len(numStr) > 3:
+                    return numStr[:-3] + "," + numStr[-3:]
+                else:
+                    return numStr
 
             currencyStringRaw = str(currencyInteger)
             result = currencyStringRaw
 
             # TODO decimal place for mbtq
             if len(currencyStringRaw) > 15:
-                result = doCommas(currencyStringRaw[0:len(currencyStringRaw) - 14]) + "q"
-            if len(currencyStringRaw) > 12:
+                result = doCommas(currencyStringRaw[0:len(currencyStringRaw) - 15]) + "q"
+            elif len(currencyStringRaw) > 12:
                 result = currencyStringRaw[0:len(currencyStringRaw) - 12] + "t"
-            if len(currencyStringRaw) > 9:
+            elif len(currencyStringRaw) > 9:
                 result = currencyStringRaw[0:len(currencyStringRaw) - 9] + "b"
-            if len(currencyStringRaw) > 6:
+            elif len(currencyStringRaw) > 6:
                 result = currencyStringRaw[0:len(currencyStringRaw) - 6] + "m"
-            else:
+            elif len(currencyStringRaw) > 3:
                 result = doCommas(currencyStringRaw)
+            else:
+                result = currencyStringRaw
 
-            return unit + result
+            return negativeString + unit + result
 
         def generateShop1Message(self):
             shopEmojiString = ":convenience_store::convenience_store::convenience_store:"
@@ -266,10 +324,10 @@ class IdleGameBot(DiscordBot):
             resultString += "`~~~~~~~~~~~~~~~~~~~~~~`\n\n"
             resultString += "_Buy somethin', will ya?_\n\n"
             shopInventory = [
-                ["ITEM_LEMON",                 ["$", 10],  "+$1/sec", "Lemons into lemonade, right?"],
-                ["ITEM_MELON",                 ["$", 49],  "+$5/sec", "Melons into melonade... Right...?"],
-                ["ITEM_MONEY_PRINTER",        ["$", 469], "+$50/sec", "Top of the line money printer!"],
-                ["ITEM_BROKEN_HOUSE",     ["$", 1000000], "A house!", "It ain't much, but it's home."],
+                ["ITEM_LEMON",         self.ITEM_COSTS["ITEM_LEMON"],         "+$1/sec",   "Lemons into lemonade, right?"],
+                ["ITEM_MELON",         self.ITEM_COSTS["ITEM_MELON"],         "+$10/sec",  "Melons into melonade... Right...?"],
+                ["ITEM_MONEY_PRINTER", self.ITEM_COSTS["ITEM_MONEY_PRINTER"], "+$500/sec", "Top of the line money printer!"],
+                ["ITEM_BROKEN_HOUSE",  self.ITEM_COSTS["ITEM_BROKEN_HOUSE"],  "A house!",  "It ain't much, but it's home."],
             ]
 
             resultString += self.prettyPrintInventory(shopInventory)
@@ -343,27 +401,33 @@ class IdleGameBot(DiscordBot):
             while len(chosenFeatures) < 2:
                 chosenFeatures.append(candidates.pop(random.randrange(0, len(candidates))))
 
-            FEATURE_STRINGS = {
+            FEATURE_STRINGS_PLURAL = {
                 "PRIMES": "{} primes",
                 "EVENS": "{} even numbers" ,
                 "ODDS": "{} odd numbers",
-                "THREES": "{} numbers divisible by three"
+                "THREES": "{} numbers divisible by three",
             }
 
-            sevenIndex = -1
-            if chosenFeatures[0] == "LUCKYSEVEN":
-                sevenIndex = 0
-            elif chosenFeatures[1] == "LUCKYSEVEN":
-                sevenIndex = 1
+            FEATURE_STRINGS_SINGULAR = {
+                "PRIMES": "1 prime",
+                "EVENS": "1 even number" ,
+                "ODDS": "1 odd number",
+                "THREES": "1 number divisible by three",
+                "LUCKYSEVEN": "a Lucky Seven"
+            }
 
-            hintString = ""
-            if sevenIndex > -1:
-                featureNameKey = chosenFeatures[~sevenIndex]
-                hintString = "There are {} and a Lucky Seven!!".format(FEATURE_STRINGS[featureNameKey].format(features[chosenFeatures[~sevenIndex]]))
-            else:
-                hintString = "There are {} and {}.".format(FEATURE_STRINGS[chosenFeatures[0]], FEATURE_STRINGS[chosenFeatures[1]])
+            finalFeatureStrings = []
+            for featureKey in chosenFeatures:
+                if features[featureKey] == 1:
+                    finalFeatureStrings.append(FEATURE_STRINGS_SINGULAR[featureKey])
+                else:
+                    finalFeatureStrings.append(FEATURE_STRINGS_PLURAL[featureKey].format(str(features[featureKey])))
 
-            resultString += "\n__Today's Hint__: {}".format(hintString)
+            # make sure that lucky seven is at the end
+            if finalFeatureStrings[0] == FEATURE_STRINGS_SINGULAR["LUCKYSEVEN"]:
+                finalFeatureStrings.append(finalFeatureStrings.pop(0))
+
+            resultString += "\n__Today's Hint__: There's {} and {}! _(These can overlap)_".format(finalFeatureStrings[0], finalFeatureStrings[1])
 
             return resultString
 
@@ -436,8 +500,6 @@ class IdleGameBot(DiscordBot):
 
             stateString += "."
             #BLOCK 6
-
-            print(stateString)
 
             return stateString
 
