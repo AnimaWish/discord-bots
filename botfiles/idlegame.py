@@ -1,6 +1,6 @@
 import discord
 import asyncio
-import random
+import random, math
 import urllib.request
 import re
 import os, io
@@ -30,19 +30,43 @@ class IdleGameBot(DiscordBot):
                 else:
                     pass #TODO import from string
 
-            KEY_TO_EMOJI_MAP = {
-                "ITEM_LEMON":         ":lemon:",
-                "ITEM_MELON":         ":melon:",
-                "ITEM_MONEY_PRINTER": ":printer:",
-                "ITEM_HOUSE":         ":house_abandoned:"
-            }
+        KEY_TO_EMOJI_MAP = {
+            "ITEM_LEMON":         "🍋",
+            "ITEM_MELON":         "🍈",
+            "ITEM_MONEY_PRINTER": "🖨️",
+            "ITEM_BROKEN_HOUSE":  "🏚️",
+            "NUMERAL_0": "0️⃣",
+            "NUMERAL_1": "1️⃣",
+            "NUMERAL_2": "2️⃣",
+            "NUMERAL_3": "3️⃣",
+            "NUMERAL_4": "4️⃣",
+            "NUMERAL_5": "5️⃣",
+            "NUMERAL_6": "6️⃣",
+            "NUMERAL_7": "7️⃣",
+            "NUMERAL_8": "8️⃣",
+            "NUMERAL_9": "9️⃣",
+            "BANK_STATUS_BULL": "🐄",
+            "BANK_STATUS_CAMEL": "🐪",
+        }
 
-            EMOJI_TO_KEY_MAP = {
-                ":lemon:":           "ITEM_LEMON",
-                ":melon:":           "ITEM_MELON",
-                ":printer:":         "ITEM_MONEY_PRINTER",
-                ":house_abandoned:": "ITEM_HOUSE",
-            }
+        EMOJI_TO_KEY_MAP = {
+            "🍋": "ITEM_LEMON",
+            "🍈": "ITEM_MELON",
+            "🖨️": "ITEM_MONEY_PRINTER",
+            "🏚️": "ITEM_HOUSE",
+            "0️⃣": "NUMERAL_0",
+            "1️⃣": "NUMERAL_1",
+            "2️⃣": "NUMERAL_2",
+            "3️⃣": "NUMERAL_3",
+            "4️⃣": "NUMERAL_4",
+            "5️⃣": "NUMERAL_5",
+            "6️⃣": "NUMERAL_6",
+            "7️⃣": "NUMERAL_7",
+            "8️⃣": "NUMERAL_8",
+            "9️⃣": "NUMERAL_9",
+            "🐄": "BANK_STATUS_BULL",
+            "🐪": "BANK_STATUS_CAMEL",
+        }
 
         def __init__(self, client, guild, gameChannel):
             self.client = client
@@ -51,7 +75,7 @@ class IdleGameBot(DiscordBot):
             self.players = {} # maps discordUserIDs to Player objects
             self.buildingMessageObjects = {} # maps BLDG string constants to messages
 
-            self.bankMarketStatus = False # toggles at regular intervals
+            self.bankMarketStatus = "BANK_STATUS_BULL" # toggles at regular intervals
 
             self.counter = 0 # time keeper
             self.lastInteraction = datetime.datetime.now() # updated to now whenever there are reactions/messages in the game channel
@@ -60,22 +84,24 @@ class IdleGameBot(DiscordBot):
             self.eventMessages = {} # maps EVENT string constants to message objects
 
         async def initializeBuildings(self):
-            self.buildingMessageObjects["BLDG_CONFIG"] = await self.channel.send("")
+            self.buildingMessageObjects["BLDG_CONFIG"] = await self.channel.send(":wrench:")
 
             self.buildingMessageObjects["BLDG_BANK"] = await self.channel.send(self.generateBankMessage())
 
+            await self.buildingMessageObjects["BLDG_BANK"].add_reaction(self.KEY_TO_EMOJI_MAP[self.bankMarketStatus])
+
             self.buildingMessageObjects["BLDG_SHOP_1"] = await self.channel.send(self.generateShop1Message())
-            await self.buildingMessageObjects.add_reaction(":lemon:")
-            await self.buildingMessageObjects.add_reaction(":melon:")
-            await self.buildingMessageObjects.add_reaction(":printer:")
-            await self.buildingMessageObjects.add_reaction(":house_abandoned:")
+            await self.buildingMessageObjects["BLDG_SHOP_1"].add_reaction(self.KEY_TO_EMOJI_MAP["ITEM_LEMON"])
+            await self.buildingMessageObjects["BLDG_SHOP_1"].add_reaction(self.KEY_TO_EMOJI_MAP["ITEM_MELON"])
+            await self.buildingMessageObjects["BLDG_SHOP_1"].add_reaction(self.KEY_TO_EMOJI_MAP["ITEM_MONEY_PRINTER"])
+            await self.buildingMessageObjects["BLDG_SHOP_1"].add_reaction(self.KEY_TO_EMOJI_MAP["ITEM_BROKEN_HOUSE"])
 
             self.buildingMessageObjects["BLDG_LOTTERY"] = await self.channel.send(self.generateLotteryMessage())
-            lottoEmojis = [":zero:", ":one:", ":two:", ":three:", ":four:", ":five:", ":six:", ":seven:", ":eight:", ":nine:"]
-            for item in lottoEmojis:
-                await self.buildingMessageObjects.add_reaction(item)
+            lottoEmojiKeys = ["NUMERAL_0","NUMERAL_1","NUMERAL_2","NUMERAL_3","NUMERAL_4","NUMERAL_5","NUMERAL_6","NUMERAL_7","NUMERAL_8","NUMERAL_9"]
+            for item in lottoEmojiKeys:
+                await self.buildingMessageObjects["BLDG_LOTTERY"].add_reaction(self.KEY_TO_EMOJI_MAP[item])
 
-            self.buildingMessageObjects["BLDG_CONFIG"].edit(self.encodeState())
+            await self.buildingMessageObjects["BLDG_CONFIG"].edit(content=self.encodeState())
 
 
         async def onTick(self):
@@ -89,10 +115,11 @@ class IdleGameBot(DiscordBot):
             for reaction in self.buildingMessageObjects["BLDG_BANK"].reactions:
                 if reaction == self.bankMarketStatus:
                     async for user in reaction.users():
-                        correctMarketUserIDs.add(user.id)
+                        correctMarketUserIDs.append(user.id)
 
             # PLAYER INCOME
-            for player in this.players:
+            for userID in self.players:
+                player = self.players[userID]
                 income = {
                     "DOLLARS": 0,
                 }
@@ -107,23 +134,23 @@ class IdleGameBot(DiscordBot):
                 player.currency["DOLLARS"] += math.ceil(income["DOLLARS"])
 
             if self.counter % 15 == 0: 
-                if not slumber:
-                    await self.buildingMessageObjects["BLDG_BANK"].edit(generateBankMessage)
+                if not self.slumber:
+                    await self.buildingMessageObjects["BLDG_BANK"].edit(content=self.generateBankMessage())
 
             if self.counter % 60 == 0:
-                await self.buildingMessageObjects["BLDG_CONFIG"].edit(self.encodeState())
+                await self.buildingMessageObjects["BLDG_CONFIG"].edit(content=self.encodeState())
 
             if self.counter % (SLUMBER_MINUTES_THRESHOLD * 60) == 0:
                 # Reset bank market status
-                if self.bankMarketStatus == ":cow2:":
-                    self.bankMarketStatus = ":camel:"
+                if self.bankMarketStatus == "BANK_STATUS_BULL":
+                    self.bankMarketStatus = "BANK_STATUS_CAMEL"
                 else:
-                    self.bankMarketStatus = ":cow2:"
+                    self.bankMarketStatus = "BANK_STATUS_BULL"
                 await self.buildingMessageObjects["BLDG_BANK"].clear_reactions()
-                await self.buildingMessageObjects["BLDG_BANK"].add_reaction(self.bankMarketStatus)
+                await self.buildingMessageObjects["BLDG_BANK"].add_reaction(self.KEY_TO_EMOJI_MAP[self.bankMarketStatus])
 
-                if slumber:
-                    await self.buildingMessageObjects["BLDG_BANK"].edit(generateBankMessage)
+                if self.slumber:
+                    await self.buildingMessageObjects["BLDG_BANK"].edit(content=self.generateBankMessage())
 
             # check for timed event triggers
             for key in self.eventCounters:
@@ -135,17 +162,21 @@ class IdleGameBot(DiscordBot):
                         pass
 
         async def messageReceived(self, message):
-            if message.channelID == self.channel.id:
+            if message.channel.id == self.channel.id:
                 self.lastInteraction = datetime.datetime.now()
 
-                if message.content == "!regiser":
+                if message.content == "!register":
                     self.registerPlayer(message.author)
 
                 await message.delete(delay=15)
 
 
+        def registerPlayer(self, user):
+            self.players[user.id] = IdleGameBot.GameSession.Player(user)
+            print("Registered Player {}".format(user.name))
+
         async def reactionToggled(self, payload, toggledOn):
-            if message.channelID == self.channel.id:
+            if payload.channel_id == self.channel.id:
                 if payload.user_id in self.players.keys():
                     self.lastInteraction = datetime.datetime.now()
 
@@ -156,8 +187,6 @@ class IdleGameBot(DiscordBot):
                     if payload.message_id == self.buildingMessageObjects["BLDG_BANK"]:
                         pass
                     elif payload.message_id == self.buildingMessageObjects["BLDG_SHOP_1"]:
-                        print(EMOJI_TO_KEY_MAP[payload.emoji])
-
                         self.players[payload.user_id].items
                         
                     elif payload.message_id == self.buildingMessageObjects["BLDG_LOTTERY"]:
@@ -167,7 +196,6 @@ class IdleGameBot(DiscordBot):
                     helpfulMessage = await self.channel.send("{} you are not registered with the game. Type `!register` to join!".format(user.mention()))
                     helpfulMessage.delete(delay=15)
 
-
         ##################
         #### BUILDING MESSAGES
         ##################
@@ -176,12 +204,12 @@ class IdleGameBot(DiscordBot):
             bankEmojiString = ":bank::bank::bank:"
             if self.slumber:
                 bankEmojiString = ":bank::bank::zzz:"
-            resultString =  "`~~~~~~~~~~~~~~~~~~~~~~~~~`\n`"
+            resultString =  "`~~~~~~~~~~~~~~~~~~~~~~~`\n"
             resultString += bankEmojiString + " **BANK** " + bankEmojiString + "\n"
-            resultString += "`~~~~~~~~~~~~~~~~~~~~~~~~~`\n\n"
+            resultString += "`~~~~~~~~~~~~~~~~~~~~~~~`\n\n"
             resultString += "_This money, like most money, is just a number in a computer._\n\n"
 
-            if self.bankMarketStatus == ":cow2:":
+            if self.bankMarketStatus == "BANK_STATUS_BULL":
                 resultString += ":cow2: _We're currently in a __bull__ market! Select the bull to get 5\% interest on your account!_ :cow2:\n\n"
             else:
                 resultString += ":camel: _We're currently in a __camel__ market! Select the camel to get 5\% interest on your account!_ :camel:\n\n"
@@ -189,21 +217,23 @@ class IdleGameBot(DiscordBot):
 
             longestNameLength = 0
             # figure out what length to buffer names at
-            for player in players:
+            for userID in self.players:
+                player = self.players[userID]
                 if len(player.discordUserObject.name) > longestNameLength:
                     longestNameLength = len(player.discordUserObject.name)
 
             resultString += "```"
-            for player in players:
+            for userID in self.players:
+                player = self.players[userID]
                 bufferSpaces = ' '*(longestNameLength - len(player.discordUserObject.name))
-                resultString += player.discordUserObject.name + bufferSpaces + currencyString("$", player.currency["DOLLARS"])
+                resultString += player.discordUserObject.name + bufferSpaces + self.currencyString("$", player.currency["DOLLARS"])
             resultString += "```"
 
             return resultString
 
-        # currencyString("$", "123456") => "$123,456"
-        # currencyString("%", "123456789") => "%123m"
-        def currencyString(unit, currencyInteger):
+        # self.currencyString("$", "123456") => "$123,456"
+        # self.currencyString("%", "123456789") => "%123m"
+        def currencyString(self, unit, currencyInteger):
             def doCommas(numStr):
                 result = numStr[-3:-1]
                 numStr = numStr[0:-4]
@@ -231,9 +261,9 @@ class IdleGameBot(DiscordBot):
 
         def generateShop1Message(self):
             shopEmojiString = ":convenience_store::convenience_store::convenience_store:"
-            resultString =  "`~~~~~~~~~~~~~~~~~~~~~~~~`\n`"
+            resultString =  "`~~~~~~~~~~~~~~~~~~~~~~`\n"
             resultString += shopEmojiString + " **SHOP** " + shopEmojiString + "\n"
-            resultString += "`~~~~~~~~~~~~~~~~~~~~~~~~`\n\n"
+            resultString += "`~~~~~~~~~~~~~~~~~~~~~~`\n\n"
             resultString += "_Buy somethin', will ya?_\n\n"
             shopInventory = [
                 ["ITEM_LEMON",                 ["$", 10],  "+$1/sec", "Lemons into lemonade, right?"],
@@ -242,26 +272,26 @@ class IdleGameBot(DiscordBot):
                 ["ITEM_BROKEN_HOUSE",     ["$", 1000000], "A house!", "It ain't much, but it's home."],
             ]
 
-            resultString += prettyPrintInventory(shopInventory)
+            resultString += self.prettyPrintInventory(shopInventory)
             return resultString
 
         # inventoryList = [ [emojiID, priceTuple, effectDescription, flavorText], ... ]
-        def prettyPrintInventory(inventoryList):
+        def prettyPrintInventory(self, inventoryList):
             result = ""
 
             maxPriceLength  = 0 
             maxEffectLength = 0
             for item in inventoryList:
-                priceStr = currencyString(item[1][0], item[1][1])
+                priceStr = self.currencyString(item[1][0], item[1][1])
                 if len(priceStr) > maxPriceLength:
                     maxPriceLength = len(priceStr)
                 if len(item[2]) > maxEffectLength:
                     maxEffectLength = len(item[2])
 
             for item in inventoryList:
-                priceStr = currencyString(item[1][0], item[1][1])
-                result += "• {} `{}|{}|{}`".format(
-                    KEY_TO_EMOJI_MAP[item[0]],
+                priceStr = self.currencyString(item[1][0], item[1][1])
+                result += "• {} `{} | {} | {}`\n".format(
+                    self.KEY_TO_EMOJI_MAP[item[0]],
                     " "*(maxPriceLength - len(priceStr)) + priceStr,
                     " "*(maxEffectLength - len(item[2])) + item[2],
                     item[3]
@@ -271,17 +301,17 @@ class IdleGameBot(DiscordBot):
 
         def generateLotteryMessage(self):
             lotteryEmojiString = ":moneybag::moneybag::moneybag:"
-            resultString =  "`~~~~~~~~~~~~~~~~~~~~~~~~`\n`"
-            resultString += lotteryEmojiString + " **SHOP** " + lotteryEmojiString + "\n"
-            resultString += "`~~~~~~~~~~~~~~~~~~~~~~~~`\n\n"
+            resultString =  "`~~~~~~~~~~~~~~~~~~~~~~`\n"
+            resultString += lotteryEmojiString + " **LOTTERY** " + lotteryEmojiString + "\n"
+            resultString += "`~~~~~~~~~~~~~~~~~~~~~~`\n\n"
 
             resultString += "_Every day the lottery hint will change! Choose your three lucky numbers and you could be a winner! (Only the lowest three numbers selected will be counted. Terms and conditions apply.)_\n"
 
             # select the 3 lotto numbers
-            lotteryNumbers = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
-            self.chosenNumbers = []
-            while len(chosenNumbers) < 3:
-                self.chosenNumbers.add(lotteryNumbers.pop(randrange(0, len(lotteryNumbers))))
+            lotteryNumbers = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+            self.chosenNumbers = [] # TODO this should be initialized in constructor
+            while len(self.chosenNumbers) < 3:
+                self.chosenNumbers.append(lotteryNumbers.pop(random.randrange(0, len(lotteryNumbers))))
             self.chosenNumbers.sort()
 
             # determine notable features about the drawing
@@ -292,7 +322,7 @@ class IdleGameBot(DiscordBot):
                 "THREES": 0,
                 "LUCKYSEVEN": 0,
             }
-            for num in chosenNumbers:
+            for num in self.chosenNumbers:
                 if num == 1 or num == 2 or num == 3 or num == 5 or num == 7:
                     features["PRIMES"] += 1
                 if num % 2 == 0:
@@ -308,10 +338,10 @@ class IdleGameBot(DiscordBot):
             candidates = []
             for key in features:
                 if features[key] > 0:
-                    candidates.add(key)
+                    candidates.append(key)
             chosenFeatures = []
             while len(chosenFeatures) < 2:
-                chosenFeatures.add(candidates.pop(randrange(0, len(candidates))))
+                chosenFeatures.append(candidates.pop(random.randrange(0, len(candidates))))
 
             FEATURE_STRINGS = {
                 "PRIMES": "{} primes",
@@ -342,7 +372,6 @@ class IdleGameBot(DiscordBot):
         ##################
 
         CURRENT_VERSION = "0"
-        ENCODING_CHARSET = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890~!@#$%^&*()<>?/-_+=[]{}|"
 
         BLOCK_0 = "0" # Version Number
         BLOCK_1 = "1" # System Message IDs
@@ -355,29 +384,42 @@ class IdleGameBot(DiscordBot):
         ENCODING_INDEX_BLDG_BANK = 0
         ENCODING_INDEX_BLDG_STORE_1 = 1
 
+        ENCODING_CHARSET = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ~!@#$%^&*()<>?/-_+=[]|"
+
         # convert a base 10 integer string into a base len(ENCODING_CHARSET) integer string
-        def compressInt(num):
+        def compressInt(self, num):
             result = ""
-            radix = len(ENCODING_CHARSET)
+            radix = len(self.ENCODING_CHARSET)
             while num > 0:
                 rem = num % radix
-                result = ENCODING_CHARSET[rem] + result
-                num = num / radix
+                result = self.ENCODING_CHARSET[int(rem)] + result
+                num = (num - rem) / radix
+            return result
 
+        # reverses compressInt
+        def decompressInt(self, inputStr):
+            result = 0
+            for i in range(len(inputStr)):
+                order = len(inputStr) - (i + 1)
+                magnitude = 1
+                while order > 0:
+                    magnitude *= len(self, ENCODING_CHARSET)
+                    order -= 1
+                result += magnitude * self, ENCODING_CHARSET.find(inputStr[i])
             return result
 
         # encode the state as a string
         def encodeState(self):
             # BLOCK_0 - Version
-            stateString = CURRENT_VERSION
+            stateString = self.CURRENT_VERSION
 
             stateString += "."
             # BLOCK_1 - System Message IDs
 
             stateString += ",".join([
-                compressInt(self.buildingMessageObjects["BLDG_CONFIG"].id),
-                compressInt(self.buildingMessageObjects["BLDG_BANK"].id),
-                compressInt(self.buildingMessageObjects["BLDG_SHOP_1"].id),
+                self.compressInt(self.buildingMessageObjects["BLDG_CONFIG"].id),
+                self.compressInt(self.buildingMessageObjects["BLDG_BANK"].id),
+                self.compressInt(self.buildingMessageObjects["BLDG_SHOP_1"].id),
             ])
 
             stateString += "."
@@ -395,6 +437,8 @@ class IdleGameBot(DiscordBot):
             stateString += "."
             #BLOCK 6
 
+            print(stateString)
+
             return stateString
 
         # set game state variables based on import string (encoded by encodeState)
@@ -409,10 +453,6 @@ class IdleGameBot(DiscordBot):
         super().__init__(prefix, greeting, farewell)
 
         self.gameSessions = {} # maps guildIDs to GameSession objects
-
-        threading.Timer(1, self.on_tick).start()
-
-        self.addCommand('register', self.registerPlayer, lambda x: True, "", "")
 
     async def on_ready(self):
         await super().on_ready()
@@ -431,34 +471,35 @@ class IdleGameBot(DiscordBot):
                 # TODO search for configuration message
 
                 # success = await self.gameSessions[guild.id].importState() # TODO
+                success = None
                 if success == None: # game not initialized
-                    self.gameSessions[guild.id].initializeBuildings()
+                    await self.gameSessions[guild.id].initializeBuildings()
                 elif success == False: # error importing
                     await gameChannel.send("There was an error importing the game state.")
                     return
 
-    async def registerPlayer(self, message, params):
-        self.gameSessions[message.guild.id].registerPlayer(message)
+                self.loop.create_task(IdleGameBot.tick(self.gameSessions[guild.id]))
 
     ##################
     #### EVENT HANDLERS
     ##################
 
-    async def on_tick(self):
-        for gameSession in self.gameSessions:
-            gameSession.onTick()
+    async def tick(gameSession):
+        while True:
+            await gameSession.onTick()
+            await asyncio.sleep(1)
 
     async def on_message(self, message):
         await super().on_message(message)
-        if payload.guild_id in self.gameSessions.keys():
-            self.gameSessions[message.guild_id].messageReceived(message)
+        if message.guild.id in self.gameSessions.keys() and message.author.id != self.client.user.id:
+            await self.gameSessions[message.guild.id].messageReceived(message)
 
     async def on_raw_reaction_add(self, payload):
         await super().on_raw_reaction_add(payload)
-        if payload.guild_id in self.gameSessions.keys():
-            self.gameSessions[payload.guild_id].reactionToggled(payload, True)
+        if payload.guild_id in self.gameSessions.keys() and payload.user_id != self.client.user.id:
+            await self.gameSessions[payload.guild_id].reactionToggled(payload, True)
 
     async def on_raw_reaction_remove(self, payload):
         await super().on_raw_reaction_remove(payload)
-        if payload.guild_id in self.gameSessions.keys():
-            self.gameSessions[payload.guild_id].reactionToggled(payload, False)
+        if payload.guild_id in self.gameSessions.keys() and payload.user_id != self.client.user.id:
+            await self.gameSessions[payload.guild_id].reactionToggled(payload, False)
