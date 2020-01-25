@@ -14,32 +14,32 @@ GAME_CHANNEL_NAME = "idle-game-zone"
 class IdleGameBot(DiscordBot):
     class GameSession:
         class Player:
-            def __init__(self, discordUserObject, importString=""):
+            def __init__(self, discordUserObject):
                 self.discordUserObject = discordUserObject
 
-                if importString == "":
-                    self.currencyTotal = {
-                        "$": 0,
-                    }
+                self.currencyTotal = {
+                    "$": 0,
+                }
 
-                    self.items = {
-                        "ALLOWANCE":          1,
-                        "ITEM_LEMON":         0,
-                        "ITEM_MELON":         0,
-                        "ITEM_MONEY_PRINTER": 0,
-                        "ITEM_BROKEN_HOUSE":  0,
-                    }
+                self.items = {
+                    "ALLOWANCE":          1,
+                    "ITEM_LEMON":         0,
+                    "ITEM_MELON":         0,
+                    "ITEM_MONEY_PRINTER": 0,
+                    "ITEM_BROKEN_HOUSE":  0,
+                }
 
-                    self.income = self.calculateBaseIncome()
-                else:
-                    pass #TODO import from string
+                self.refreshBaseIncome()
 
             def updateItems(self, itemChanges):
                 for itemKey in itemChanges:
                     self.items[itemKey] += itemChanges[itemKey]
-                self.income = self.calculateBaseIncome()
+                self.income = self.getBaseIncome()
 
-            def calculateBaseIncome(self):
+            def refreshBaseIncome(self):
+                self.income = self.getBaseIncome()
+
+            def getBaseIncome(self):
                 incomeResult = {
                     "$": 0
                 }
@@ -54,6 +54,9 @@ class IdleGameBot(DiscordBot):
             # Remember that positive currencyTuples mean ADDING TO currencyTotal!
             def transact(self, currencyTuple):
                 self.currencyTotal[currencyTuple[0]] += currencyTuple[1]
+
+            def __str__(self):
+                return "<userID:{0}, currencyTotal:{1}, items:{2}>".format(self.discordUserObject.id, str(self.currencyTotal), str(self.items))
 
         KEY_TO_EMOJI_MAP = {
             "ITEM_LEMON":         "🍋",
@@ -112,6 +115,8 @@ class IdleGameBot(DiscordBot):
             self.client = client
             self.guild = guild
             self.channel = gameChannel # the game channel
+
+            # Game component references
             self.players = {} # maps discordUserIDs to Player objects
             self.buildingMessageObjects = {} # maps BLDG string constants to messages
 
@@ -133,6 +138,9 @@ class IdleGameBot(DiscordBot):
             self.slumberLevel = 0 # tracks if the bot is "slumbering" (still running but less aggressively updating UI)
             self.eventCounters = {} # maps EVENT string constants to counters (these counters tick down, not up)
             self.eventMessages = {} # maps EVENT string constants to message objects
+
+            # Sanity check encoding mechanism
+            assert len(set(i for i in self.ENCODING_CHARSET if self.ENCODING_CHARSET.count(i)>1)) == 0
 
         async def initializeBuildings(self):
             # CONFIG PLACEHOLDER
@@ -220,7 +228,7 @@ class IdleGameBot(DiscordBot):
             if self.counter % 60 == 0:
                 await self.buildingMessageObjects["BLDG_CONFIG"].edit(content=self.encodeState())
 
-            if self.counter % 10 == 0:#(60 * 30) == 0: 
+            if self.counter % (60 * 30) == 0: 
                 # Reset bank market status
                 if self.bankMarketStatus == "BANK_STATUS_BULL":
                     self.bankMarketStatus = "BANK_STATUS_CAMEL"
@@ -298,6 +306,8 @@ class IdleGameBot(DiscordBot):
 
                 if message.content == "!register":
                     self.registerPlayer(message.author)
+                elif message.content == "!save":
+                    await self.buildingMessageObjects["BLDG_CONFIG"].edit(content=self.encodeState())
 
                 await message.delete(delay=15)
 
@@ -322,7 +332,7 @@ class IdleGameBot(DiscordBot):
                         for shopItem in self.SHOP_1_ITEMS:
                             if payload.emoji.name == self.KEY_TO_EMOJI_MAP[shopItem]:
                                 itemCost = self.ITEM_COSTS[shopItem]
-                                if player.currencyTotal[itemCost[0]] > itemCost[1]:
+                                if player.currencyTotal[itemCost[0]] > max(0, -1 * itemCost[1]): # make sure that the player can afford it
                                     player.updateItems({shopItem: 1})
                                     player.transact(self.ITEM_COSTS[shopItem])
                         
@@ -601,20 +611,28 @@ class IdleGameBot(DiscordBot):
 
         CURRENT_VERSION = "0"
 
-        BLOCK_0 = "0" # Version Number
-        BLOCK_1 = "1" # System Message IDs
-        BLOCK_2 = "2" # Milestones
-        BLOCK_3 = "3" # Reserved
-        BLOCK_4 = "4" # Reserved
-        BLOCK_5 = "5" # Reserved
-        BLOCK_6 = "6" # Player statistics
+        BUILDING_MESSAGE_OBJECTS_ENCODING_ORDER = [
+            "BLDG_CONFIG",
+            "BLDG_BANK",
+            "BLDG_SHOP_1",
+            "BLDG_LOTTERY",
+        ]
+        PLAYER_CURRENCY_ENCODING_ORDER = [
+            "$",
+        ]
+        PLAYER_ITEMS_ENCODING_ORDER = [
+            "ALLOWANCE",
+            "ITEM_LEMON",
+            "ITEM_MELON",
+            "ITEM_MONEY_PRINTER",
+            "ITEM_BROKEN_HOUSE",
+        ]
 
-        ENCODING_INDEX_BLDG_BANK = 0
-        ENCODING_INDEX_BLDG_STORE_1 = 1
+        ENCODING_CHARSET = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZāēīōūåâêîôûŵŷäëïöüẅÿáéíóúẃýàèìòùẁỳçñĀĒĪŌŪÅÂÊÎÔÛŴŶÄËÏÖÜẄŸÁÉÍÓÚẂÝÀÈÌÒÙẀỲÇÑ!@#$^&*<>?/_+=≠±|µπø∂ßƒ†§¶£¢‡∆∫√∑"
 
-        ENCODING_CHARSET = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZåâêîôûŵŷäëïöüẅÿáéíóúẃýàèìòùẁỳçñÅÂÊÎÔÛŴŶÄËÏÖÜẄŸÁÉÍÓÚẂÝÀÈÌÒÙẀỲÇÑ~!@#$^&*()<>?/-_+=[]|µπø∂åßƒ†§¶£¢‡∆∫√∑"
-        # convert a base 10 integer string into a base len(ENCODING_CHARSET) integer string
+        # convert a base 10 POSITIVE integer string into a base len(ENCODING_CHARSET) integer string
         def compressInt(self, num):
+            num = int(num)
             result = ""
             radix = len(self.ENCODING_CHARSET)
             while num > 0:
@@ -630,45 +648,50 @@ class IdleGameBot(DiscordBot):
                 order = len(inputStr) - (i + 1)
                 magnitude = 1
                 while order > 0:
-                    magnitude *= len(self, ENCODING_CHARSET)
+                    magnitude *= len(self.ENCODING_CHARSET)
                     order -= 1
-                result += magnitude * self, ENCODING_CHARSET.find(inputStr[i])
+                result += magnitude * self.ENCODING_CHARSET.find(inputStr[i])
             return result
 
-        # encode the state as a string
+        # Encode the state as a string. State is encoded as integers in a 4-nested array. levels are separated by the following separators, in order: highest [.,:;] lowest
         def encodeState(self):
-            # BLOCK_0 - Version
-            stateString = self.CURRENT_VERSION
+            # BLOCK_0 - Version Number
+            stateStrings = [self.CURRENT_VERSION]
 
-            stateString += "."
             # BLOCK_1 - System Message IDs
+            stateStrings.append(",".join([self.compressInt(self.buildingMessageObjects[key].id) for key in self.BUILDING_MESSAGE_OBJECTS_ENCODING_ORDER]))
 
-            stateString += ",".join([
-                self.compressInt(self.buildingMessageObjects["BLDG_CONFIG"].id),
-                self.compressInt(self.buildingMessageObjects["BLDG_BANK"].id),
-                self.compressInt(self.buildingMessageObjects["BLDG_SHOP_1"].id),
-            ])
+            # BLOCK 2 - Player statistics
+            stateStrings.append(",".join([
+                ":".join([
+                    self.compressInt(playerID),
+                    ";".join([self.compressInt(player.currencyTotal[currencyKey]) for currencyKey in self.PLAYER_CURRENCY_ENCODING_ORDER]),
+                    ";".join([self.compressInt(player.items[itemKey]) for itemKey in self.PLAYER_ITEMS_ENCODING_ORDER]),
+                ]) for (playerID, player) in self.players.items()
+            ]))
 
-            stateString += "."
-            #BLOCK 2 - Milestones
+            return ".".join(stateStrings)
 
-            stateString += "."
-            #BLOCK 3
-
-            stateString += "."
-            #BLOCK 4
-
-            stateString += "."
-            #BLOCK 5
-
-            stateString += "."
-            #BLOCK 6
-
-            return stateString
-
-        # set game state variables based on import string (encoded by encodeState)
+        # set game state variables based on importString (encoded by encodeState)
         async def importState(self, importString):
-            pass #TODO
+            blocks = importString.split(".")
+
+            if blocks[0] != self.CURRENT_VERSION:
+                print("Warning: Version mismatch, {} found, {} expected".format(blocks[0], self.CURRENT_VERSION))
+
+            systemMessageIDs = blocks[1].split(",")
+            self.buildingMessageObjects = dict(zip(self.BUILDING_MESSAGE_OBJECTS_ENCODING_ORDER, [await self.channel.fetch_message(self.decompressInt(messageID)) for messageID in systemMessageIDs]))
+
+            for playerEncoding in blocks[2].split(","):
+                playerBlocks = playerEncoding.split(":")
+                playerID = self.decompressInt(playerBlocks[0])
+
+                player = IdleGameBot.GameSession.Player(self.client.get_user(playerID))
+                player.currencyTotal = dict(zip(self.PLAYER_CURRENCY_ENCODING_ORDER, [self.decompressInt(total) for total in playerBlocks[1].split(";")]))
+                player.items = dict(zip(self.PLAYER_ITEMS_ENCODING_ORDER, [self.decompressInt(count) for count in playerBlocks[2].split(";")]))
+
+                player.refreshBaseIncome()
+                self.players[playerID] = player
 
     ##################
     #### BOT INITIALIZATION
@@ -691,17 +714,15 @@ class IdleGameBot(DiscordBot):
                     gameChannel = channel
 
             if gameChannel is not None:
-                self.gameSessions[guild.id] = IdleGameBot.GameSession(self.loop, self.client, guild, gameChannel)
+                gameSession = IdleGameBot.GameSession(self.loop, self.client, guild, gameChannel)
+                self.gameSessions[guild.id] = gameSession
 
-                # TODO search for configuration message
-
-                # success = await self.gameSessions[guild.id].importState() # TODO
-                success = None
-                if success == None: # game not initialized
+                # Search for a configuration message, and import it if it exists. otherwise, initialize the game.
+                firstMessageArr = await gameChannel.history(limit=1,oldest_first=True).flatten()
+                if len(firstMessageArr) == 0:
                     await self.gameSessions[guild.id].initializeBuildings()
-                elif success == False: # error importing
-                    await gameChannel.send("There was an error importing the game state.")
-                    return
+                else:
+                    await gameSession.importState(firstMessageArr[0].content)
 
                 self.loop.create_task(IdleGameBot.tick(self.gameSessions[guild.id]))
 
