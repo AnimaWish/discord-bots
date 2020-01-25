@@ -27,6 +27,7 @@ class IdleGameBot(DiscordBot):
                         "ITEM_LEMON":         0,
                         "ITEM_MELON":         0,
                         "ITEM_MONEY_PRINTER": 0,
+                        "ITEM_BROKEN_HOUSE":  0,
                     }
 
                     self.income = self.calculateBaseIncome()
@@ -54,7 +55,6 @@ class IdleGameBot(DiscordBot):
             def transact(self, currencyTuple):
                 self.currencyTotal[currencyTuple[0]] += currencyTuple[1]
 
-
         KEY_TO_EMOJI_MAP = {
             "ITEM_LEMON":         "🍋",
             "ITEM_MELON":         "🍈",
@@ -74,24 +74,7 @@ class IdleGameBot(DiscordBot):
             "BANK_STATUS_CAMEL": "🐪",
         }
 
-        EMOJI_TO_KEY_MAP = {
-            "🍋": "ITEM_LEMON",
-            "🍈": "ITEM_MELON",
-            "🖨️": "ITEM_MONEY_PRINTER",
-            "🏚️": "ITEM_HOUSE",
-            "0️⃣": "NUMERAL_0",
-            "1️⃣": "NUMERAL_1",
-            "2️⃣": "NUMERAL_2",
-            "3️⃣": "NUMERAL_3",
-            "4️⃣": "NUMERAL_4",
-            "5️⃣": "NUMERAL_5",
-            "6️⃣": "NUMERAL_6",
-            "7️⃣": "NUMERAL_7",
-            "8️⃣": "NUMERAL_8",
-            "9️⃣": "NUMERAL_9",
-            "🐄": "BANK_STATUS_BULL",
-            "🐪": "BANK_STATUS_CAMEL",
-        }
+        EMOJI_TO_KEY_MAP = {v: k for k, v in KEY_TO_EMOJI_MAP.items()}
 
         LOTTO_KEY_TO_NUM_MAP = {
             "NUMERAL_0": 0,
@@ -113,11 +96,19 @@ class IdleGameBot(DiscordBot):
             "ITEM_BROKEN_HOUSE": ["$", -1000000],
         }
 
+        SHOP_1_ITEMS = [
+            "ITEM_LEMON",
+            "ITEM_MELON",
+            "ITEM_MONEY_PRINTER",
+            "ITEM_BROKEN_HOUSE"
+        ]
+
         ##################
         #### INITIALIZATION
         ##################
 
-        def __init__(self, client, guild, gameChannel):
+        def __init__(self, eventLoop, client, guild, gameChannel):
+            self.loop = eventLoop
             self.client = client
             self.guild = guild
             self.channel = gameChannel # the game channel
@@ -153,11 +144,9 @@ class IdleGameBot(DiscordBot):
 
             # SHOP 1
             self.buildingMessageObjects["BLDG_SHOP_1"] = await self.channel.send(self.generateShop1Message())
-            await self.buildingMessageObjects["BLDG_SHOP_1"].add_reaction(self.KEY_TO_EMOJI_MAP["ITEM_LEMON"])
-            await self.buildingMessageObjects["BLDG_SHOP_1"].add_reaction(self.KEY_TO_EMOJI_MAP["ITEM_MELON"])
-            await self.buildingMessageObjects["BLDG_SHOP_1"].add_reaction(self.KEY_TO_EMOJI_MAP["ITEM_MONEY_PRINTER"])
-            await self.buildingMessageObjects["BLDG_SHOP_1"].add_reaction(self.KEY_TO_EMOJI_MAP["ITEM_BROKEN_HOUSE"])
-
+            for item in self.SHOP_1_ITEMS:
+                await self.buildingMessageObjects["BLDG_SHOP_1"].add_reaction(self.KEY_TO_EMOJI_MAP[item])    
+            
             # LOTTERY
             self.buildingMessageObjects["BLDG_LOTTERY"] = await self.channel.send(":construction:")
             await self.refreshLottery()
@@ -203,7 +192,7 @@ class IdleGameBot(DiscordBot):
         async def onTick(self):
             # Determine the activity level of the bot
             tempSlumberLevel = 0
-            SLUMBER_MINUTES_THRESHOLDS = [.5, 10, 1440]
+            SLUMBER_MINUTES_THRESHOLDS = [2, 15, 1440]
             SLUMBER_LEVEL_UPDATE_RATES = [1, 5, 30, 600] #in seconds
             self.counter += 1
             lastInteractDelta = datetime.datetime.now() - self.lastInteraction
@@ -291,7 +280,7 @@ class IdleGameBot(DiscordBot):
                                 self.players[playerID].transact(["$", prizePerPlayer])
 
                     # Begin next lottery
-                    await self.refreshLottery()
+                    self.loop.create_task(self.refreshLottery())
 
 
             # check for timed event triggers
@@ -330,12 +319,7 @@ class IdleGameBot(DiscordBot):
                                 self.correctMarketUserIDs.remove(payload.user_id)
 
                     elif payload.message_id == self.buildingMessageObjects["BLDG_SHOP_1"].id:
-                        SHOP_1_ITEMS = [
-                            "ITEM_LEMON",
-                            "ITEM_MELON",
-                            "ITEM_MONEY_PRINTER"
-                        ]
-                        for shopItem in SHOP_1_ITEMS:
+                        for shopItem in self.SHOP_1_ITEMS:
                             if payload.emoji.name == self.KEY_TO_EMOJI_MAP[shopItem]:
                                 itemCost = self.ITEM_COSTS[shopItem]
                                 if player.currencyTotal[itemCost[0]] > itemCost[1]:
@@ -707,7 +691,7 @@ class IdleGameBot(DiscordBot):
                     gameChannel = channel
 
             if gameChannel is not None:
-                self.gameSessions[guild.id] = IdleGameBot.GameSession(self.client, guild, gameChannel)
+                self.gameSessions[guild.id] = IdleGameBot.GameSession(self.loop, self.client, guild, gameChannel)
 
                 # TODO search for configuration message
 
