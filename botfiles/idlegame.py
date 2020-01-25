@@ -93,12 +93,29 @@ class IdleGameBot(DiscordBot):
             "🐪": "BANK_STATUS_CAMEL",
         }
 
+        LOTTO_KEY_TO_NUM_MAP = {
+            "NUMERAL_0": 0,
+            "NUMERAL_1": 1,
+            "NUMERAL_2": 2,
+            "NUMERAL_3": 3,
+            "NUMERAL_4": 4,
+            "NUMERAL_5": 5,
+            "NUMERAL_6": 6,
+            "NUMERAL_7": 7,
+            "NUMERAL_8": 8,
+            "NUMERAL_9": 9
+        }
+
         ITEM_COSTS = {
-            "ITEM_LEMON": ["$", -5],#["$", 100],
+            "ITEM_LEMON": ["$", -100],
             "ITEM_MELON": ["$", -990],
-            "ITEM_MONEY_PRINTER": ["$", -48000],
+            "ITEM_MONEY_PRINTER": ["$", -49000],
             "ITEM_BROKEN_HOUSE": ["$", -1000000],
         }
+
+        ##################
+        #### INITIALIZATION
+        ##################
 
         def __init__(self, client, guild, gameChannel):
             self.client = client
@@ -107,9 +124,19 @@ class IdleGameBot(DiscordBot):
             self.players = {} # maps discordUserIDs to Player objects
             self.buildingMessageObjects = {} # maps BLDG string constants to messages
 
+            # Bank Properties
             self.bankMarketStatus = "BANK_STATUS_BULL" # toggles at regular intervals
             self.correctMarketUserIDs = [] # userIDs of players who have toggled the bull/camel emoji
 
+            # Lottery Properties
+            self.lotteryDrawTime = 0 #datetime.datetime
+            self.todayLotteryNumbers = [0,0,0]
+            self.yesterdayLotteryNumbers = [0,0,0]
+            self.yesterdayLotteryWinners = [[],[],[]] # third, second, first place --- nested array of playerIDs
+            self.yesterdayLotteryPrizePool = 0
+            self.todayLotteryPrizePool = 0
+
+            # Timing Properties
             self.counter = 0 # time keeper
             self.lastInteraction = datetime.datetime.now() # updated to now whenever there are reactions/messages in the game channel
             self.slumberLevel = 0 # tracks if the bot is "slumbering" (still running but less aggressively updating UI)
@@ -117,36 +144,72 @@ class IdleGameBot(DiscordBot):
             self.eventMessages = {} # maps EVENT string constants to message objects
 
         async def initializeBuildings(self):
+            # CONFIG PLACEHOLDER
             self.buildingMessageObjects["BLDG_CONFIG"] = await self.channel.send(":construction:")
 
+            # BANK
             self.buildingMessageObjects["BLDG_BANK"] = await self.channel.send(self.generateBankMessage())
-
             await self.buildingMessageObjects["BLDG_BANK"].add_reaction(self.KEY_TO_EMOJI_MAP[self.bankMarketStatus])
 
+            # SHOP 1
             self.buildingMessageObjects["BLDG_SHOP_1"] = await self.channel.send(self.generateShop1Message())
             await self.buildingMessageObjects["BLDG_SHOP_1"].add_reaction(self.KEY_TO_EMOJI_MAP["ITEM_LEMON"])
             await self.buildingMessageObjects["BLDG_SHOP_1"].add_reaction(self.KEY_TO_EMOJI_MAP["ITEM_MELON"])
             await self.buildingMessageObjects["BLDG_SHOP_1"].add_reaction(self.KEY_TO_EMOJI_MAP["ITEM_MONEY_PRINTER"])
             await self.buildingMessageObjects["BLDG_SHOP_1"].add_reaction(self.KEY_TO_EMOJI_MAP["ITEM_BROKEN_HOUSE"])
 
-            self.buildingMessageObjects["BLDG_LOTTERY"] = await self.channel.send(self.generateLotteryMessage())
-            lottoEmojiKeys = ["NUMERAL_0","NUMERAL_1","NUMERAL_2","NUMERAL_3","NUMERAL_4","NUMERAL_5","NUMERAL_6","NUMERAL_7","NUMERAL_8","NUMERAL_9"]
-            for item in lottoEmojiKeys:
-                await self.buildingMessageObjects["BLDG_LOTTERY"].add_reaction(self.KEY_TO_EMOJI_MAP[item])
+            # LOTTERY
+            self.buildingMessageObjects["BLDG_LOTTERY"] = await self.channel.send(":construction:")
+            await self.refreshLottery()
 
+            # COMMIT CONFIG
             await self.buildingMessageObjects["BLDG_CONFIG"].edit(content=self.encodeState())
 
-        async def onTick(self):
-            tempSlumberLevel = 0
-            SLUMBER_MINUTES_THRESHOLDS = [.5, 10]
-            SLUMBER_LEVEL_UPDATE_RATES = [1, 5, 30]
-            self.counter += 1
+        async def refreshLottery(self):
+            self.yesterdayLotteryNumbers = self.todayLotteryNumbers
+            self.todayLotteryNumbers = self.drawLotteryNumbers()
+            self.lotteryDrawTime = datetime.datetime.now() + datetime.timedelta(seconds=10) # TODO make sure this doesn't drift
 
+            # determine prize pool
+            dollarSum = 0
+            for playerID in self.players:
+                dollarSum += self.players[playerID].currencyTotal["$"]
+            self.yesterdayLotteryPrizePool = self.todayLotteryPrizePool
+            self.todayLotteryPrizePool = max(100000, int(dollarSum*.01))
+
+            await self.buildingMessageObjects["BLDG_LOTTERY"].edit(content=self.generateLotteryMessage())
+            await self.buildingMessageObjects["BLDG_LOTTERY"].clear_reactions()
+            for item in self.LOTTO_KEY_TO_NUM_MAP:
+                await self.buildingMessageObjects["BLDG_LOTTERY"].add_reaction(self.KEY_TO_EMOJI_MAP[item])
+
+        # third, second, first prize
+        def calculateLotteryPrizes(self, prizePool):
+            return [int(prizePool * .11), int(prizePool * .22), int(prizePool * .66)]
+
+        def drawLotteryNumbers(self):
+            # select the 3 lotto numbers
+            possibleLotteryNumbers = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+            lottoNumbers = []
+            while len(lottoNumbers) < 3:
+                lottoNumbers.append(possibleLotteryNumbers.pop(random.randrange(0, len(possibleLotteryNumbers))))
+            lottoNumbers.sort()
+
+            return lottoNumbers
+
+        ##################
+        #### GAME EVENT HANDLERS
+        ##################
+
+        async def onTick(self):
+            # Determine the activity level of the bot
+            tempSlumberLevel = 0
+            SLUMBER_MINUTES_THRESHOLDS = [.5, 10, 1440]
+            SLUMBER_LEVEL_UPDATE_RATES = [1, 5, 30, 600] #in seconds
+            self.counter += 1
             lastInteractDelta = datetime.datetime.now() - self.lastInteraction
             for i in range(len(SLUMBER_MINUTES_THRESHOLDS)):
                 if lastInteractDelta > datetime.timedelta(minutes=SLUMBER_MINUTES_THRESHOLDS[i]):
                     tempSlumberLevel = i + 1
-
             self.slumberLevel = tempSlumberLevel
 
             # PLAYER INCOME
@@ -154,19 +217,21 @@ class IdleGameBot(DiscordBot):
                 player = self.players[userID]
                 income = player.income
 
-                incomeToPrint = income["$"]
+                finalIncome = income["$"]
                 if player.discordUserObject.id in self.correctMarketUserIDs:
-                    incomeToPrint *= 1.25
+                    finalIncome *= 1.25
 
-                player.currencyTotal["$"] += math.ceil(income["$"])
+                player.currencyTotal["$"] += math.ceil(finalIncome)
 
+            # Update bank based off of activity level
             if self.counter % SLUMBER_LEVEL_UPDATE_RATES[self.slumberLevel] == 0: 
                 await self.buildingMessageObjects["BLDG_BANK"].edit(content=self.generateBankMessage())
 
+            # Update "save" file
             if self.counter % 60 == 0:
                 await self.buildingMessageObjects["BLDG_CONFIG"].edit(content=self.encodeState())
 
-            if self.counter % (60 * 30) == 0: 
+            if self.counter % 10 == 0:#(60 * 30) == 0: 
                 # Reset bank market status
                 if self.bankMarketStatus == "BANK_STATUS_BULL":
                     self.bankMarketStatus = "BANK_STATUS_CAMEL"
@@ -175,6 +240,59 @@ class IdleGameBot(DiscordBot):
                 await self.buildingMessageObjects["BLDG_BANK"].clear_reactions()
                 await self.buildingMessageObjects["BLDG_BANK"].add_reaction(self.KEY_TO_EMOJI_MAP[self.bankMarketStatus])
                 self.correctMarketUserIDs = []
+                await self.buildingMessageObjects["BLDG_BANK"].edit(content=self.generateBankMessage())
+
+                # Check if it's lottery drawing time
+                if datetime.datetime.now() > self.lotteryDrawTime:
+                    print("Drawing lotto!")
+                    playerLottoChoices = {} # maps integers 0-9 to lists of player IDs
+                    self.buildingMessageObjects["BLDG_LOTTERY"] = await self.channel.fetch_message(self.buildingMessageObjects["BLDG_LOTTERY"].id) # need to update local message object to get reactions
+                    for reaction in self.buildingMessageObjects["BLDG_LOTTERY"].reactions:
+                        lottoNum = self.LOTTO_KEY_TO_NUM_MAP[self.EMOJI_TO_KEY_MAP[reaction.emoji]]
+                        playerLottoChoices[lottoNum] = []
+                        async for user in reaction.users():
+                            if user.id != self.client.user.id:
+                                playerLottoChoices[lottoNum].append(user.id)
+
+                    print(playerLottoChoices)
+
+                    # make sure everyone only gets 3 numbers
+                    playerNumberCounts = {} # maps player IDs to counts of lottery numbers selected
+                    for i in range(10):
+                        for j in range(len(playerLottoChoices[i]), 0, -1): # range through each playerLottoChoices list backwards so we can pop from it safely
+                            i_userIDs = j - 1
+                            userID = playerLottoChoices[i][i_userIDs]
+                            if userID not in playerNumberCounts:
+                                playerNumberCounts[userID] = 0
+                            if playerNumberCounts[userID] < 3: 
+                                playerNumberCounts[userID] += 1
+                            else: # TOO MANY CHOICES
+                                playerNumberCounts[userID].pop(i_userIDs)
+
+                    # Count correct guesses
+                    lottoMatchCounts = {} # maps playerIDs to counts of correct guesses
+                    for winningNumber in self.todayLotteryNumbers:
+                        for userID in playerLottoChoices[winningNumber]:
+                            if userID not in lottoMatchCounts:
+                                lottoMatchCounts[userID] = 0
+                            lottoMatchCounts[userID] += 1
+
+                    # Determine winners
+                    self.yesterdayLotteryWinners = [[],[],[]] # third, second, first place
+                    for userID in lottoMatchCounts:
+                        self.yesterdayLotteryWinners[lottoMatchCounts[userID] - 1].append(userID)
+
+                    # Award winners
+                    prizes = self.calculateLotteryPrizes(self.todayLotteryPrizePool)
+                    for i in range(3):
+                        if len(self.yesterdayLotteryWinners[i]) > 0:
+                            prizePerPlayer = math.floor(prizes[i]/len(self.yesterdayLotteryWinners[i]))
+                            for playerID in self.yesterdayLotteryWinners[i]:
+                                self.players[playerID].transact(["$", prizePerPlayer])
+
+                    # Begin next lottery
+                    await self.refreshLottery()
+
 
             # check for timed event triggers
             for key in self.eventCounters:
@@ -193,11 +311,6 @@ class IdleGameBot(DiscordBot):
                     self.registerPlayer(message.author)
 
                 await message.delete(delay=15)
-
-
-        def registerPlayer(self, user):
-            self.players[user.id] = IdleGameBot.GameSession.Player(user)
-            print("Registered Player {}".format(user.name))
 
         async def reactionToggled(self, payload, toggledOn):
             if payload.channel_id == self.channel.id:
@@ -222,7 +335,6 @@ class IdleGameBot(DiscordBot):
                             "ITEM_MELON",
                             "ITEM_MONEY_PRINTER"
                         ]
-
                         for shopItem in SHOP_1_ITEMS:
                             if payload.emoji.name == self.KEY_TO_EMOJI_MAP[shopItem]:
                                 itemCost = self.ITEM_COSTS[shopItem]
@@ -231,11 +343,20 @@ class IdleGameBot(DiscordBot):
                                     player.transact(self.ITEM_COSTS[shopItem])
                         
                     elif payload.message_id == self.buildingMessageObjects["BLDG_LOTTERY"].id:
-                        pass
+                        pass # only need to look at reactions on lottery at drawing time
                 else:
                     user = self.client.get_user(payload.user_id)
                     helpfulMessage = await self.channel.send("{} you are not registered with the game. Type `!register` to join!".format(user.mention))
-                    helpfulMessage.delete(delay=15)
+                    await helpfulMessage.delete(delay=15)
+
+
+        ##################
+        #### ON_MESSAGE ACTIONS
+        ##################
+
+        def registerPlayer(self, user):
+            self.players[user.id] = IdleGameBot.GameSession.Player(user)
+            print("Registered Player {}".format(user.name))
 
         ##################
         #### BUILDING MESSAGES
@@ -247,6 +368,8 @@ class IdleGameBot(DiscordBot):
                 bankEmojiString = ":bank::bank::zzz:"
             elif self.slumberLevel == 2:
                 bankEmojiString = ":bank::zzz::zzz:"
+            elif self.slumberLevel == 3:
+                bankEmojiString = ":zzz::zzz::zzz:"
             resultString =  "`~~~~~~~~~~~~~~~~~~~~~~~`\n"
             resultString += bankEmojiString + " **BANK** " + bankEmojiString + "\n"
             resultString += "`~~~~~~~~~~~~~~~~~~~~~~~`\n\n"
@@ -291,6 +414,146 @@ class IdleGameBot(DiscordBot):
 
             return resultString
 
+        def generateShop1Message(self):
+            shopEmojiString = ":convenience_store::convenience_store::convenience_store:"
+            resultString =  "`~~~~~~~~~~~~~~~~~~~~~~`\n"
+            resultString += shopEmojiString + " **SHOP** " + shopEmojiString + "\n"
+            resultString += "`~~~~~~~~~~~~~~~~~~~~~~`\n\n"
+            resultString += "_Buy somethin', will ya?_\n\n"
+            shopInventory = [
+                ["ITEM_LEMON",         self.ITEM_COSTS["ITEM_LEMON"],         "+$1/sec",   "Lemons into lemonade, right?"],
+                ["ITEM_MELON",         self.ITEM_COSTS["ITEM_MELON"],         "+$10/sec",  "Melons into melonade... Right...?"],
+                ["ITEM_MONEY_PRINTER", self.ITEM_COSTS["ITEM_MONEY_PRINTER"], "+$500/sec", "Top of the line money printer!"],
+                ["ITEM_BROKEN_HOUSE",  self.ITEM_COSTS["ITEM_BROKEN_HOUSE"],  "A house!",  "It ain't much, but it's home."],
+            ]
+
+            resultString += self.prettyPrintInventory(shopInventory)
+            return resultString
+
+        def generateLotteryMessage(self):
+            lotteryEmojiString = ":moneybag::moneybag::moneybag:"
+            resultString =  "`~~~~~~~~~~~~~~~~~~~~~~`\n"
+            resultString += lotteryEmojiString + " **LOTTERY** " + lotteryEmojiString + "\n"
+            resultString += "`~~~~~~~~~~~~~~~~~~~~~~`\n\n"
+
+            resultString += "_Every day the lottery hint will change! Choose your three lucky numbers and you could be a winner! (Only the lowest three numbers selected will be counted. Terms and conditions apply.)_\n"
+
+            # determine notable features about the drawing
+            features = {
+                "PRIMES": 0,
+                "EVENS": 0,
+                "ODDS": 0,
+                "THREES": 0,
+                "LUCKYSEVEN": 0,
+            }
+            for num in self.todayLotteryNumbers:
+                if num == 1 or num == 2 or num == 3 or num == 5 or num == 7:
+                    features["PRIMES"] += 1
+                if num % 2 == 0:
+                    features["EVENS"] += 1
+                else: 
+                    features["ODDS"] += 1
+                if num % 3 == 0:
+                    features["THREES"] += 1
+                if num == 7:
+                    features["LUCKYSEVEN"] += 1
+
+            # select hints to display
+            candidates = []
+            for key in features:
+                if features[key] > 0:
+                    candidates.append(key)
+            chosenFeatures = []
+            while len(chosenFeatures) < 2:
+                chosenFeatures.append(candidates.pop(random.randrange(0, len(candidates)))) # TODO these are rerandomized on every call to generateLotteryMessage, possibly memoize them if we care
+
+            FEATURE_STRINGS_PLURAL = {
+                "PRIMES": "{} primes",
+                "EVENS": "{} even numbers" ,
+                "ODDS": "{} odd numbers",
+                "THREES": "{} numbers divisible by three",
+            }
+            FEATURE_STRINGS_SINGULAR = {
+                "PRIMES": "1 prime",
+                "EVENS": "1 even number" ,
+                "ODDS": "1 odd number",
+                "THREES": "1 number divisible by three",
+                "LUCKYSEVEN": "a Lucky Seven"
+            }
+            finalFeatureStrings = []
+            for featureKey in chosenFeatures:
+                if features[featureKey] == 1:
+                    finalFeatureStrings.append(FEATURE_STRINGS_SINGULAR[featureKey])
+                else:
+                    finalFeatureStrings.append(FEATURE_STRINGS_PLURAL[featureKey].format(str(features[featureKey])))
+
+            # make sure that lucky seven is at the end
+            if finalFeatureStrings[0] == FEATURE_STRINGS_SINGULAR["LUCKYSEVEN"]:
+                finalFeatureStrings.append(finalFeatureStrings.pop(0))
+
+            # Show/hide clarification on hint based on applicability
+            NO_OVERLAP_PAIRS = [
+                ["EVENS", "ODDS"],
+                ["ODDS", "EVENS"],
+                ["EVENS", "LUCKYSEVEN"],
+                ["THREES", "LUCKYSEVEN"]
+            ]
+            possibleOverlapString = " _(These can overlap)_"
+            for pair in NO_OVERLAP_PAIRS:
+                if finalFeatureStrings[0] == pair[0] and finalFeatureStrings[1] == pair[1]:
+                    possibleOverlapString = ""
+
+            resultString += "\n__Today's Hint__: There's {} and {}!{}\n\n".format(finalFeatureStrings[0], finalFeatureStrings[1], possibleOverlapString)
+
+            # Display results of yesterday's lottery!
+            resultString += "Yesterday's winning numbers were **{}**.\n\n".format(self.listStringsWithCommas(self.yesterdayLotteryNumbers))
+            if len([item for sublist in self.yesterdayLotteryWinners for item in sublist]) > 0: # flattened
+                resultString += "_Congratulations to Yesterday's Winners:_\n"
+                winnerStrings = []
+                verbStrings = []
+                for winnerList in self.yesterdayLotteryWinners: #third, second, first
+                    if len(winnerList) > 0:
+                        winnerMentions = []
+                        for winnerID in winnerList:
+                            winnerMentions.append(self.players[winnerID].discordUserObject.mention)
+
+                        if len(winnerList) == 1:
+                            verbStrings.append("takes")
+                        else:
+                            verbStrings.append("will split")
+
+                        winnerStrings.append(self.listStringsWithCommas(winnerMentions))
+                    else:
+                        winnerStrings.append("Nobody")
+                        verbStrings.append("got")
+
+                prizes = self.calculateLotteryPrizes(self.yesterdayLotteryPrizePool)
+
+                resultString += ":first_place: {} {} the first place prize of {}!\n".format(winnerStrings[2], verbStrings[2], str(prizes[2]))
+                resultString += ":second_place: {} {} the second place prize of {}!\n".format(winnerStrings[1], verbStrings[1], str(prizes[1]))
+                resultString += ":third_place: {} {} the third place prize of {}!\n".format(winnerStrings[0], verbStrings[0], str(prizes[0]))
+            else:
+                resultString += "There were no lottery winners yesterday. Better luck next time!"
+
+            return resultString
+
+        ##################
+        #### DISPLAY HELPERS
+        ##################
+
+        def listStringsWithCommas(self, arr):
+            if len(arr) == 0:
+                return ""
+            elif len(arr) == 1:
+                return str(arr[0])
+            elif len(arr) == 2:
+                return str(arr[0]) + " and " + str(arr[1])
+            else:
+                result = "and " + str(arr[-1])
+                for item in reversed(arr[:-1]):
+                    result = str(item) + ", " + result
+                return result
+
         # self.currencyString("$", "123456") => "$123,456"
         # self.currencyString("%", "123456789") => "%123m"
         def currencyString(self, unit, currencyInteger):
@@ -324,22 +587,6 @@ class IdleGameBot(DiscordBot):
 
             return negativeString + unit + result
 
-        def generateShop1Message(self):
-            shopEmojiString = ":convenience_store::convenience_store::convenience_store:"
-            resultString =  "`~~~~~~~~~~~~~~~~~~~~~~`\n"
-            resultString += shopEmojiString + " **SHOP** " + shopEmojiString + "\n"
-            resultString += "`~~~~~~~~~~~~~~~~~~~~~~`\n\n"
-            resultString += "_Buy somethin', will ya?_\n\n"
-            shopInventory = [
-                ["ITEM_LEMON",         self.ITEM_COSTS["ITEM_LEMON"],         "+$1/sec",   "Lemons into lemonade, right?"],
-                ["ITEM_MELON",         self.ITEM_COSTS["ITEM_MELON"],         "+$10/sec",  "Melons into melonade... Right...?"],
-                ["ITEM_MONEY_PRINTER", self.ITEM_COSTS["ITEM_MONEY_PRINTER"], "+$500/sec", "Top of the line money printer!"],
-                ["ITEM_BROKEN_HOUSE",  self.ITEM_COSTS["ITEM_BROKEN_HOUSE"],  "A house!",  "It ain't much, but it's home."],
-            ]
-
-            resultString += self.prettyPrintInventory(shopInventory)
-            return resultString
-
         # inventoryList = [ [emojiID, priceTuple, effectDescription, flavorText], ... ]
         def prettyPrintInventory(self, inventoryList):
             result = ""
@@ -364,80 +611,6 @@ class IdleGameBot(DiscordBot):
 
             return result
 
-        def generateLotteryMessage(self):
-            lotteryEmojiString = ":moneybag::moneybag::moneybag:"
-            resultString =  "`~~~~~~~~~~~~~~~~~~~~~~`\n"
-            resultString += lotteryEmojiString + " **LOTTERY** " + lotteryEmojiString + "\n"
-            resultString += "`~~~~~~~~~~~~~~~~~~~~~~`\n\n"
-
-            resultString += "_Every day the lottery hint will change! Choose your three lucky numbers and you could be a winner! (Only the lowest three numbers selected will be counted. Terms and conditions apply.)_\n"
-
-            # select the 3 lotto numbers
-            lotteryNumbers = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
-            self.chosenNumbers = [] # TODO this should be initialized in constructor
-            while len(self.chosenNumbers) < 3:
-                self.chosenNumbers.append(lotteryNumbers.pop(random.randrange(0, len(lotteryNumbers))))
-            self.chosenNumbers.sort()
-
-            # determine notable features about the drawing
-            features = {
-                "PRIMES": 0,
-                "EVENS": 0,
-                "ODDS": 0,
-                "THREES": 0,
-                "LUCKYSEVEN": 0,
-            }
-            for num in self.chosenNumbers:
-                if num == 1 or num == 2 or num == 3 or num == 5 or num == 7:
-                    features["PRIMES"] += 1
-                if num % 2 == 0:
-                    features["EVENS"] += 1
-                else: 
-                    features["ODDS"] += 1
-                if num % 3 == 0:
-                    features["THREES"] += 1
-                if num == 7:
-                    features["LUCKYSEVEN"] += 1
-
-            # select hints to display
-            candidates = []
-            for key in features:
-                if features[key] > 0:
-                    candidates.append(key)
-            chosenFeatures = []
-            while len(chosenFeatures) < 2:
-                chosenFeatures.append(candidates.pop(random.randrange(0, len(candidates))))
-
-            FEATURE_STRINGS_PLURAL = {
-                "PRIMES": "{} primes",
-                "EVENS": "{} even numbers" ,
-                "ODDS": "{} odd numbers",
-                "THREES": "{} numbers divisible by three",
-            }
-
-            FEATURE_STRINGS_SINGULAR = {
-                "PRIMES": "1 prime",
-                "EVENS": "1 even number" ,
-                "ODDS": "1 odd number",
-                "THREES": "1 number divisible by three",
-                "LUCKYSEVEN": "a Lucky Seven"
-            }
-
-            finalFeatureStrings = []
-            for featureKey in chosenFeatures:
-                if features[featureKey] == 1:
-                    finalFeatureStrings.append(FEATURE_STRINGS_SINGULAR[featureKey])
-                else:
-                    finalFeatureStrings.append(FEATURE_STRINGS_PLURAL[featureKey].format(str(features[featureKey])))
-
-            # make sure that lucky seven is at the end
-            if finalFeatureStrings[0] == FEATURE_STRINGS_SINGULAR["LUCKYSEVEN"]:
-                finalFeatureStrings.append(finalFeatureStrings.pop(0))
-
-            resultString += "\n__Today's Hint__: There's {} and {}! _(These can overlap)_".format(finalFeatureStrings[0], finalFeatureStrings[1])
-
-            return resultString
-
         ##################
         #### ENCODING
         ##################
@@ -455,8 +628,7 @@ class IdleGameBot(DiscordBot):
         ENCODING_INDEX_BLDG_BANK = 0
         ENCODING_INDEX_BLDG_STORE_1 = 1
 
-        ENCODING_CHARSET = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ~!@#$%^&*()<>?/-_+=[]|"
-
+        ENCODING_CHARSET = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZåâêîôûŵŷäëïöüẅÿáéíóúẃýàèìòùẁỳçñÅÂÊÎÔÛŴŶÄËÏÖÜẄŸÁÉÍÓÚẂÝÀÈÌÒÙẀỲÇÑ~!@#$^&*()<>?/-_+=[]|µπø∂åßƒ†§¶£¢‡∆∫√∑"
         # convert a base 10 integer string into a base len(ENCODING_CHARSET) integer string
         def compressInt(self, num):
             result = ""
@@ -550,7 +722,7 @@ class IdleGameBot(DiscordBot):
                 self.loop.create_task(IdleGameBot.tick(self.gameSessions[guild.id]))
 
     ##################
-    #### EVENT HANDLERS
+    #### BOT EVENT HANDLERS
     ##################
 
     async def tick(gameSession):
