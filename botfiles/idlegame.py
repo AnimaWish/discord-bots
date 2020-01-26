@@ -19,6 +19,10 @@ class IdleGameBot(DiscordBot):
 
                 self.currencyTotal = {
                     "$": 0,
+                    "SOCIETY_FILM":    0,
+                    "SOCIETY_ART":     0,
+                    "SOCIETY_THEATER": 0,
+                    "SOCIETY_GAMING":  0,
                 }
 
                 self.items = {
@@ -27,6 +31,10 @@ class IdleGameBot(DiscordBot):
                     "ITEM_MELON":         0,
                     "ITEM_MONEY_PRINTER": 0,
                     "ITEM_BROKEN_HOUSE":  0,
+                }
+
+                self.houseUpgrades = {
+                    "UPGRADE_BULLETIN": "House Sweet House",
                 }
 
                 self.refreshBaseIncome()
@@ -75,6 +83,10 @@ class IdleGameBot(DiscordBot):
             "NUMERAL_9": "9️⃣",
             "BANK_STATUS_BULL": "🐄",
             "BANK_STATUS_CAMEL": "🐪",
+            "SOCIETY_FILM": "🎬",
+            "SOCIETY_ART": "🎨",
+            "SOCIETY_THEATER": "🎭",
+            "SOCIETY_GAMING": "🕹️",
         }
 
         EMOJI_TO_KEY_MAP = {v: k for k, v in KEY_TO_EMOJI_MAP.items()}
@@ -106,6 +118,13 @@ class IdleGameBot(DiscordBot):
             "ITEM_BROKEN_HOUSE"
         ]
 
+        ART_SOCIETY_ITEMS = [
+            "SOCIETY_FILM",
+            "SOCIETY_ART",
+            "SOCIETY_THEATER",
+            "SOCIETY_GAMING",
+        ]
+
         ##################
         #### INITIALIZATION
         ##################
@@ -119,13 +138,14 @@ class IdleGameBot(DiscordBot):
             # Game component references
             self.players = {} # maps discordUserIDs to Player objects
             self.buildingMessageObjects = {} # maps BLDG string constants to messages
+            self.milestones = {} # maps milestone keys to playerIDs
 
             # Bank Properties
             self.bankMarketStatus = "BANK_STATUS_BULL" # toggles at regular intervals
             self.correctMarketUserIDs = [] # userIDs of players who have toggled the bull/camel emoji
 
             # Lottery Properties
-            self.lotteryDrawTime = 0 #datetime.datetime
+            self.lotteryDrawTime = datetime.datetime.now() + datetime.timedelta(days=1)
             self.todayLotteryNumbers = [0,0,0]
             self.yesterdayLotteryNumbers = [0,0,0]
             self.yesterdayLotteryWinners = [[],[],[]] # third, second, first place --- nested array of playerIDs
@@ -158,6 +178,11 @@ class IdleGameBot(DiscordBot):
             # LOTTERY
             self.buildingMessageObjects["BLDG_LOTTERY"] = await self.channel.send(":construction:")
             await self.refreshLottery()
+
+            # ART SOCIETY
+            self.buildingMessageObjects["BLDG_ART_SOCIETY"] = await self.channel.send(self.generateArtSocietyMessage())
+            for item in self.ART_SOCIETY_ITEMS:
+                await self.buildingMessageObjects["BLDG_ART_SOCIETY"].add_reaction(self.KEY_TO_EMOJI_MAP[item])    
 
             # COMMIT CONFIG
             await self.buildingMessageObjects["BLDG_CONFIG"].edit(content=self.encodeState())
@@ -192,6 +217,24 @@ class IdleGameBot(DiscordBot):
             lottoNumbers.sort()
 
             return lottoNumbers
+
+        def calculateSocietyDonationPrices(self):
+            SOCIETY_DONATION_INCREMENT = 2
+
+            sums = {
+                "SOCIETY_FILM":    ["$", SOCIETY_DONATION_INCREMENT],
+                "SOCIETY_ART":     ["$", SOCIETY_DONATION_INCREMENT],
+                "SOCIETY_THEATER": ["$", SOCIETY_DONATION_INCREMENT],
+                "SOCIETY_GAMING":  ["$", SOCIETY_DONATION_INCREMENT],
+            }
+
+            for playerID in self.players:
+                player = self.players[playerID]
+
+                for society in sums:
+                    sums[society][1] += player.currencyTotal[society] * SOCIETY_DONATION_INCREMENT
+
+            return sums
 
         ##################
         #### GAME EVENT HANDLERS
@@ -313,8 +356,9 @@ class IdleGameBot(DiscordBot):
 
         async def reactionToggled(self, payload, toggledOn):
             if payload.channel_id == self.channel.id:
-                if payload.user_id in self.players.keys():
-                    player = self.players[payload.user_id]
+                userID = payload.user_id
+                if userID in self.players.keys():
+                    player = self.players[userID]
                     self.lastInteraction = datetime.datetime.now()
 
                     for key in self.eventMessages:
@@ -324,22 +368,39 @@ class IdleGameBot(DiscordBot):
                     if payload.message_id == self.buildingMessageObjects["BLDG_BANK"].id:
                         if payload.emoji.name == self.KEY_TO_EMOJI_MAP[self.bankMarketStatus]:
                             if toggledOn:
-                                self.correctMarketUserIDs.append(payload.user_id)
-                            else:
-                                self.correctMarketUserIDs.remove(payload.user_id)
+                                self.correctMarketUserIDs.append(userID)
+                            elif self.correctMarketUserIDs.contains(userID):
+                                self.correctMarketUserIDs.remove(userID)
 
                     elif payload.message_id == self.buildingMessageObjects["BLDG_SHOP_1"].id:
                         for shopItem in self.SHOP_1_ITEMS:
                             if payload.emoji.name == self.KEY_TO_EMOJI_MAP[shopItem]:
                                 itemCost = self.ITEM_COSTS[shopItem]
                                 if player.currencyTotal[itemCost[0]] > max(0, -1 * itemCost[1]): # make sure that the player can afford it
+                                    if shopItem == "ITEM_BROKEN_HOUSE":
+                                        if player.items["ITEM_BROKEN_HOUSE"] > 0: # prevent players from getting more than one house
+                                            return
+                                        else:
+                                            if "FIRST_HOUSE" not in self.milestones:
+                                                await self.channel.send(self.generateHouseDepotMessage())
+                                                self.milestones["FIRST_HOUSE"] = userID
+                                            await self.channel.send(self.generatePlayerHouseMessage(userID))
+
                                     player.updateItems({shopItem: 1})
                                     player.transact(self.ITEM_COSTS[shopItem])
                         
                     elif payload.message_id == self.buildingMessageObjects["BLDG_LOTTERY"].id:
                         pass # only need to look at reactions on lottery at drawing time
+                    elif payload.message_id == self.buildingMessageObjects["BLDG_ART_SOCIETY"].id:
+                        for society in self.ART_SOCIETY_ITEMS:
+                            if payload.emoji.name == self.KEY_TO_EMOJI_MAP[society]:
+                                itemCost = self.calculateSocietyDonationPrices()[society] # currency tuple
+                                if player.currencyTotal[itemCost[0]] > max(0, -1 * itemCost[1]): # make sure that the player can afford it
+                                    player.transact(itemCost) # pay for the reputation
+                                    player.transact([society, 1]) # get the reputation
+                                    await self.buildingMessageObjects["BLDG_ART_SOCIETY"].edit(content=self.generateArtSocietyMessage())
                 else:
-                    user = self.client.get_user(payload.user_id)
+                    user = self.client.get_user(userID)
                     helpfulMessage = await self.channel.send("{} you are not registered with the game. Type `!register` to join!".format(user.mention))
                     await helpfulMessage.delete(delay=15)
 
@@ -367,6 +428,7 @@ class IdleGameBot(DiscordBot):
             resultString =  "`~~~~~~~~~~~~~~~~~~~~~~~`\n"
             resultString += bankEmojiString + " **BANK** " + bankEmojiString + "\n"
             resultString += "`~~~~~~~~~~~~~~~~~~~~~~~`\n\n"
+
             resultString += "_This money, like most money, is just a number in a computer._\n\n"
 
             if self.bankMarketStatus == "BANK_STATUS_BULL":
@@ -409,16 +471,17 @@ class IdleGameBot(DiscordBot):
             return resultString
 
         def generateShop1Message(self):
-            shopEmojiString = ":convenience_store::convenience_store::convenience_store:"
+            shopEmojiString = ":shopping_cart::convenience_store::shopping_cart:"
             resultString =  "`~~~~~~~~~~~~~~~~~~~~~~`\n"
             resultString += shopEmojiString + " **SHOP** " + shopEmojiString + "\n"
             resultString += "`~~~~~~~~~~~~~~~~~~~~~~`\n\n"
-            resultString += "_Buy somethin', will ya?_\n\n"
+            resultString += "_Buy somethin', will ya?_\n"
             shopInventory = [
                 ["ITEM_LEMON",         self.ITEM_COSTS["ITEM_LEMON"],         "+$1/sec",   "Lemons into lemonade, right?"],
                 ["ITEM_MELON",         self.ITEM_COSTS["ITEM_MELON"],         "+$10/sec",  "Melons into melonade... Right...?"],
                 ["ITEM_MONEY_PRINTER", self.ITEM_COSTS["ITEM_MONEY_PRINTER"], "+$500/sec", "Top of the line money printer!"],
                 ["ITEM_BROKEN_HOUSE",  self.ITEM_COSTS["ITEM_BROKEN_HOUSE"],  "A house!",  "It ain't much, but it's home."],
+                #["ITEM_BOX",           self.ITEM_COSTS["ITEM_BOX"],          "+25 inventory space for each item",  "Gotta put all those lemons somewhere!"],
             ]
 
             resultString += self.prettyPrintInventory(shopInventory)
@@ -531,6 +594,117 @@ class IdleGameBot(DiscordBot):
 
             return resultString
 
+        def generateArtSocietyMessage(self):
+            emojiString = ":art::clapper::performing_arts:"
+            resultString =  "`~~~~~~~~~~~~~~~~~~~~~~~~~~~`\n"
+            resultString += emojiString + " **ART SOCIETY** " + emojiString + "\n"
+            resultString += "`~~~~~~~~~~~~~~~~~~~~~~~~~~~`\n\n"
+
+
+            nameBuffer = 0
+            societyBuffers = {
+                "SOCIETY_FILM": 0,
+                "SOCIETY_ART": 0,
+                "SOCIETY_THEATER": 0,
+                "SOCIETY_GAMING": 0,
+            }
+            # figure out what length to buffer names at
+            for userID in self.players:
+                player = self.players[userID]
+
+                if len(player.discordUserObject.name) > nameBuffer:
+                    nameBuffer = len(player.discordUserObject.name)
+
+                for society in societyBuffers:
+                    repLength = len(str(player.currencyTotal[society]))
+                    if repLength > societyBuffers[society]:
+                        societyBuffers[society] = repLength
+
+            resultString += "_Our Generous Benefactors..._\n"
+            for userID in self.players:
+                player = self.players[userID]
+
+                resultString += "`{}:`     :clapper:` {}`     :art:`{}`     :performing_arts:`{}`     :joystick:`{}`\n".format(
+                    player.discordUserObject.name + ' '*(nameBuffer - len(player.discordUserObject.name)),
+                    ' '*(societyBuffers["SOCIETY_FILM"]    - len(str(player.currencyTotal["SOCIETY_FILM"])))    + str(player.currencyTotal["SOCIETY_FILM"]),
+                    ' '*(societyBuffers["SOCIETY_ART"]     - len(str(player.currencyTotal["SOCIETY_ART"])))     + str(player.currencyTotal["SOCIETY_ART"]),
+                    ' '*(societyBuffers["SOCIETY_THEATER"] - len(str(player.currencyTotal["SOCIETY_THEATER"]))) + str(player.currencyTotal["SOCIETY_THEATER"]),
+                    ' '*(societyBuffers["SOCIETY_GAMING"]  - len(str(player.currencyTotal["SOCIETY_GAMING"])))  + str(player.currencyTotal["SOCIETY_GAMING"]),
+                )
+
+            societyPrices = self.calculateSocietyDonationPrices()
+
+            resultString += "\n_Care to make a donation?_\n"
+            shopInventory = [
+                ["SOCIETY_FILM",    societyPrices["SOCIETY_FILM"],     "+1 film rep",    "Donations go to asking awkward questions at our yearly festival."],
+                ["SOCIETY_ART",     societyPrices["SOCIETY_ART"],      "+1 art rep",     "Donations go to art installations on corporate campuses."],
+                ["SOCIETY_THEATER", societyPrices["SOCIETY_THEATER"],  "+1 theater rep", "Donations go to high school productions of Seussical."],
+                ["SOCIETY_GAMING",  societyPrices["SOCIETY_GAMING"],   "+1 gaming rep",  "Donations go to Overwatch lootboxes."],
+            ]
+            resultString += self.prettyPrintInventory(shopInventory)
+
+            return resultString
+
+        def generateHouseDepotMessage(self):
+            emojiString = ":shopping_cart::safety_vest::shopping_cart:"
+            resultString =  "`~~~~~~~~~~~~~~~~~~~~~~`\n"
+            resultString += emojiString + " **HOUSE DEPOT** " + emojiString + "\n"
+            resultString += "`~~~~~~~~~~~~~~~~~~~~~~`\n\n"
+
+            resultString += "_You seem like the DIY type. Why not make a few improvements to your house?_"
+
+            shopInventory = [
+                ["UPGRADE_BULLETIN", self.ITEM_COSTS["UPGRADE_BULLETIN"], "Change the message on your house", "You will be prompted via DM for your change."],
+                ["UPGRADE_OFFICE",   "Price listed on your house",        "Upgrade a home office",            "Bring work home with you!"],
+                ["UPGRADE_PADDOCK",  "Price listed on your house",        "Upgrade a paddock",                "A place to put your animals."],
+                ["UPGRADE_LAB",      "Price listed on your house",        "Upgrade a laboratory",             "What kind of mad science will you get up to?"],
+            ]
+            resultString += self.prettyPrintInventory(shopInventory)
+            return resultString
+
+        def generateAnimalShopMessage(self):
+            emojiString = ":shopping_cart::cow::shopping_cart:"
+            resultString =  "`~~~~~~~~~~~~~~~~~~~~~~`\n"
+            resultString += emojiString + " **ANIMAL MART** " + emojiString + "\n"
+            resultString += "`~~~~~~~~~~~~~~~~~~~~~~`\n\n"
+
+            resultString += "_Get some animals for your paddock. Get two and maybe they'll do what animals do ;)_"
+
+            shopInventory = [
+                ["ANIMAL_CHICKEN", self.ITEM_COSTS["ANIMAL_CHICKEN"], "+1 Chicken", "Produces eggs when they aren't reproducing."],
+                ["ANIMAL_RABBIT",  self.ITEM_COSTS["ANIMAL_RABBIT"],  "+1 Rabbit",  "Reproduces at a fast rate."],
+                ["ANIMAL_PIG",     self.ITEM_COSTS["ANIMAL_PIG"],     "+1 Pig",     "Reproduces at a medium rate."],
+                ["ANIMAL_COW",     self.ITEM_COSTS["ANIMAL_COW"],     "+1 Cow",     "Reproduces at a slow rate. Produces milk."],
+                ["ANIMAL_UNICORN", self.ITEM_COSTS["ANIMAL_UNICORN"], "+1 Unicorn", "Produces unicorn dust, does not reproduce."],
+            ]
+
+            resultString += self.prettyPrintInventory(shopInventory)
+            return resultString
+
+        def generatePlayerHouseMessage(self, playerID):
+            player = self.players[playerID]
+
+            emojiString = ":spider_web::house_abandoned::spider_web:"
+
+            resultString =  "`~~~~~~~~~~~~~~~~~~~~~~`\n"
+            houseName = " **{}'s HOUSE** ".format(player.discordUserObject.name.upper())
+            resultString += emojiString + houseName + emojiString + "\n"
+            resultString += "`~~~~~~~~~~~~~~~~~~~~~~`\n\n"
+
+            resultString += "_{}_".format(player.houseUpgrades["UPGRADE_BULLETIN"])
+
+            # Office
+
+            # Gym
+
+            # Lab
+
+            # Paddock
+
+            return resultString
+
+
+
         ##################
         #### DISPLAY HELPERS
         ##################
@@ -616,9 +790,14 @@ class IdleGameBot(DiscordBot):
             "BLDG_BANK",
             "BLDG_SHOP_1",
             "BLDG_LOTTERY",
+            "BLDG_ART_SOCIETY",
         ]
         PLAYER_CURRENCY_ENCODING_ORDER = [
             "$",
+            "SOCIETY_FILM",
+            "SOCIETY_ART",
+            "SOCIETY_THEATER",
+            "SOCIETY_GAMING",
         ]
         PLAYER_ITEMS_ENCODING_ORDER = [
             "ALLOWANCE",
