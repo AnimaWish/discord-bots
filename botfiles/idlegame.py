@@ -342,6 +342,13 @@ class IdleGameBot(DiscordBot):
             if self.counter % SLUMBER_LEVEL_UPDATE_RATES[self.slumberLevel] == 0: 
                 await self.buildingMessageObjects["BLDG_BANK"].edit(content=self.generateBankMessage())
 
+            if self.counter % (10) == 0:
+                for playerID in self.players:
+                    player = self.players[playerID]
+                    if player.houseMessageObject is not None and player.items["UPGRADE_PADDOCK"] > 0:
+                        self.simulatePlayerAnimals(playerID)
+                        await player.houseMessageObject.edit(content = self.generatePlayerHouseMessage(playerID))
+
             if self.counter % (60 * 30) == 0: 
                 # Reset bank market status
                 if self.bankMarketStatus == "BANK_STATUS_BULL":
@@ -781,7 +788,10 @@ class IdleGameBot(DiscordBot):
                 resultString += "• :ledger: __Ledger__: Click to get a DM with your current item totals.\n\n"
 
             # Paddock
-            resultString += ":park: __**Paddock Level {}**__ - _Next Upgrade: {}_\n".format(player.items["UPGRADE_PADDOCK"], self.currencyString(self.HOUSE_UPGRADE_COSTS["UPGRADE_PADDOCK"][player.items["UPGRADE_PADDOCK"]]))
+            resultString += ":park: __**Paddock Level {}**__ - _Next Upgrade: {}_\n".format(
+                player.items["UPGRADE_PADDOCK"],
+                self.currencyString(self.HOUSE_UPGRADE_COSTS["UPGRADE_PADDOCK"][player.items["UPGRADE_PADDOCK"]])
+            )
             resultString += self.generatePaddock(player)
 
 
@@ -829,7 +839,7 @@ class IdleGameBot(DiscordBot):
                     while position in positions:
                         position = (position + 1) % dimension
 
-                    positions[i] = animalKey
+                    positions[position] = animalKey
 
             # Populate the rows with animals
             rows = ["" for i in range(self.PADDOCK_SIZES[paddockLevel])]
@@ -843,7 +853,7 @@ class IdleGameBot(DiscordBot):
                     spaces = (self.MAX_ANIMALS_PER_ROW - len(row)) * 6
                     for i in range(spaces):
                         spacePos = random.randrange(len(row))
-                        row = row[:spacePos] + " " + row[spacePos+1:]
+                        row = row[:spacePos] + " " + row[spacePos:]
 
                 resultString += "|" + row + "\n"
 
