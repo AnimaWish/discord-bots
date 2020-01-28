@@ -5,6 +5,7 @@ import urllib.request
 import re
 import os, io
 import threading
+import pickle
 import datetime, time
 
 from .generic import DiscordBot
@@ -71,6 +72,17 @@ class IdleGameBot(DiscordBot):
 
             def __str__(self):
                 return "<userID:{0}, currencyTotal:{1}, items:{2}>".format(self.discordUserObject.id, str(self.currencyTotal), str(self.items))
+
+            def __getstate__(self):
+                    # Copy the object's state from self.__dict__ which contains
+                    # all our instance attributes. Always use the dict.copy()
+                    # method to avoid modifying the original state.
+                    state = self.__dict__.copy()
+                    # Remove the unpicklable entries.
+                    state['discordUserObject'] = None
+                    if self.houseMessageObject is not None:
+                        state['houseMessageObject'] = self.houseMessageObject.id
+                    return state
 
         KEY_TO_EMOJI_MAP = {
             "ITEM_LEMON":         "🍋",
@@ -225,13 +237,7 @@ class IdleGameBot(DiscordBot):
             self.eventCounters = {} # maps EVENT string constants to counters (these counters tick down, not up)
             self.eventMessages = {} # maps EVENT string constants to message objects
 
-            # Sanity check encoding mechanism
-            assert len(set(i for i in self.ENCODING_CHARSET if self.ENCODING_CHARSET.count(i)>1)) == 0
-
         async def initializeBuildings(self):
-            # CONFIG PLACEHOLDER
-            self.buildingMessageObjects["BLDG_CONFIG"] = await self.channel.send(":construction:")
-
             # BANK
             self.buildingMessageObjects["BLDG_BANK"] = await self.channel.send(self.generateBankMessage())
             await self.buildingMessageObjects["BLDG_BANK"].add_reaction(self.KEY_TO_EMOJI_MAP[self.bankMarketStatus])
@@ -249,9 +255,6 @@ class IdleGameBot(DiscordBot):
             self.buildingMessageObjects["BLDG_ART_SOCIETY"] = await self.channel.send(self.generateArtSocietyMessage())
             for item in self.ART_SOCIETY_ITEMS:
                 await self.buildingMessageObjects["BLDG_ART_SOCIETY"].add_reaction(self.KEY_TO_EMOJI_MAP[item])    
-
-            # COMMIT CONFIG
-            await self.buildingMessageObjects["BLDG_CONFIG"].edit(content=self.encodeState())
 
         async def refreshLottery(self):
             self.yesterdayLotteryNumbers = self.todayLotteryNumbers
@@ -339,10 +342,6 @@ class IdleGameBot(DiscordBot):
             if self.counter % SLUMBER_LEVEL_UPDATE_RATES[self.slumberLevel] == 0: 
                 await self.buildingMessageObjects["BLDG_BANK"].edit(content=self.generateBankMessage())
 
-            # Update "save" file
-            if self.counter % 60 == 0:
-                await self.buildingMessageObjects["BLDG_CONFIG"].edit(content=self.encodeState())
-
             if self.counter % (60 * 30) == 0: 
                 # Reset bank market status
                 if self.bankMarketStatus == "BANK_STATUS_BULL":
@@ -421,8 +420,6 @@ class IdleGameBot(DiscordBot):
 
                 if message.content == "!register":
                     self.registerPlayer(message.author)
-                elif message.content == "!save":
-                    await self.buildingMessageObjects["BLDG_CONFIG"].edit(content=self.encodeState())
 
                 await message.delete(delay=15)
 
@@ -476,11 +473,12 @@ class IdleGameBot(DiscordBot):
                     elif payload.message_id == self.buildingMessageObjects["BLDG_HOUSE_DEPOT"].id:
                         for shopItem in self.HOUSE_DEPOT_ITEMS:
                             if payload.emoji.name == self.KEY_TO_EMOJI_MAP[shopItem]:
-                                itemCost = self.HOUSE_UPGRADE_COSTS[shopItem][player.items[shopItem]]
-                                if player.currencyTotal[itemCost[0]] > max(0, -1 * itemCost[1]): # make sure that the player can afford it
-                                    player.updateItems({shopItem: 1})
-                                    player.transact(itemCost)
-                                    await player.houseMessageObject.edit(content=self.generatePlayerHouseMessage(userID))
+                                if len(self.HOUSE_UPGRADE_COSTS[shopItem]) < player.items[shopItem]:
+                                    itemCost = self.HOUSE_UPGRADE_COSTS[shopItem][player.items[shopItem]]
+                                    if player.currencyTotal[itemCost[0]] > max(0, -1 * itemCost[1]): # make sure that the player can afford it
+                                        player.updateItems({shopItem: 1})
+                                        player.transact(itemCost)
+                                        await player.houseMessageObject.edit(content=self.generatePlayerHouseMessage(userID))
 
                 else:
                     user = self.client.get_user(userID)
@@ -809,7 +807,7 @@ class IdleGameBot(DiscordBot):
             if paddockLevel == 0:
                 return "_You've got a lot of land here. Why not build an enclosure for some animals?_\n\n"
 
-            resultString = "• :truck: __Truck__: Click to get a DM with animal management options."
+            resultString = "• :truck: __Truck__: Click to get a DM with animal management options.\n"
 
             playerAnimals = {}
             for animalKey in self.ANIMAL_STATISTICS:
@@ -817,7 +815,7 @@ class IdleGameBot(DiscordBot):
                     playerAnimals[animalKey] = player.items[animalKey]
 
             if player.items["ANIMAL_CHICKEN"] >= 2:
-                resultString += "• :rooster: __Rooster__: Toggle on to have your chickens produce chickens instead of eggs."
+                resultString += "• :rooster: __Rooster__: Toggle on to have your chickens produce chickens instead of eggs.\n"
 
             resultString += "——————————————————————\n"
 
@@ -932,106 +930,25 @@ class IdleGameBot(DiscordBot):
         #### ENCODING
         ##################
 
-        CURRENT_VERSION = "0"
+        def __getstate__(self):
+                # Copy the object's state from self.__dict__ which contains
+                # all our instance attributes. Always use the dict.copy()
+                # method to avoid modifying the original state.
+                state = self.__dict__.copy()
+                # Remove the unpicklable entries.
+                state['loop'] = None
+                state['client'] = None
+                state['guild'] = None
+                state['channel'] = None
+                state['buildingMessageObjects'] = {}
+                state['buildingMessageIDs'] = {key: self.buildingMessageObjects[key].id for key in self.buildingMessageObjects}
+                state['channelID'] = self.channel.id
 
-        BUILDING_MESSAGE_OBJECTS_ENCODING_ORDER = [
-            "BLDG_CONFIG",
-            "BLDG_BANK",
-            "BLDG_SHOP_1",
-            "BLDG_LOTTERY",
-            "BLDG_ART_SOCIETY",
-            "BLDG_HOUSE_DEPOT"
-        ]
-        PLAYER_CURRENCY_ENCODING_ORDER = [
-            "$",
-            "SOCIETY_FILM",
-            "SOCIETY_ART",
-            "SOCIETY_THEATER",
-            "SOCIETY_GAMING",
-        ]
-        PLAYER_ITEMS_ENCODING_ORDER = [
-            "ALLOWANCE",
-            "ITEM_LEMON",
-            "ITEM_MELON",
-            "ITEM_MONEY_PRINTER",
-            "ITEM_BROKEN_HOUSE",
-            "UPGRADE_OFFICE",
-            "UPGRADE_PADDOCK",
-            "UPGRADE_LAB",
-            "ANIMAL_CHICKEN",
-            "ANIMAL_RABBIT",
-            "ANIMAL_PIG",
-            "ANIMAL_COW",
-            "ANIMAL_UNICORN",
-        ]
+                return state
 
-        ENCODING_CHARSET = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZāēīōūåâêîôûŵŷäëïöüẅÿáéíóúẃýàèìòùẁỳçñĀĒĪŌŪÅÂÊÎÔÛŴŶÄËÏÖÜẄŸÁÉÍÓÚẂÝÀÈÌÒÙẀỲÇÑ!@#$^&*<>?/_+=≠±|µπø∂ßƒ†§¶£¢‡∆∫√∑"
-
-        # convert a base 10 POSITIVE integer string into a base len(ENCODING_CHARSET) integer string
-        def compressInt(self, num):
-            num = int(num)
-            result = ""
-            radix = len(self.ENCODING_CHARSET)
-            while num > 0:
-                rem = num % radix
-                result = self.ENCODING_CHARSET[int(rem)] + result
-                num = (num - rem) / radix
-            return result
-
-        # reverses compressInt
-        def decompressInt(self, inputStr):
-            result = 0
-            for i in range(len(inputStr)):
-                order = len(inputStr) - (i + 1)
-                magnitude = 1
-                while order > 0:
-                    magnitude *= len(self.ENCODING_CHARSET)
-                    order -= 1
-                result += magnitude * self.ENCODING_CHARSET.find(inputStr[i])
-            return result
-
-        # Encode the state as a string. State is encoded as integers in a 4-nested array. levels are separated by the following separators, in order: highest [.,:;] lowest
-        def encodeState(self):
-            # BLOCK_0 - Version Number
-            stateStrings = [self.CURRENT_VERSION]
-
-            # BLOCK_1 - System Message IDs
-            stateStrings.append(",".join([self.compressInt(self.buildingMessageObjects[key].id) for key in self.BUILDING_MESSAGE_OBJECTS_ENCODING_ORDER if key in self.buildingMessageObjects]))
-
-            # BLOCK 2 - Player statistics
-            stateStrings.append(",".join([
-                ":".join([
-                    self.compressInt(playerID),
-                    ";".join([self.compressInt(player.currencyTotal[currencyKey]) for currencyKey in self.PLAYER_CURRENCY_ENCODING_ORDER]),
-                    ";".join([self.compressInt(player.items[itemKey]) for itemKey in self.PLAYER_ITEMS_ENCODING_ORDER]),
-                    self.compressInt(player.houseMessageObject.id) if player.houseMessageObject != None else "0",
-                ]) for (playerID, player) in self.players.items()
-            ]))
-
-            return ".".join(stateStrings)
-
-        # set game state variables based on importString (encoded by encodeState)
-        async def importState(self, importString):
-            blocks = importString.split(".")
-
-            if blocks[0] != self.CURRENT_VERSION:
-                print("Warning: Version mismatch, {} found, {} expected".format(blocks[0], self.CURRENT_VERSION))
-
-            systemMessageIDs = blocks[1].split(",")
-            self.buildingMessageObjects = dict(zip(self.BUILDING_MESSAGE_OBJECTS_ENCODING_ORDER, [await self.channel.fetch_message(self.decompressInt(messageID)) for messageID in systemMessageIDs]))
-
-            for playerEncoding in blocks[2].split(","):
-                playerBlocks = playerEncoding.split(":")
-                playerID = self.decompressInt(playerBlocks[0])
-
-                player = IdleGameBot.GameSession.Player(self.client.get_user(playerID))
-                player.currencyTotal = dict(zip(self.PLAYER_CURRENCY_ENCODING_ORDER, [self.decompressInt(total) for total in playerBlocks[1].split(";")]))
-                player.items = dict(zip(self.PLAYER_ITEMS_ENCODING_ORDER, [self.decompressInt(count) for count in playerBlocks[2].split(";")]))
-                if playerBlocks[3] != 0:
-                    player.houseMessageObject = await self.channel.fetch_message(self.decompressInt(playerBlocks[3]))
-
-                player.refreshBaseIncome()
-                self.players[playerID] = player
+        def __setstate__(self, state):
+            self.__dict__.update(state)
+            self.lastInteraction = datetime.datetime.now()
 
     ##################
     #### BOT INITIALIZATION
@@ -1041,9 +958,24 @@ class IdleGameBot(DiscordBot):
         super().__init__(prefix, greeting, farewell)
 
         self.gameSessions = {} # maps guildIDs to GameSession objects
+        self.backupFilenames = [
+            'backup1.pickle',
+            'backup2.pickle'
+        ]
 
     async def on_ready(self):
         await super().on_ready()
+
+
+        newestFile = ""
+        for fname in self.backupFilenames:
+            if os.path.isfile(fname):
+                lastUpdated = os.path.getmtime(fname)
+                if newestFile == "" or lastUpdated > os.path.getmtime(newestFile):
+                    newestFile = fname
+
+        if newestFile != "":
+            await self.load(newestFile)
 
         for guild in self.client.guilds:
             gameChannel = None
@@ -1054,18 +986,15 @@ class IdleGameBot(DiscordBot):
                     gameChannel = channel
 
             if gameChannel is not None:
-                gameSession = IdleGameBot.GameSession(self.loop, self.client, guild, gameChannel)
-                self.gameSessions[guild.id] = gameSession
+                if guild.id not in self.gameSessions:
+                    gameSession = IdleGameBot.GameSession(self.loop, self.client, guild, gameChannel)
+                    self.gameSessions[guild.id] = gameSession
 
-                # Search for a configuration message, and import it if it exists. otherwise, initialize the game.
-                firstMessageArr = await gameChannel.history(limit=1,oldest_first=True).flatten()
-                if len(firstMessageArr) == 0:
                     await self.gameSessions[guild.id].initializeBuildings()
-                else:
-                    print(firstMessageArr[0].content)
-                    await gameSession.importState(firstMessageArr[0].content)
 
                 self.loop.create_task(IdleGameBot.tick(self.gameSessions[guild.id]))
+
+        self.loop.create_task(self.backup())
 
     ##################
     #### BOT EVENT HANDLERS
@@ -1075,6 +1004,40 @@ class IdleGameBot(DiscordBot):
         while True:
             await gameSession.onTick()
             await asyncio.sleep(1)
+
+    async def backup(self):
+        while True:
+            filename = self.backupFilenames.pop(0)
+            self.backupFilenames.append(filename)
+            with open(filename, 'wb') as f:
+                pickle.dump(self.gameSessions, f, pickle.HIGHEST_PROTOCOL)
+            print("Successfully backed up to {}".format(filename))
+            await asyncio.sleep(10)
+
+    async def load(self, filename):
+        loadedSessions = pickle.load(open(filename, "rb"))
+        for guild in self.client.guilds:
+            if guild.id not in loadedSessions:
+                print("Could not load session for {}".format(guild.name))
+            else:
+                gameSession = loadedSessions[guild.id]
+                gameSession.loop = self.loop
+                gameSession.client = self.client
+                gameSession.guild = guild
+                gameSession.channel = await self.client.fetch_channel(gameSession.channelID)
+
+                for buildingKey in gameSession.buildingMessageIDs:
+                    gameSession.buildingMessageObjects[buildingKey] = await gameSession.channel.fetch_message(gameSession.buildingMessageIDs[buildingKey])
+
+                for playerID in gameSession.players:
+                    player = gameSession.players[playerID]
+                    player.discordUserObject = await self.client.fetch_user(playerID)
+                    if player.houseMessageObject is not None:
+                        player.houseMessageObject = await gameSession.channel.fetch_message(player.houseMessageObject)
+
+                self.gameSessions[guild.id] = gameSession
+
+                print("Successfully loaded from {}".format(filename))
 
     async def on_message(self, message):
         await super().on_message(message)
