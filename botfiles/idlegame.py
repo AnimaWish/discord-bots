@@ -302,7 +302,7 @@ class IdleGameBot(DiscordBot):
 
             # Bank Properties
             self.bankMarketStatus = "BANK_STATUS_BULL" # toggles at regular intervals
-            self.correctMarketUserIDs = [] # userIDs of players who have toggled the bull/camel emoji
+            self.correctMarketPlayerIDs = [] # userIDs of players who have toggled the bull/camel emoji
 
             # Lottery Properties
             self.lotteryDrawTime = datetime.datetime.now() + datetime.timedelta(days=1)
@@ -320,23 +320,94 @@ class IdleGameBot(DiscordBot):
             self.eventMessages = {} # maps EVENT string constants to message objects
 
         async def initializeBuildings(self):
-            # BANK
-            self.buildingMessageObjects["BLDG_BANK"] = await self.channel.send(self.generateBankMessage())
-            await self.buildingMessageObjects["BLDG_BANK"].add_reaction(self.KEY_TO_EMOJI_MAP[self.bankMarketStatus])
-
-            # SHOP 1
-            self.buildingMessageObjects["BLDG_SHOP_1"] = await self.channel.send(self.generateShop1Message())
-            for item in self.SHOP_1_ITEMS:
-                await self.buildingMessageObjects["BLDG_SHOP_1"].add_reaction(self.KEY_TO_EMOJI_MAP[item])    
-            
-            # LOTTERY
+            self.buildingMessageObjects["BLDG_BANK"] = await self.channel.send(":construction:")
+            self.buildingMessageObjects["BLDG_SHOP_1"] = await self.channel.send(":construction:")
             self.buildingMessageObjects["BLDG_LOTTERY"] = await self.channel.send(":construction:")
-            await self.refreshLottery()
+            self.buildingMessageObjects["BLDG_ART_SOCIETY"] = await self.channel.send(":construction:")
+          
+            if "MILESTONE_FIRST_HOUSE" in self.milestones:
+                print("Found milestone MILESTONE_FIRST_HOUSE")
+                self.buildingMessageObjects["BLDG_HOUSE_DEPOT"] = await self.channel.send(":construction:")
+                for playerID in self.players:
+                    self.players[playerID].houseMessageObject = await self.channel.send(":construction:")
 
-            # ART SOCIETY
-            self.buildingMessageObjects["BLDG_ART_SOCIETY"] = await self.channel.send(self.generateArtSocietyMessage())
-            for item in self.ART_SOCIETY_ITEMS:
-                await self.buildingMessageObjects["BLDG_ART_SOCIETY"].add_reaction(self.KEY_TO_EMOJI_MAP[item])    
+            await self.reinitializeBuildings()
+
+        async def reinitializeBuildings(self):
+            for key in self.buildingMessageObjects:
+                await self.reinitializeBuilding(key)
+
+            for playerID in self.players:
+                await self.reinitializePlayerBuilding(playerID)
+
+        async def reinitializeBuilding(self, buildingKey, reinitEmojis = True):
+            if reinitEmojis:
+                await self.buildingMessageObjects[buildingKey].clear_reactions()
+
+            if buildingKey == "BLDG_BANK":
+                await self.buildingMessageObjects["BLDG_BANK"].edit(content = self.generateBankMessage())
+                if reinitEmojis:
+                    await self.buildingMessageObjects["BLDG_BANK"].add_reaction(self.KEY_TO_EMOJI_MAP[self.bankMarketStatus])
+
+            elif buildingKey == "BLDG_SHOP_1":
+                await self.buildingMessageObjects["BLDG_SHOP_1"].edit(content = self.generateShop1Message())
+                if reinitEmojis:
+                    for item in self.SHOP_1_ITEMS:
+                        await self.buildingMessageObjects["BLDG_SHOP_1"].add_reaction(self.KEY_TO_EMOJI_MAP[item])    
+
+            elif buildingKey == "BLDG_LOTTERY":
+                #TODO offload some of this logic
+                self.yesterdayLotteryNumbers = self.todayLotteryNumbers
+                self.todayLotteryNumbers = self.drawLotteryNumbers()
+                self.lotteryDrawTime = datetime.datetime.now() + datetime.timedelta(seconds=10) # TODO make sure this doesn't drift
+
+                # determine prize pool
+                dollarSum = 0
+                for playerID in self.players:
+                    dollarSum += self.players[playerID].currencyTotal["$"]
+                self.yesterdayLotteryPrizePool = self.todayLotteryPrizePool
+                self.todayLotteryPrizePool = max(100000, int(dollarSum*.01))
+
+                await self.buildingMessageObjects["BLDG_LOTTERY"].edit(content=self.generateLotteryMessage())
+                if reinitEmojis:
+                    await self.buildingMessageObjects["BLDG_LOTTERY"].clear_reactions()
+                    for item in self.LOTTO_KEY_TO_NUM_MAP:
+                        await self.buildingMessageObjects["BLDG_LOTTERY"].add_reaction(self.KEY_TO_EMOJI_MAP[item])
+
+            elif buildingKey == "BLDG_ART_SOCIETY":
+                await self.buildingMessageObjects["BLDG_ART_SOCIETY"].edit(content = self.generateArtSocietyMessage())
+                if reinitEmojis:
+                    for item in self.ART_SOCIETY_ITEMS:
+                        await self.buildingMessageObjects["BLDG_ART_SOCIETY"].add_reaction(self.KEY_TO_EMOJI_MAP[item])    
+
+            elif buildingKey == "BLDG_HOUSE_DEPOT":
+                await self.buildingMessageObjects["BLDG_HOUSE_DEPOT"].edit(content = self.generateHouseDepotMessage())
+                if reinitEmojis:
+                    for item in self.HOUSE_DEPOT_ITEMS:
+                        await self.buildingMessageObjects["BLDG_HOUSE_DEPOT"].add_reaction(self.KEY_TO_EMOJI_MAP[item])
+
+                if self.milestones["MILESTONE_FIRST_PADDOCK"]:
+                    if reinitEmojis:
+                        for item in self.ANIMAL_MART_ITEMS:
+                            await self.buildingMessageObjects["BLDG_HOUSE_DEPOT"].add_reaction(self.KEY_TO_EMOJI_MAP[item])
+
+        async def reinitializePlayerBuilding(self, playerID, reinitEmojis = True):
+            player = self.players[playerID]
+
+            if player.houseMessageObject is None:
+                return
+
+            if reinitEmojis:
+                await player.houseMessageObject.clear_reactions()
+
+            await player.houseMessageObject.edit(content = self.generatePlayerHouseMessage(playerID))
+
+            if reinitEmojis:
+                for upgradeKey in self.HOUSE_UPGRADE_REQUIRED_EMOJI:
+                    if player.items[upgradeKey] > 0:
+                        for optionKey in self.HOUSE_UPGRADE_REQUIRED_EMOJI[upgradeKey][player.items[upgradeKey]]:
+                            await player.houseMessageObject.add_reaction(self.KEY_TO_EMOJI_MAP[optionKey])
+
 
         async def refreshLottery(self):
             self.yesterdayLotteryNumbers = self.todayLotteryNumbers
@@ -423,7 +494,6 @@ class IdleGameBot(DiscordBot):
             for animalKey in births:
                 player.addAnimal(animalKey)
 
-
         def calculateSocietyDonationPrices(self):
             SOCIETY_DONATION_INCREMENT = 2
 
@@ -468,7 +538,7 @@ class IdleGameBot(DiscordBot):
                 income = player.income
 
                 finalIncome = income["$"]
-                if player.discordUserObject.id in self.correctMarketUserIDs:
+                if player.discordUserObject.id in self.correctMarketPlayerIDs:
                     finalIncome *= 1.25
 
                 player.currencyTotal["$"] += math.ceil(finalIncome)
@@ -483,7 +553,7 @@ class IdleGameBot(DiscordBot):
                     player = self.players[playerID]
                     if player.houseMessageObject is not None and player.items["UPGRADE_PADDOCK"] > 0:
                         self.simulatePlayerAnimalMovement(playerID)
-                        await player.houseMessageObject.edit(content = self.generatePlayerHouseMessage(playerID))
+                        await self.reinitializePlayerBuilding(playerID, reinitEmojis=False)
 
             # Simulate item production for animals
             if self.counter % (60 * 10) == 0:
@@ -503,7 +573,7 @@ class IdleGameBot(DiscordBot):
                     self.bankMarketStatus = "BANK_STATUS_BULL"
                 await self.buildingMessageObjects["BLDG_BANK"].clear_reactions()
                 await self.buildingMessageObjects["BLDG_BANK"].add_reaction(self.KEY_TO_EMOJI_MAP[self.bankMarketStatus])
-                self.correctMarketUserIDs = []
+                self.correctMarketPlayerIDs = []
                 await self.buildingMessageObjects["BLDG_BANK"].edit(content=self.generateBankMessage())
 
                 # Check if it's lottery drawing time
@@ -568,9 +638,9 @@ class IdleGameBot(DiscordBot):
 
         async def onReactionToggled(self, payload, toggledOn):
             if payload.channel_id == self.channel.id:
-                userID = payload.user_id
-                if userID in self.players.keys():
-                    player = self.players[userID]
+                playerID = payload.user_id
+                if playerID in self.players.keys():
+                    player = self.players[playerID]
                     self.lastInteraction = datetime.datetime.now()
 
                     for key in self.eventMessages:
@@ -580,9 +650,9 @@ class IdleGameBot(DiscordBot):
                     if payload.message_id == self.buildingMessageObjects["BLDG_BANK"].id:
                         if payload.emoji.name == self.KEY_TO_EMOJI_MAP[self.bankMarketStatus]:
                             if toggledOn:
-                                self.correctMarketUserIDs.append(userID)
-                            elif userID in self.correctMarketUserIDs:
-                                self.correctMarketUserIDs.remove(userID)
+                                self.correctMarketPlayerIDs.append(playerID)
+                            elif playerID in self.correctMarketPlayerIDs:
+                                self.correctMarketPlayerIDs.remove(playerID)
 
                     elif payload.message_id == self.buildingMessageObjects["BLDG_SHOP_1"].id:
                         for shopItem in self.SHOP_1_ITEMS:
@@ -591,14 +661,17 @@ class IdleGameBot(DiscordBot):
                                 if player.currencyTotal[itemCost[0]] > max(0, -1 * itemCost[1]): # make sure that the player can afford it
                                     if shopItem == "ITEM_BROKEN_HOUSE":
                                         await self.initializeHouseDepot()
-                                        player.houseMessageObject = await self.channel.send(self.generatePlayerHouseMessage(userID))
-                                        # if player.items["ITEM_BROKEN_HOUSE"] > 0: # prevent players from getting more than one house
-                                        #     return
-                                        # else:
-                                        #     if "FIRST_HOUSE" not in self.milestones:
-                                        #         self.initializeHouseDepot()
-                                        #         self.milestones["FIRST_HOUSE"] = userID
-                                        #     player.houseMessageObject = await self.channel.send(self.generatePlayerHouseMessage(userID))
+
+                                        if "MILESTONE_FIRST_HOUSE" not in self.milestones:
+                                            self.initializeHouseDepot()
+                                            self.milestones["MILESTONE_FIRST_HOUSE"] = playerID
+
+                                        if player.items["ITEM_BROKEN_HOUSE"] > 0: # prevent players from getting more than one house
+                                            return
+                                        else:
+                                            player.houseMessageObject = await self.channel.send(self.generatePlayerHouseMessage(playerID))
+                                            await self.reinitializePlayerBuilding(playerID)
+                                        
 
                                     player.updateItems({shopItem: 1})
                                     player.transact(itemCost)
@@ -613,7 +686,7 @@ class IdleGameBot(DiscordBot):
                                 if player.currencyTotal[itemCost[0]] > max(0, -1 * itemCost[1]): # make sure that the player can afford it
                                     player.transact(itemCost) # pay for the reputation
                                     player.transact([society, 1]) # get the reputation
-                                    await self.buildingMessageObjects["BLDG_ART_SOCIETY"].edit(content=self.generateArtSocietyMessage())
+                                    await self.reinitializeBuilding("BLDG_ART_SOCIETY", False)
 
                     elif "BLDG_HOUSE_DEPOT" in self.buildingMessageObjects and payload.message_id == self.buildingMessageObjects["BLDG_HOUSE_DEPOT"].id:
                         for shopItem in self.HOUSE_DEPOT_ITEMS:
@@ -628,28 +701,15 @@ class IdleGameBot(DiscordBot):
                                     if player.currencyTotal[itemCost[0]] > max(0, -1 * itemCost[1]): # make sure that the player can afford it
                                             player.updateItems({shopItem: 1})
                                             player.transact(itemCost)
-                                            await player.houseMessageObject.edit(content=self.generatePlayerHouseMessage(userID))
-                                            await player.houseMessageObject.clear_reactions()
-                                            for upgradeKey in self.HOUSE_UPGRADE_REQUIRED_EMOJI:
-                                                if player.items[upgradeKey] > 0:
-                                                    for optionKey in self.HOUSE_UPGRADE_REQUIRED_EMOJI[upgradeKey][player.items[upgradeKey]]:
-                                                        await player.houseMessageObject.add_reaction(self.KEY_TO_EMOJI_MAP[optionKey])
-
-                    elif "BLDG_ANIMAL_MART" in self.buildingMessageObjects and payload.message_id == self.buildingMessageObjects["BLDG_ANIMAL_MART"].id:
-                        for shopItem in self.SHOP_1_ITEMS:
-                            if payload.emoji.name == self.KEY_TO_EMOJI_MAP[shopItem]:
-                                itemCost = self.ITEM_COSTS[shopItem]
-                                if player.currencyTotal[itemCost[0]] > max(0, -1 * itemCost[1]): # make sure that the player can afford it
-                                    player.addAnimal(shopItem)
-                                    player.transact(itemCost)
+                                            await self.reinitializePlayerBuilding(playerID)
+                                            if shopItem == "UPGRADE_PADDOCK" and self.milestones["MILESTONE_FIRST_PADDOCK"] is not None:
+                                                self.milestones["MILESTONE_FIRST_PADDOCK"] = player.id
 
                     elif payload.message_id == player.houseMessageObject.id:
                         allowedReactions = []
                         for upgradeKey in self.HOUSE_UPGRADE_REQUIRED_EMOJI:
                             if player.items[upgradeKey] > 0:
                                 allowedReactions += self.HOUSE_UPGRADE_REQUIRED_EMOJI[upgradeKey][player.items[upgradeKey]]
-
-                        print(allowedReactions)
 
                         if self.EMOJI_TO_KEY_MAP[payload.emoji.name] in allowedReactions:
                             if payload.emoji.name == self.KEY_TO_EMOJI_MAP["OPTION_LEDGER"]:
@@ -659,12 +719,12 @@ class IdleGameBot(DiscordBot):
                             elif payload.emoji.name == self.KEY_TO_EMOJI_MAP["OPTION_ROOSTER"]:
                                 if toggledOn:
                                     player.roosterEnabled = True
-                                elif userID in self.correctMarketUserIDs:
+                                elif playerID in self.correctMarketPlayerIDs:
                                     player.roosterEnabled = False
-                                await player.houseMessageObject.edit(content = self.generatePlayerHouseMessage(userID))
+                                await player.houseMessageObject.edit(content = self.generatePlayerHouseMessage(playerID))
 
                 else:
-                    user = self.client.get_user(userID)
+                    user = self.client.get_user(playerID)
                     helpfulMessage = await self.channel.send("{} you are not registered with the game. Type `!register` to join!".format(user.mention))
                     await helpfulMessage.delete(delay=15)
 
@@ -752,6 +812,62 @@ class IdleGameBot(DiscordBot):
                 player.removeAnimals(animalKey, count)
                 await player.discordUserObject.send(content="Sold {} {} for {}!".format(inputParts[1], inputParts[2], self.currencyString(sellValue)))
 
+        async def gift(self, message):
+            if message.author.id not in self.players:
+                helpfulMessage = await self.channel.send("{} you are not registered with the game. Type `!register` to join!".format(user.mention))
+                await helpfulMessage.delete(delay=15)
+                return
+
+            sourcePlayer = self.players()
+
+            messageArr = message.content.split(" ")
+
+            mention = messageArr[1]
+
+            if messageArr[2][0] == "$":
+                item = "$"
+                count = int(messageArr[2][1:])
+            else:
+                count = int(messageArr[2])
+                item = messageArr[3]
+
+            targetPlayer = None
+            for playerID in self.players:
+                if self.players[playerID].discordUserObject.mention == mention:
+                    targetPlayer = self.players[playerID]
+
+            if targetPlayer is None:
+                await message.channel.send("That player is not registered with the game.")
+                return
+
+            if count == None or count <= 0:
+                await message.channel.send("You need to give a positive integer number of items to that player.")
+                return
+
+            if item != "$" and item not in self.EMOJI_TO_KEY_MAP:
+                await message.channel.send("That is not an item i can send. Make sure you use an emoji or a dollar sign.")
+                return
+
+            if item == "$":
+                if count < sourcePlayer.currencyTotal["$"]:
+                    await message.channel.send("You don't have that much to give!")
+                    return
+                else:
+                    sourcePlayer.transact({"$": -1 * count})
+                    targetPlayer.transact({"$": count})
+                    await message.channel.send("Transerred {} to {}".format(self.currencyString(["$", count]), mention))
+                    return
+            else:
+                emojiKey = self.EMOJI_TO_KEY_MAP[item]
+                if count < sourcePlayer.items[emojiKey]:
+                    await message.channel.send("You don't have that many to give!")
+                    return
+                else:
+                    sourcePlayer.updateItems({emojiKey: -1 * count})
+                    targetPlayer.updateItems({emojiKey: count})
+                    await message.channel.send("Transerred {} {} to {}".format(self.currencyString(["", count]), item, mention))
+                    return
+
         ##################
         #### BUILDING MESSAGES
         ##################
@@ -794,7 +910,7 @@ class IdleGameBot(DiscordBot):
                 player = self.players[userID]
                 bonusString = ""
                 mult = 1.0
-                if userID in self.correctMarketUserIDs:
+                if userID in self.correctMarketPlayerIDs:
                     bonusString = " ^"
                     mult = 1.25
 
@@ -992,30 +1108,27 @@ class IdleGameBot(DiscordBot):
 
             resultString += "_You seem like the DIY type. Why not make a few improvements to your house?_\n"
 
+            if self.milestones["MILESTONE_FIRST_PADDOCK"] is not None:
+                resultString += "_Now carrying animals for paddocks! Get two and maybe they'll do what animals do ;)_"
+
             shopInventory = [
                 ["UPGRADE_BULLETIN", self.ITEM_COSTS["UPGRADE_BULLETIN"], "Change the message on your house", "You will be prompted via DM."],
                 ["UPGRADE_OFFICE",   "Listed on house",        "Upgrade a home office",            "Bring work home with you!"],
                 ["UPGRADE_PADDOCK",  "Listed on house",        "Upgrade a paddock",                "A place to put your animals."],
                 ["UPGRADE_LAB",      "Listed on house",        "Upgrade a laboratory",             "What kind of mad science will you get up to?"],
             ]
-            resultString += self.prettyPrintInventory(shopInventory)
-            return resultString
 
-        def generateAnimalShopMessage(self):
-            emojiString = ":shopping_cart::cow::shopping_cart:"
-            resultString =  "`~~~~~~~~~~~~~~~~~~~~~~`\n"
-            resultString += emojiString + " **ANIMAL MART** " + emojiString + "\n"
-            resultString += "`~~~~~~~~~~~~~~~~~~~~~~`\n\n"
-
-            resultString += "_Get some animals for your paddock. Get two and maybe they'll do what animals do ;)_"
-
-            shopInventory = [
+            animalInventory = [
                 ["ANIMAL_CHICKEN", self.ITEM_COSTS["ANIMAL_CHICKEN"], "+1 Chicken", "Produces eggs when they aren't reproducing."],
                 ["ANIMAL_RABBIT",  self.ITEM_COSTS["ANIMAL_RABBIT"],  "+1 Rabbit",  "Reproduces at a fast rate."],
                 ["ANIMAL_PIG",     self.ITEM_COSTS["ANIMAL_PIG"],     "+1 Pig",     "Reproduces at a medium rate."],
                 ["ANIMAL_COW",     self.ITEM_COSTS["ANIMAL_COW"],     "+1 Cow",     "Reproduces at a slow rate. Produces milk."],
                 ["ANIMAL_UNICORN", self.ITEM_COSTS["ANIMAL_UNICORN"], "+1 Unicorn", "Produces unicorn dust, does not reproduce."],
             ]
+
+            if self.milestones["MILESTONE_FIRST_PADDOCK"] is not None:
+                shopInventory += animalInventory
+
             resultString += self.prettyPrintInventory(shopInventory)
             return resultString
 
@@ -1237,12 +1350,35 @@ class IdleGameBot(DiscordBot):
 
             if gameChannel is not None:
                 if guild.id not in self.gameSessions:
+                    print("Running first time initialization")
                     gameSession = IdleGameBot.GameSession(self.loop, self.client, guild, gameChannel)
                     self.gameSessions[guild.id] = gameSession
 
                     await self.gameSessions[guild.id].initializeBuildings()
 
-                self.loop.create_task(IdleGameBot.tick(self.gameSessions[guild.id]))
+                else:
+                    gameSession = self.gameSessions[guild.id]
+
+                    missingMessage = None
+                    for buildingKey in gameSession.buildingMessageObjects:
+                        if gameSession.buildingMessageObjects[buildingKey] == -1:
+                           missingMessage = buildingKey
+                           break 
+
+                    for playerID in gameSession.players:
+                        player = gameSession.players[playerID]
+                        if player.houseMessageObject == -1:
+                            missingMessage = "Player House for {}".format(player.discordUserObject.name)
+
+                    if missingMessage is not None:
+                        print("Missing message for {}, running first time initialization with existing save file".format(missingMessage))
+                        await gameSession.channel.purge()
+                        await gameSession.initializeBuildings()
+                    else:
+                        print("Reinitializing buildings")
+                        await gameSession.reinitializeBuildings()
+
+                self.loop.create_task(IdleGameBot.tick(gameSession))
 
         self.loop.create_task(self.backup())
 
@@ -1277,13 +1413,21 @@ class IdleGameBot(DiscordBot):
                 gameSession.channel = await self.client.fetch_channel(gameSession.channelID)
 
                 for buildingKey in gameSession.buildingMessageIDs:
-                    gameSession.buildingMessageObjects[buildingKey] = await gameSession.channel.fetch_message(gameSession.buildingMessageIDs[buildingKey])
+                    try:
+                        gameSession.buildingMessageObjects[buildingKey] = await gameSession.channel.fetch_message(gameSession.buildingMessageIDs[buildingKey])
+                    except discord.errors.NotFound:
+                        gameSession.buildingMessageObjects[buildingKey] = -1
+
 
                 for playerID in gameSession.players:
                     player = gameSession.players[playerID]
                     player.discordUserObject = await self.client.fetch_user(playerID)
                     if player.houseMessageObject is not None:
-                        player.houseMessageObject = await gameSession.channel.fetch_message(player.houseMessageObject)
+                        try:
+                            player.houseMessageObject = await gameSession.channel.fetch_message(player.houseMessageObject)
+                        except discord.errors.NotFound:
+                            player.houseMessageObject = -1
+
 
                 self.gameSessions[guild.id] = gameSession
 
