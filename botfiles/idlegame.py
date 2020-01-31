@@ -54,6 +54,8 @@ class IdleGameBot(DiscordBot):
 
             def updateItems(self, itemChanges):
                 for itemKey in itemChanges:
+                    if itemKey not in self.items:
+                        self.items[itemKey] = 0
                     self.items[itemKey] += itemChanges[itemKey]
                 self.income = self.getBaseIncome()
 
@@ -61,18 +63,26 @@ class IdleGameBot(DiscordBot):
                 self.income = self.getBaseIncome()
 
             def addAnimal(self, animalType):
-                occupiedPositions = [v for k,v in player.animalPositions.items()]
+                occupiedPositions = [item for k, sublist in self.animalPositions.items() for item in sublist]
 
-                dimension = self.PADDOCK_SIZES[player.items["UPGRADE_PADDOCK"]] * self.MAX_ANIMALS_PER_ROW
+                dimension = IdleGameBot.GameSession.PADDOCK_SIZES[self.items["UPGRADE_PADDOCK"]] * IdleGameBot.GameSession.MAX_ANIMALS_PER_ROW
 
-                pos = math.randrange(dimension)
+                print(len(occupiedPositions), dimension)
+                if len(occupiedPositions) >= dimension:
+                    return
+
+                pos = random.randrange(dimension)
                 while pos in occupiedPositions:
                     pos = (pos + 1) % dimension
 
-                player.animalPositions[animalType].append(pos)
+                self.animalPositions[animalType].append(pos)
 
-            def removeAnimal(self, animalType):
-                self.animalPositions[animalType].pop(random.randrange(len(self.animalPositions[animalType])))
+            def removeAnimals(self, animalType, count):
+                for i in range(count):
+                    self.animalPositions[animalType].pop(random.randrange(len(self.animalPositions[animalType])))
+                    if len(self.animalPositions[animalType]) == 0:
+                        print("Could not remove {} {}, removed {}".format(count, animalType, i + 1))
+                        return
 
             def getBaseIncome(self):
                 incomeResult = {
@@ -97,6 +107,23 @@ class IdleGameBot(DiscordBot):
                 "UPGRADE_PADDOCK",
                 "UPGRADE_LAB",
             ]
+
+            def generateItemDigest(self):
+                result = "Here is your inventory as of right now:\n"
+                for itemKey in self.items:
+                    if itemKey not in self.NO_DISPLAY_ITEMS:
+                        result += "{}: {}\n".format(IdleGameBot.GameSession.KEY_TO_EMOJI_MAP[itemKey], self.items[itemKey])
+
+                result += "\n" + self.generateAnimalDigest()              
+
+                return result
+
+            def generateAnimalDigest(self):
+                result = "Here are your animal populations as of right now:\n"
+                for animalKey in self.animalPositions:
+                    result += "{}: {}\n".format(IdleGameBot.GameSession.KEY_TO_EMOJI_MAP[animalKey], len(self.animalPositions[animalKey]))
+
+                return result
 
             def __str__(self):
                 return "<userID:{0}, currencyTotal:{1}, items:{2}>".format(self.discordUserObject.id, str(self.currencyTotal), str(self.items))
@@ -149,6 +176,9 @@ class IdleGameBot(DiscordBot):
             "RESEARCH_FINANCE": "🧮",
             "RESEARCH_RESEARCH": "📚",
             "RESEARCH_ALCHEMY": "⚗️",
+            "ITEM_EGG": "🥚",
+            "ITEM_MILK": "🥛",
+            "ITEM_GLITTER": "✨",
         }
 
         EMOJI_TO_KEY_MAP = {v: k for k, v in KEY_TO_EMOJI_MAP.items()}
@@ -210,7 +240,7 @@ class IdleGameBot(DiscordBot):
 
         HOUSE_UPGRADE_COSTS = {
             "UPGRADE_OFFICE":  [
-                ["$", -1],#["$",  -2000000],
+                ["$", -1],#["$",  -1000000],
                 ["$", -2],#["$", -10000000],
                 ["$", -3],#["$", -20000000],
             ],
@@ -245,11 +275,11 @@ class IdleGameBot(DiscordBot):
         }
 
         ANIMAL_STATISTICS = {
-            "ANIMAL_CHICKEN": {"REPRO_RATE": 0.3, "ITEM_PRODUCED": "ITEM_EGG",     "PROD_RATE": 0.9},
-            "ANIMAL_RABBIT":  {"REPRO_RATE": 0.7, "ITEM_PRODUCED": None,           "PROD_RATE": 0},
-            "ANIMAL_PIG":     {"REPRO_RATE": 0.4, "ITEM_PRODUCED": None,           "PROD_RATE": 0},
-            "ANIMAL_COW":     {"REPRO_RATE": 0.2, "ITEM_PRODUCED": "ITEM_MILK",    "PROD_RATE": 0.5},
-            "ANIMAL_UNICORN": {"REPRO_RATE":   0, "ITEM_PRODUCED": "ITEM_GLITTER", "PROD_RATE": 0.05},
+            "ANIMAL_CHICKEN": {"REPRO_RATE": 0.24, "ITEM_PRODUCED": "ITEM_EGG",     "PROD_RATE": 0.8},
+            "ANIMAL_RABBIT":  {"REPRO_RATE": 0.4,  "ITEM_PRODUCED": None,           "PROD_RATE": 0},
+            "ANIMAL_PIG":     {"REPRO_RATE": 0.18, "ITEM_PRODUCED": None,           "PROD_RATE": 0},
+            "ANIMAL_COW":     {"REPRO_RATE": 0.08, "ITEM_PRODUCED": "ITEM_MILK",    "PROD_RATE": 0.5},
+            "ANIMAL_UNICORN": {"REPRO_RATE":    0, "ITEM_PRODUCED": "ITEM_GLITTER", "PROD_RATE": 0.05},
         }
 
         PADDOCK_SIZES = [5, 10, 20]
@@ -331,6 +361,10 @@ class IdleGameBot(DiscordBot):
             for item in self.HOUSE_DEPOT_ITEMS:
                 await self.buildingMessageObjects["BLDG_HOUSE_DEPOT"].add_reaction(self.KEY_TO_EMOJI_MAP[item])
 
+        ##################
+        #### LOGIC HELPERS
+        ##################
+
         # third, second, first prize
         def calculateLotteryPrizes(self, prizePool):
             return [int(prizePool * .11), int(prizePool * .22), int(prizePool * .66)]
@@ -360,12 +394,15 @@ class IdleGameBot(DiscordBot):
                         for item in l:
                             occupied.append(item)
 
-                    if newPos < 0 or newPos > dimension or newPos in occupied:
+                    if newPos < 0 or newPos >= dimension or newPos in occupied:
                         newPos = pos
                     player.animalPositions[animalKey][i] = newPos
 
         def simulatePlayerAnimalProduction(self, playerID):
+            player = self.players[playerID]
             for animalKey in player.animalPositions:
+                if animalKey == "ANIMAL_CHICKEN" and player.roosterEnabled:
+                    continue
                 stats = self.ANIMAL_STATISTICS[animalKey]
                 if stats["ITEM_PRODUCED"] is not None:
                     if random.random() < stats["PROD_RATE"]:
@@ -373,12 +410,13 @@ class IdleGameBot(DiscordBot):
 
         def simulatePlayerAnimalReproduction(self, playerID):
             player = self.players[playerID]
-
             births = {}
             for animalKey in player.animalPositions:
+                if animalKey == "ANIMAL_CHICKEN" and not player.roosterEnabled:
+                    continue
                 if len(player.animalPositions[animalKey]) >= 2:
                     births[animalKey] = 0
-                    for i in range(len(player.animalPositions[animalKey])/2):
+                    for i in range(int(len(player.animalPositions[animalKey])/2)):
                         if random.random() < self.ANIMAL_STATISTICS[animalKey]["REPRO_RATE"]:
                             births[animalKey] += 1
 
@@ -403,6 +441,9 @@ class IdleGameBot(DiscordBot):
                     sums[society][1] += player.currencyTotal[society] * SOCIETY_DONATION_INCREMENT
 
             return sums
+
+        def calculateSalePrice(self, key):
+            return [self.ITEM_COSTS[key][0], math.floor(self.ITEM_COSTS[key][1] * -0.25)]
 
         ##################
         #### GAME EVENT HANDLERS
@@ -447,12 +488,12 @@ class IdleGameBot(DiscordBot):
             # Simulate item production for animals
             if self.counter % (60 * 10) == 0:
                 for playerID in self.players:
-                    self.simulatePlayerAnimalProduction(self.players[playerID])
+                    self.simulatePlayerAnimalProduction(playerID)
 
             # Simulate animal reproduction
             if self.counter % (60 * 120) == 0:
                 for playerID in self.players:
-                    self.simulatePlayerAnimalReproduction(self.players[playerID])
+                    self.simulatePlayerAnimalReproduction(playerID)
 
             if self.counter % (60 * 30) == 0: 
                 # Reset bank market status
@@ -525,16 +566,7 @@ class IdleGameBot(DiscordBot):
                         # TODO reset event counter
                         pass
 
-        async def messageReceived(self, message):
-            if message.channel.id == self.channel.id:
-                self.lastInteraction = datetime.datetime.now()
-
-                if message.content == "!register":
-                    self.registerPlayer(message.author)
-
-                await message.delete(delay=15)
-
-        async def reactionToggled(self, payload, toggledOn):
+        async def onReactionToggled(self, payload, toggledOn):
             if payload.channel_id == self.channel.id:
                 userID = payload.user_id
                 if userID in self.players.keys():
@@ -594,7 +626,6 @@ class IdleGameBot(DiscordBot):
                                 elif len(self.HOUSE_UPGRADE_COSTS[shopItem]) > player.items[shopItem]:
                                     itemCost = self.HOUSE_UPGRADE_COSTS[shopItem][player.items[shopItem]]
                                     if player.currencyTotal[itemCost[0]] > max(0, -1 * itemCost[1]): # make sure that the player can afford it
-                                    
                                             player.updateItems({shopItem: 1})
                                             player.transact(itemCost)
                                             await player.houseMessageObject.edit(content=self.generatePlayerHouseMessage(userID))
@@ -624,7 +655,7 @@ class IdleGameBot(DiscordBot):
                             if payload.emoji.name == self.KEY_TO_EMOJI_MAP["OPTION_LEDGER"]:
                                 await player.discordUserObject.send(content = player.printItemDigest())
                             elif payload.emoji.name == self.KEY_TO_EMOJI_MAP["OPTION_ANIMAL_TRUCK"]:
-                                self.loop.create_task(self.sendPlayerAnimalManagementPrompt(player))
+                                self.loop.create_task(self.sendPlayerAnimalTruckPrompt(player))
                             elif payload.emoji.name == self.KEY_TO_EMOJI_MAP["OPTION_ROOSTER"]:
                                 if toggledOn:
                                     player.roosterEnabled = True
@@ -638,6 +669,42 @@ class IdleGameBot(DiscordBot):
                     await helpfulMessage.delete(delay=15)
 
 
+        async def guildMessageReceived(self, message):
+            if message.channel.id == self.channel.id:
+                self.lastInteraction = datetime.datetime.now()
+
+                if message.content == "!register":
+                    self.registerPlayer(message.author)
+
+                await message.delete(delay=15)
+
+        async def directMessageReceived(self, message):
+            if message.author.id in self.players:
+                if message.content.split(" ")[0] == "!sell":
+                    await self.sellAnimal(message.author.id, message)
+                elif self.players[message.author.id].bulletinUpdatePending:
+                    await self.bulletinUpdate(message.author.id, message)
+                else:
+                    await self.players[message.author.id].discordUserObject.send(content="I'm not expecting any messages from you.")
+
+        ##################
+        #### PROMPTS
+        ##################
+
+        async def sendPlayerBulletinPrompt(self, player):
+            prompt = "What would you like your new bulletin to be? It is currently \"_{}_\".\n".format(player.houseBulletinString)
+            await player.discordUserObject.send(prompt)
+            player.bulletinUpdatePending = True
+
+        async def sendPlayerAnimalTruckPrompt(self, player):
+            animalRatesString = "Going rates for animals:\n"
+            for animalKey in player.animalPositions:
+                    animalRatesString += "{}: {}\n".format(IdleGameBot.GameSession.KEY_TO_EMOJI_MAP[animalKey], self.currencyString(self.calculateSalePrice(animalKey)))
+
+            prompt = "{}\n {}\n To sell animals, type e.g. \"!sell 5 :cow:\"".format(player.generateAnimalDigest(), animalRatesString)
+
+            await player.discordUserObject.send(prompt)
+
         ##################
         #### ON_MESSAGE ACTIONS
         ##################
@@ -645,6 +712,45 @@ class IdleGameBot(DiscordBot):
         def registerPlayer(self, user):
             self.players[user.id] = IdleGameBot.GameSession.Player(user)
             print("Registered Player {}".format(user.name))
+
+        async def bulletinUpdate(self, playerID, message):
+            player = self.players[playerID]
+            if player.bulletinUpdatePending:
+                newBulletin = str.replace(message.content, "`", "")
+                newBulletin = str.replace(newBulletin, "_", "")
+                await player.discordUserObject.send(content="Your new bulletin message is now:\n\n _{}_\n\n Have a nice day!".format(newBulletin))
+                player.houseBulletinString = newBulletin
+                await player.houseMessageObject.edit(content = self.generatePlayerHouseMessage(playerID))
+                player.bulletinUpdatePending = False
+
+        async def sellAnimal(self, playerID, message):
+            player = self.players[playerID]
+
+            inputParts = message.content.split(" ") # ["!sell", "X", ":cow:"]
+            count = int(inputParts[1])
+
+            # Validate product
+            if inputParts[2] not in self.EMOJI_TO_KEY_MAP:
+                await player.discordUserObject.send(content="I didn't recognize what you want to sell.")
+            elif self.EMOJI_TO_KEY_MAP[inputParts[2]] not in self.ANIMAL_STATISTICS:
+                await player.discordUserObject.send(content="That's not an animal! We're not running a pawn shop here!")
+
+            animalKey = self.EMOJI_TO_KEY_MAP[inputParts[2]]
+
+            # Validate count
+            if count == None:
+                await player.discordUserObject.send(content="Sorry, how many did you want to sell? I'm not convinced that's a real number.")
+            elif count < 0:
+                await player.discordUserObject.send(content="Really funny, but I ain't getting fooled by that one.")
+
+            if len(player.animalPositions[animalKey]) < count:
+                await player.discordUserObject.send(content="It doesn't look to me like you have that many to sell!")
+            else:
+                individualSaleValue = self.calculateSalePrice(animalKey)
+                sellValue = [individualSaleValue[0], individualSaleValue[1] * count]
+                player.transact(sellValue)
+                player.removeAnimals(animalKey, count)
+                await player.discordUserObject.send(content="Sold {} {} for {}!".format(inputParts[1], inputParts[2], self.currencyString(sellValue)))
 
         ##################
         #### BUILDING MESSAGES
@@ -1185,15 +1291,24 @@ class IdleGameBot(DiscordBot):
 
     async def on_message(self, message):
         await super().on_message(message)
-        if message.guild.id in self.gameSessions.keys() and message.author.id != self.client.user.id:
-            await self.gameSessions[message.guild.id].messageReceived(message)
+        if message.author.id != self.client.user.id:
+            # This logic is problematic if users are playing in multiple guilds
+            if isinstance(message.channel, discord.DMChannel):
+                for guildID in self.gameSessions:
+                    if message.author.id in self.gameSessions[guildID].players:
+                        await self.gameSessions[guildID].directMessageReceived(message)
+                        return
+
+                print("Unauthorized DM from user {}".format(message.author.name))
+            elif message.guild.id in self.gameSessions.keys():
+                await self.gameSessions[message.guild.id].guildMessageReceived(message)
 
     async def on_raw_reaction_add(self, payload):
         await super().on_raw_reaction_add(payload)
         if payload.guild_id in self.gameSessions.keys() and payload.user_id != self.client.user.id:
-            await self.gameSessions[payload.guild_id].reactionToggled(payload, True)
+            await self.gameSessions[payload.guild_id].onReactionToggled(payload, True)
 
     async def on_raw_reaction_remove(self, payload):
         await super().on_raw_reaction_remove(payload)
         if payload.guild_id in self.gameSessions.keys() and payload.user_id != self.client.user.id:
-            await self.gameSessions[payload.guild_id].reactionToggled(payload, False)
+            await self.gameSessions[payload.guild_id].onReactionToggled(payload, False)
