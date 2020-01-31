@@ -347,6 +347,7 @@ class IdleGameBot(DiscordBot):
             if buildingKey == "BLDG_BANK":
                 await self.buildingMessageObjects["BLDG_BANK"].edit(content = self.generateBankMessage())
                 if reinitEmojis:
+                    self.correctMarketPlayerIDs = [] 
                     await self.buildingMessageObjects["BLDG_BANK"].add_reaction(self.KEY_TO_EMOJI_MAP[self.bankMarketStatus])
 
             elif buildingKey == "BLDG_SHOP_1":
@@ -386,7 +387,7 @@ class IdleGameBot(DiscordBot):
                     for item in self.HOUSE_DEPOT_ITEMS:
                         await self.buildingMessageObjects["BLDG_HOUSE_DEPOT"].add_reaction(self.KEY_TO_EMOJI_MAP[item])
 
-                if self.milestones["MILESTONE_FIRST_PADDOCK"]:
+                if "MILESTONE_FIRST_PADDOCK" in self.milestones:
                     if reinitEmojis:
                         for item in self.ANIMAL_MART_ITEMS:
                             await self.buildingMessageObjects["BLDG_HOUSE_DEPOT"].add_reaction(self.KEY_TO_EMOJI_MAP[item])
@@ -699,11 +700,12 @@ class IdleGameBot(DiscordBot):
                                 elif len(self.HOUSE_UPGRADE_COSTS[shopItem]) > player.items[shopItem]:
                                     itemCost = self.HOUSE_UPGRADE_COSTS[shopItem][player.items[shopItem]]
                                     if player.currencyTotal[itemCost[0]] > max(0, -1 * itemCost[1]): # make sure that the player can afford it
-                                            player.updateItems({shopItem: 1})
-                                            player.transact(itemCost)
-                                            await self.reinitializePlayerBuilding(playerID)
-                                            if shopItem == "UPGRADE_PADDOCK" and self.milestones["MILESTONE_FIRST_PADDOCK"] is not None:
-                                                self.milestones["MILESTONE_FIRST_PADDOCK"] = player.id
+                                        player.updateItems({shopItem: 1})
+                                        player.transact(itemCost)
+                                        await self.reinitializePlayerBuilding(playerID)
+                                        if shopItem == "UPGRADE_PADDOCK" and "MILESTONE_FIRST_PADDOCK" not in self.milestones:
+                                            self.milestones["MILESTONE_FIRST_PADDOCK"] = player.discordUserObject.id
+                                            await self.reinitializeBuilding("BLDG_HOUSE_DEPOT")
 
                     elif payload.message_id == player.houseMessageObject.id:
                         allowedReactions = []
@@ -1108,9 +1110,6 @@ class IdleGameBot(DiscordBot):
 
             resultString += "_You seem like the DIY type. Why not make a few improvements to your house?_\n"
 
-            if self.milestones["MILESTONE_FIRST_PADDOCK"] is not None:
-                resultString += "_Now carrying animals for paddocks! Get two and maybe they'll do what animals do ;)_"
-
             shopInventory = [
                 ["UPGRADE_BULLETIN", self.ITEM_COSTS["UPGRADE_BULLETIN"], "Change the message on your house", "You will be prompted via DM."],
                 ["UPGRADE_OFFICE",   "Listed on house",        "Upgrade a home office",            "Bring work home with you!"],
@@ -1118,18 +1117,21 @@ class IdleGameBot(DiscordBot):
                 ["UPGRADE_LAB",      "Listed on house",        "Upgrade a laboratory",             "What kind of mad science will you get up to?"],
             ]
 
-            animalInventory = [
-                ["ANIMAL_CHICKEN", self.ITEM_COSTS["ANIMAL_CHICKEN"], "+1 Chicken", "Produces eggs when they aren't reproducing."],
-                ["ANIMAL_RABBIT",  self.ITEM_COSTS["ANIMAL_RABBIT"],  "+1 Rabbit",  "Reproduces at a fast rate."],
-                ["ANIMAL_PIG",     self.ITEM_COSTS["ANIMAL_PIG"],     "+1 Pig",     "Reproduces at a medium rate."],
-                ["ANIMAL_COW",     self.ITEM_COSTS["ANIMAL_COW"],     "+1 Cow",     "Reproduces at a slow rate. Produces milk."],
-                ["ANIMAL_UNICORN", self.ITEM_COSTS["ANIMAL_UNICORN"], "+1 Unicorn", "Produces unicorn dust, does not reproduce."],
-            ]
-
-            if self.milestones["MILESTONE_FIRST_PADDOCK"] is not None:
-                shopInventory += animalInventory
-
             resultString += self.prettyPrintInventory(shopInventory)
+
+            if "MILESTONE_FIRST_PADDOCK" in self.milestones:
+                resultString += "\n_Now carrying livestock for paddocks! Get two and maybe they'll do what animals do ;)_\n"
+
+                animalInventory = [
+                    ["ANIMAL_CHICKEN", self.ITEM_COSTS["ANIMAL_CHICKEN"], "+1 Chicken", "Produces eggs when they aren't reproducing."],
+                    ["ANIMAL_RABBIT",  self.ITEM_COSTS["ANIMAL_RABBIT"],  "+1 Rabbit",  "Reproduces at a fast rate."],
+                    ["ANIMAL_PIG",     self.ITEM_COSTS["ANIMAL_PIG"],     "+1 Pig",     "Reproduces at a medium rate."],
+                    ["ANIMAL_COW",     self.ITEM_COSTS["ANIMAL_COW"],     "+1 Cow",     "Reproduces at a slow rate. Produces milk."],
+                    ["ANIMAL_UNICORN", self.ITEM_COSTS["ANIMAL_UNICORN"], "+1 Unicorn", "Produces unicorn dust, does not reproduce."],
+                ]
+
+                resultString += self.prettyPrintInventory(animalInventory)
+            
             return resultString
 
         def generatePlayerHouseMessage(self, playerID):
