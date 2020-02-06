@@ -45,6 +45,13 @@ class IdleGameBot(DiscordBot):
                     "ANIMAL_UNICORN": [12],
                 }
 
+                self.research = {
+                    "RESEARCH_HORMONES": {"LEVEL": 0, "TOTAL": 0, "RATE": 0},
+                    "RESEARCH_FINANCE":  {"LEVEL": 0, "TOTAL": 0, "RATE": 0},
+                    "RESEARCH_RESEARCH": {"LEVEL": 0, "TOTAL": 0, "RATE": 0},
+                    "RESEARCH_ALCHEMY":  {"LEVEL": 0, "TOTAL": 0, "RATE": 0},
+                }
+
                 self.houseMessageObject = None
                 self.houseBulletinString = "House Sweet House"
                 self.bulletinUpdatePending = False
@@ -59,6 +66,20 @@ class IdleGameBot(DiscordBot):
                     self.items[itemKey] += itemChanges[itemKey]
                 self.income = self.getBaseIncome()
 
+            def getBaseIncome(self):
+                incomeResult = {
+                    "$": 0
+                }
+
+                incomeResult["$"] += self.items["ALLOWANCE"]
+                incomeResult["$"] += self.items["ITEM_LEMON"]
+                incomeResult["$"] += 5 * self.items["ITEM_MELON"]
+                incomeResult["$"] += 50 * self.items["ITEM_MONEY_PRINTER"]
+
+                incomeResult["$"] *= 1.0 + .02 * self.research["RESEARCH_FINANCE"]["LEVEL"]
+
+                return incomeResult
+
             def refreshBaseIncome(self):
                 self.income = self.getBaseIncome()
 
@@ -67,7 +88,6 @@ class IdleGameBot(DiscordBot):
 
                 dimension = IdleGameBot.GameSession.PADDOCK_SIZES[self.items["UPGRADE_PADDOCK"]] * IdleGameBot.GameSession.MAX_ANIMALS_PER_ROW
 
-                print(len(occupiedPositions), dimension)
                 if len(occupiedPositions) >= dimension:
                     return
 
@@ -83,18 +103,6 @@ class IdleGameBot(DiscordBot):
                     if len(self.animalPositions[animalType]) == 0:
                         print("Could not remove {} {}, removed {}".format(count, animalType, i + 1))
                         return
-
-            def getBaseIncome(self):
-                incomeResult = {
-                    "$": 0
-                }
-
-                incomeResult["$"] += self.items["ALLOWANCE"]
-                incomeResult["$"] += self.items["ITEM_LEMON"]
-                incomeResult["$"] += 5 * self.items["ITEM_MELON"]
-                incomeResult["$"] += 50 * self.items["ITEM_MONEY_PRINTER"]
-
-                return incomeResult
 
             # Remember that positive currencyTuples mean ADDING TO currencyTotal!
             def transact(self, currencyTuple):
@@ -169,9 +177,11 @@ class IdleGameBot(DiscordBot):
             "ANIMAL_PIG": "🐷",
             "ANIMAL_COW": "🐮",
             "ANIMAL_UNICORN": "🦄",
+            "ANIMAL_TOAD": "🐸",
             "OPTION_LEDGER": "📒",
             "OPTION_ANIMAL_TRUCK": "🚚",
             "OPTION_ROOSTER": "🐓",
+            "OPTION_REFRESH": "♻️",
             "RESEARCH_HORMONES": "💉",
             "RESEARCH_FINANCE": "🧮",
             "RESEARCH_RESEARCH": "📚",
@@ -179,6 +189,8 @@ class IdleGameBot(DiscordBot):
             "ITEM_EGG": "🥚",
             "ITEM_MILK": "🥛",
             "ITEM_GLITTER": "✨",
+            "ITEM_ROCKET_FUEL": "🛢️",
+            "ITEM_ROCKET": "🚀",
         }
 
         EMOJI_TO_KEY_MAP = {v: k for k, v in KEY_TO_EMOJI_MAP.items()}
@@ -207,6 +219,10 @@ class IdleGameBot(DiscordBot):
             "ANIMAL_PIG":         ["$", -100000],
             "ANIMAL_COW":         ["$", -500000],
             "ANIMAL_UNICORN":     ["$", -5000000],
+            "ITEM_EGG":           ["$", 1000], # note that these are positive
+            "ITEM_MILK":          ["$", 10000], # note that these are positive
+            "ITEM_ROCKET_FUEL":   ["ITEM_GLITTER", -100],
+            "ITEM_ROCKET":        ["ITEM_ROCKET_FUEL", -100],
         }
 
         SHOP_1_ITEMS = [
@@ -238,11 +254,25 @@ class IdleGameBot(DiscordBot):
             "ANIMAL_UNICORN",
         ]
 
+        WITCH_HUT_ITEMS = [
+            "ITEM_ROCKET_FUEL",
+            "ITEM_ROCKET",    
+            "ITEM_EGG",       
+            "ITEM_MILK",
+        ]
+
+        RESEARCH_TYPES = [
+            "RESEARCH_HORMONES",
+            "RESEARCH_FINANCE",
+            "RESEARCH_RESEARCH",
+            "RESEARCH_ALCHEMY"
+        ]
+
         HOUSE_UPGRADE_COSTS = {
             "UPGRADE_OFFICE":  [
                 ["$", -1],#["$",  -1000000],
-                ["$", -2],#["$", -10000000],
-                ["$", -3],#["$", -20000000],
+                #["$", -10000000],
+                #["$", -20000000],
             ],
             "UPGRADE_PADDOCK": [
                 ["$", -1],#["$",  -5000000],
@@ -252,15 +282,14 @@ class IdleGameBot(DiscordBot):
             "UPGRADE_LAB":     [
                 ["$", -1],#["$",  -20000000],
                 ["$", -2],#["$", -100000000],
-                ["$", -3],#["$", -500000000],
             ],   
         }
 
-        HOUSE_UPGRADE_REQUIRED_EMOJI = {
+        HOUSE_UPGRADE_AVAILABLE_EMOJI = {
             "UPGRADE_OFFICE": [
                 ["OPTION_LEDGER"],
-                ["OPTION_LEDGER"],
-                ["OPTION_LEDGER"],
+                #["OPTION_LEDGER"],
+                #["OPTION_LEDGER"],
             ],
             "UPGRADE_PADDOCK": [
                 ["OPTION_ANIMAL_TRUCK", "OPTION_ROOSTER"],
@@ -270,9 +299,22 @@ class IdleGameBot(DiscordBot):
             "UPGRADE_LAB": [
                 ["RESEARCH_HORMONES", "RESEARCH_FINANCE", "RESEARCH_RESEARCH"],
                 ["RESEARCH_HORMONES", "RESEARCH_FINANCE", "RESEARCH_RESEARCH", "RESEARCH_ALCHEMY"],
-                ["RESEARCH_HORMONES", "RESEARCH_FINANCE", "RESEARCH_RESEARCH", "RESEARCH_ALCHEMY"]
+                #["RESEARCH_HORMONES", "RESEARCH_FINANCE", "RESEARCH_RESEARCH", "RESEARCH_ALCHEMY"]
             ],
         }
+
+        def getAvailableEmojiForHouseUpgrades(self, playerID):
+            result = []
+            for upgradeKey in self.HOUSE_UPGRADE_AVAILABLE_EMOJI:
+                upgradeLevel = self.players[playerID].items[upgradeKey]
+                if upgradeLevel > 0:
+                    if upgradeLevel >= len(self.HOUSE_UPGRADE_AVAILABLE_EMOJI[upgradeKey]):
+                        upgradeLevel = len(self.HOUSE_UPGRADE_AVAILABLE_EMOJI[upgradeKey]) - 1
+
+                    for optionKey in self.HOUSE_UPGRADE_AVAILABLE_EMOJI[upgradeKey][upgradeLevel]:
+                        result.append(optionKey)
+
+            return result
 
         ANIMAL_STATISTICS = {
             "ANIMAL_CHICKEN": {"REPRO_RATE": 0.24, "ITEM_PRODUCED": "ITEM_EGG",     "PROD_RATE": 0.8},
@@ -282,7 +324,14 @@ class IdleGameBot(DiscordBot):
             "ANIMAL_UNICORN": {"REPRO_RATE":    0, "ITEM_PRODUCED": "ITEM_GLITTER", "PROD_RATE": 0.05},
         }
 
-        PADDOCK_SIZES = [5, 10, 20]
+        RESEARCH_LEVEL_THRESHOLDS = {
+            "RESEARCH_HORMONES": [0, 1000, 5000, 10000, 20000, 50000, 100000, 500000, 1000000, 5000000, 10000000, 99999999999999999999],
+            "RESEARCH_FINANCE":  [0, 1000, 5000, 10000, 20000, 50000, 100000, 500000, 1000000, 5000000, 10000000, 99999999999999999999],
+            "RESEARCH_RESEARCH": [0, 1000, 5000, 10000, 20000, 50000, 100000, 500000, 1000000, 5000000, 10000000, 99999999999999999999],
+            "RESEARCH_ALCHEMY":  [0, 10], #TODO [10000000],
+        }
+
+        PADDOCK_SIZES = [4, 6, 8]
         MAX_ANIMALS_PER_ROW = 14
 
         ##################
@@ -330,6 +379,10 @@ class IdleGameBot(DiscordBot):
                 self.buildingMessageObjects["BLDG_HOUSE_DEPOT"] = await self.channel.send(":construction:")
                 for playerID in self.players:
                     self.players[playerID].houseMessageObject = await self.channel.send(":construction:")
+
+            if "MILESTONE_FIRST_ALCHEMY" in self.milestones:
+                print("Found milestone MILESTONE_FIRST_ALCHEMY")
+                self.buildingMessageObjects["BLDG_WITCH_HUT"] = await self.channel.send(":construction:")
 
             await self.reinitializeBuildings()
 
@@ -392,6 +445,13 @@ class IdleGameBot(DiscordBot):
                         for item in self.ANIMAL_MART_ITEMS:
                             await self.buildingMessageObjects["BLDG_HOUSE_DEPOT"].add_reaction(self.KEY_TO_EMOJI_MAP[item])
 
+            elif buildingKey == "BLDG_WITCH_HUT":
+                await self.buildingMessageObjects["BLDG_WITCH_HUT"].edit(content = self.generateWitchHutMessage())
+                if reinitEmojis:
+                    for item in self.WITCH_HUT_ITEMS:
+                        await self.buildingMessageObjects["BLDG_WITCH_HUT"].add_reaction(self.KEY_TO_EMOJI_MAP[item])
+
+
         async def reinitializePlayerBuilding(self, playerID, reinitEmojis = True):
             player = self.players[playerID]
 
@@ -404,10 +464,10 @@ class IdleGameBot(DiscordBot):
             await player.houseMessageObject.edit(content = self.generatePlayerHouseMessage(playerID))
 
             if reinitEmojis:
-                for upgradeKey in self.HOUSE_UPGRADE_REQUIRED_EMOJI:
-                    if player.items[upgradeKey] > 0:
-                        for optionKey in self.HOUSE_UPGRADE_REQUIRED_EMOJI[upgradeKey][player.items[upgradeKey]]:
-                            await player.houseMessageObject.add_reaction(self.KEY_TO_EMOJI_MAP[optionKey])
+                for optionKey in self.getAvailableEmojiForHouseUpgrades(playerID):
+                    await player.houseMessageObject.add_reaction(self.KEY_TO_EMOJI_MAP[optionKey])
+
+            await self.recalculateResearchRatesForPlayer(playerID)
 
 
         async def refreshLottery(self):
@@ -477,7 +537,7 @@ class IdleGameBot(DiscordBot):
                     continue
                 stats = self.ANIMAL_STATISTICS[animalKey]
                 if stats["ITEM_PRODUCED"] is not None:
-                    if random.random() < stats["PROD_RATE"]:
+                    if random.random() < stats["PROD_RATE"] + (.02 * player.research["RESEARCH_HORMONES"]["LEVEL"]):
                         player.updateItems({stats["ITEM_PRODUCED"]: 1})
 
         def simulatePlayerAnimalReproduction(self, playerID):
@@ -489,14 +549,14 @@ class IdleGameBot(DiscordBot):
                 if len(player.animalPositions[animalKey]) >= 2:
                     births[animalKey] = 0
                     for i in range(int(len(player.animalPositions[animalKey])/2)):
-                        if random.random() < self.ANIMAL_STATISTICS[animalKey]["REPRO_RATE"]:
+                        if random.random() < self.ANIMAL_STATISTICS[animalKey]["REPRO_RATE"] + (.02 * player.research["RESEARCH_HORMONES"]["LEVEL"]):
                             births[animalKey] += 1
 
             for animalKey in births:
                 player.addAnimal(animalKey)
 
         def calculateSocietyDonationPrices(self):
-            SOCIETY_DONATION_INCREMENT = 2
+            SOCIETY_DONATION_INCREMENT = -2
 
             sums = {
                 "SOCIETY_FILM":    ["$", SOCIETY_DONATION_INCREMENT],
@@ -533,28 +593,45 @@ class IdleGameBot(DiscordBot):
                     tempSlumberLevel = i + 1
             self.slumberLevel = tempSlumberLevel
 
-            # PLAYER INCOME
-            for userID in self.players:
-                player = self.players[userID]
-                income = player.income
+            playerIDsWithHousesToRefresh = {}
 
-                finalIncome = income["$"]
+            # PLAYER INCOME
+            for playerID in self.players:
+                player = self.players[playerID]
+
+                finalIncome = player.income["$"]
                 if player.discordUserObject.id in self.correctMarketPlayerIDs:
                     finalIncome *= 1.25
-
                 player.currencyTotal["$"] += math.ceil(finalIncome)
+
+                # PLAYER RESEARCH
+                if self.counter % (5) == 0: # TODO should be 60
+                    if player.houseMessageObject is not None and player.items["UPGRADE_LAB"] > 0:
+                        for researchKey in player.research:
+                            player.research[researchKey]["TOTAL"] += player.research[researchKey]["RATE"]
+                            print(researchKey, player.research[researchKey]["LEVEL"], len(self.RESEARCH_LEVEL_THRESHOLDS), player.research[researchKey]["TOTAL"])
+                            if player.research[researchKey]["LEVEL"] < len(self.RESEARCH_LEVEL_THRESHOLDS[researchKey]) - 2 and player.research[researchKey]["TOTAL"] > self.getXPLevelOffset(researchKey, player.research[researchKey]["LEVEL"] + 1):
+                                print("LEVELING UP", researchKey)
+                                player.research[researchKey]["LEVEL"] += 1
+                                if researchKey == "RESEARCH_ALCHEMY":
+                                    if "MILESTONE_FIRST_ALCHEMY" not in self.milestones:
+                                        self.milestones["MILESTONE_FIRST_ALCHEMY"] = playerID
+                                        self.buildingMessageObjects["BLDG_WITCH_HUT"] = await self.channel.send(":construction:")
+                                        await self.reinitializeBuilding("BLDG_WITCH_HUT")
+                        playerIDsWithHousesToRefresh[playerID] = True
 
             # Update bank based off of activity level
             if self.counter % BANK_SLUMBER_LEVEL_UPDATE_RATES[self.slumberLevel] == 0: 
                 await self.buildingMessageObjects["BLDG_BANK"].edit(content=self.generateBankMessage())
 
-            # Update paddock positions based off of activity level
+
+            # Update paddock positions and research display based off of activity level
             if self.counter % PADDOCK_SLUMBER_LEVEL_UPDATE_RATES[self.slumberLevel] == 0:
                 for playerID in self.players:
                     player = self.players[playerID]
                     if player.houseMessageObject is not None and player.items["UPGRADE_PADDOCK"] > 0:
                         self.simulatePlayerAnimalMovement(playerID)
-                        await self.reinitializePlayerBuilding(playerID, reinitEmojis=False)
+                        playerIDsWithHousesToRefresh[playerID] = True
 
             # Simulate item production for animals
             if self.counter % (60 * 10) == 0:
@@ -589,33 +666,31 @@ class IdleGameBot(DiscordBot):
                             if user.id != self.client.user.id:
                                 playerLottoChoices[lottoNum].append(user.id)
 
-                    print(playerLottoChoices)
-
                     # make sure everyone only gets 3 numbers
                     playerNumberCounts = {} # maps player IDs to counts of lottery numbers selected
                     for i in range(10):
                         for j in range(len(playerLottoChoices[i]), 0, -1): # range through each playerLottoChoices list backwards so we can pop from it safely
-                            i_userIDs = j - 1
-                            userID = playerLottoChoices[i][i_userIDs]
-                            if userID not in playerNumberCounts:
-                                playerNumberCounts[userID] = 0
-                            if playerNumberCounts[userID] < 3: 
-                                playerNumberCounts[userID] += 1
+                            i_playerIDs = j - 1
+                            playerID = playerLottoChoices[i][i_playerIDs]
+                            if playerID not in playerNumberCounts:
+                                playerNumberCounts[playerID] = 0
+                            if playerNumberCounts[playerID] < 3: 
+                                playerNumberCounts[playerID] += 1
                             else: # TOO MANY CHOICES
-                                playerNumberCounts[userID].pop(i_userIDs)
+                                playerNumberCounts[playerID].pop(i_userIDs)
 
                     # Count correct guesses
                     lottoMatchCounts = {} # maps playerIDs to counts of correct guesses
                     for winningNumber in self.todayLotteryNumbers:
-                        for userID in playerLottoChoices[winningNumber]:
-                            if userID not in lottoMatchCounts:
-                                lottoMatchCounts[userID] = 0
-                            lottoMatchCounts[userID] += 1
+                        for playerID in playerLottoChoices[winningNumber]:
+                            if playerID not in lottoMatchCounts:
+                                lottoMatchCounts[playerID] = 0
+                            lottoMatchCounts[playerID] += 1
 
                     # Determine winners
                     self.yesterdayLotteryWinners = [[],[],[]] # third, second, first place
-                    for userID in lottoMatchCounts:
-                        self.yesterdayLotteryWinners[lottoMatchCounts[userID] - 1].append(userID)
+                    for playerID in lottoMatchCounts:
+                        self.yesterdayLotteryWinners[lottoMatchCounts[playerID] - 1].append(playerID)
 
                     # Award winners
                     prizes = self.calculateLotteryPrizes(self.todayLotteryPrizePool)
@@ -627,6 +702,10 @@ class IdleGameBot(DiscordBot):
 
                     # Begin next lottery
                     self.loop.create_task(self.refreshLottery())
+
+            for playerID in playerIDsWithHousesToRefresh:
+                print("Rerendering player house")
+                await self.reinitializePlayerBuilding(playerID, reinitEmojis=False)
 
             # check for timed event triggers
             for key in self.eventCounters:
@@ -648,6 +727,17 @@ class IdleGameBot(DiscordBot):
                         if self.eventMessages[key].id == payload.message_id:
                             pass
 
+                    if payload.emoji.name == self.KEY_TO_EMOJI_MAP["OPTION_REFRESH"]:
+                        for buildingKey in self.buildingMessageObjects:
+                            if self.buildingMessageObjects[buildingKey].id == payload.message_id:
+                                await self.reinitializeBuilding(buildingKey)
+                                return
+
+                        for targetPlayerID in self.players:
+                            if self.players[targetPlayerID].houseMessageObject is not None and payload.message_id == self.players[targetPlayerID].houseMessageObject.id:
+                                await self.reinitializePlayerBuilding(targetPlayerID)
+                                return
+
                     if payload.message_id == self.buildingMessageObjects["BLDG_BANK"].id:
                         if payload.emoji.name == self.KEY_TO_EMOJI_MAP[self.bankMarketStatus]:
                             if toggledOn:
@@ -661,10 +751,8 @@ class IdleGameBot(DiscordBot):
                                 itemCost = self.ITEM_COSTS[shopItem]
                                 if player.currencyTotal[itemCost[0]] > max(0, -1 * itemCost[1]): # make sure that the player can afford it
                                     if shopItem == "ITEM_BROKEN_HOUSE":
-                                        await self.initializeHouseDepot()
-
                                         if "MILESTONE_FIRST_HOUSE" not in self.milestones:
-                                            self.initializeHouseDepot()
+                                            await self.initializeHouseDepot()
                                             self.milestones["MILESTONE_FIRST_HOUSE"] = playerID
 
                                         if player.items["ITEM_BROKEN_HOUSE"] > 0: # prevent players from getting more than one house
@@ -673,7 +761,6 @@ class IdleGameBot(DiscordBot):
                                             player.houseMessageObject = await self.channel.send(self.generatePlayerHouseMessage(playerID))
                                             await self.reinitializePlayerBuilding(playerID)
                                         
-
                                     player.updateItems({shopItem: 1})
                                     player.transact(itemCost)
                         
@@ -707,12 +794,22 @@ class IdleGameBot(DiscordBot):
                                             self.milestones["MILESTONE_FIRST_PADDOCK"] = player.discordUserObject.id
                                             await self.reinitializeBuilding("BLDG_HOUSE_DEPOT")
 
-                    elif payload.message_id == player.houseMessageObject.id:
-                        allowedReactions = []
-                        for upgradeKey in self.HOUSE_UPGRADE_REQUIRED_EMOJI:
-                            if player.items[upgradeKey] > 0:
-                                allowedReactions += self.HOUSE_UPGRADE_REQUIRED_EMOJI[upgradeKey][player.items[upgradeKey]]
+                    elif "BLDG_WITCH_HUT" in self.buildingMessageObjects and payload.message_id == self.buildingMessageObjects["BLDG_WITCH_HUT"].id:
+                        if player.research["RESEARCH_ALCHEMY"]["LEVEL"] > 0:
+                            for shopItem in self.WITCH_HUT_ITEMS:
+                                if payload.emoji.name == self.KEY_TO_EMOJI_MAP[shopItem]:
+                                    itemCost = self.ITEM_COSTS[shopItem]
+                                    if itemCost[0] in self.KEY_TO_EMOJI_MAP:
+                                        if player.items[itemCost[0]] >= itemCost[1]:
+                                            player.updateItems({shopItem: 1})
+                                            player.updateItems({itemCost[0]: itemCost[1]})
+                                    else:
+                                        if player.items[shopItem] > 0:
+                                            player.updateItems({shopItem: -1})
+                                            player.transact(itemCost)
 
+                    elif payload.message_id == player.houseMessageObject.id:
+                        allowedReactions = self.getAvailableEmojiForHouseUpgrades(playerID)
                         if self.EMOJI_TO_KEY_MAP[payload.emoji.name] in allowedReactions:
                             if payload.emoji.name == self.KEY_TO_EMOJI_MAP["OPTION_LEDGER"]:
                                 await player.discordUserObject.send(content = player.printItemDigest())
@@ -724,12 +821,14 @@ class IdleGameBot(DiscordBot):
                                 elif playerID in self.correctMarketPlayerIDs:
                                     player.roosterEnabled = False
                                 await player.houseMessageObject.edit(content = self.generatePlayerHouseMessage(playerID))
+                            elif self.EMOJI_TO_KEY_MAP[payload.emoji.name] in self.RESEARCH_TYPES:
+                                player.houseMessageObject = await self.channel.fetch_message(player.houseMessageObject.id)
+                                await self.recalculateResearchRatesForPlayer(playerID)
 
                 else:
                     user = self.client.get_user(playerID)
                     helpfulMessage = await self.channel.send("{} you are not registered with the game. Type `!register` to join!".format(user.mention))
                     await helpfulMessage.delete(delay=15)
-
 
         async def guildMessageReceived(self, message):
             if message.channel.id == self.channel.id:
@@ -1014,7 +1113,7 @@ class IdleGameBot(DiscordBot):
             ]
             possibleOverlapString = " _(These can overlap)_"
             for pair in NO_OVERLAP_PAIRS:
-                if finalFeatureStrings[0] == pair[0] and finalFeatureStrings[1] == pair[1]:
+                if chosenFeatures[0] == pair[0] and chosenFeatures[1] == pair[1]:
                     possibleOverlapString = ""
 
             resultString += "\n__Today's Hint__: There's {} and {}!{}\n\n".format(finalFeatureStrings[0], finalFeatureStrings[1], possibleOverlapString)
@@ -1134,6 +1233,38 @@ class IdleGameBot(DiscordBot):
             
             return resultString
 
+        def generateWitchHutMessage(self):
+            emojiString = ":fire::woman_mage::fire:"
+            resultString =  "`~~~~~~~~~~~~~~~~~~~~~~~~~~~~~`\n"
+            resultString += emojiString + " **WITCH'S HUT** " + emojiString + "\n"
+            resultString += "`~~~~~~~~~~~~~~~~~~~~~~~~~~~~~`\n\n"
+
+            resultString += "Eeeee-heee-hee! Welcome to my humble abode traveler. I trust you are well versed in the alchemic arts?\n"
+
+            shopInventory = [
+                ["ITEM_ROCKET_FUEL", "-100 unicorn dust", "+1 Rocket Fuel", "Make things go fast. Requires alchemy."],
+                ["ITEM_ROCKET",      "-100 rocket fuel",      "Win the game",   "What, just 'cuz I'm a witch I can't be a rocket scientist too?"],
+                ["ITEM_EGG",         self.ITEM_COSTS["ITEM_EGG"],         "-1 egg",         "I'm feeling quite peckish, mind sparing a few eggs?"],
+                ["ITEM_MILK",        self.ITEM_COSTS["ITEM_MILK"],        "-1 milk",        "I'd kill for a tall glass of milk right now."],
+            ]
+
+            resultString += self.prettyPrintInventory(shopInventory)
+
+            if "MILESTONE_FIRST_PADDOCK" in self.milestones:
+                resultString += "\n_Now carrying livestock for paddocks! Get two and maybe they'll do what animals do ;)_\n"
+
+                animalInventory = [
+                    ["ANIMAL_CHICKEN", self.ITEM_COSTS["ANIMAL_CHICKEN"], "+1 Chicken", "Produces eggs when they aren't reproducing."],
+                    ["ANIMAL_RABBIT",  self.ITEM_COSTS["ANIMAL_RABBIT"],  "+1 Rabbit",  "Reproduces at a fast rate."],
+                    ["ANIMAL_PIG",     self.ITEM_COSTS["ANIMAL_PIG"],     "+1 Pig",     "Reproduces at a medium rate."],
+                    ["ANIMAL_COW",     self.ITEM_COSTS["ANIMAL_COW"],     "+1 Cow",     "Reproduces at a slow rate. Produces milk."],
+                    ["ANIMAL_UNICORN", self.ITEM_COSTS["ANIMAL_UNICORN"], "+1 Unicorn", "Produces unicorn dust, does not reproduce."],
+                ]
+
+                resultString += self.prettyPrintInventory(animalInventory)
+            
+            return resultString
+
         def generatePlayerHouseMessage(self, playerID):
             player = self.players[playerID]
 
@@ -1146,30 +1277,33 @@ class IdleGameBot(DiscordBot):
 
             resultString += "_{}_\n\n".format(player.houseBulletinString)
 
+            if player.items["UPGRADE_OFFICE"] < len(self.HOUSE_UPGRADE_COSTS["UPGRADE_OFFICE"]):
+                nextOfficeCost = self.currencyString(self.HOUSE_UPGRADE_COSTS["UPGRADE_OFFICE"][player.items["UPGRADE_OFFICE"]])
+            else:
+                nextOfficeCost = "MAX"
+            if player.items["UPGRADE_PADDOCK"] < len(self.HOUSE_UPGRADE_COSTS["UPGRADE_PADDOCK"]):
+                nextPaddockCost = self.currencyString(self.HOUSE_UPGRADE_COSTS["UPGRADE_PADDOCK"][player.items["UPGRADE_PADDOCK"]])
+            else:
+                nextPaddockCost = "MAX"
+            if player.items["UPGRADE_LAB"] < len(self.HOUSE_UPGRADE_COSTS["UPGRADE_LAB"]):
+                nextLabCost = self.currencyString(self.HOUSE_UPGRADE_COSTS["UPGRADE_LAB"][player.items["UPGRADE_LAB"]])
+            else:
+                nextLabCost = "MAX"
+
             # Office
-            resultString += ":file_cabinet: __**Office Level {}**__ - _Next Upgrade: {}_\n".format(player.items["UPGRADE_OFFICE"], self.currencyString(self.HOUSE_UPGRADE_COSTS["UPGRADE_OFFICE"][player.items["UPGRADE_OFFICE"]]))
+            resultString += ":file_cabinet: __**Office Level {}**__ - _Next Upgrade: {}_\n".format(player.items["UPGRADE_OFFICE"], nextOfficeCost)
             if player.items["UPGRADE_OFFICE"] == 0:
                 resultString += "_This room seems just drab enough to build a home office in._\n\n"
             elif player.items["UPGRADE_OFFICE"] == 1:
                 resultString += "• :ledger: __Ledger__: Click to get a DM with your current item totals.\n\n"
 
             # Paddock
-            resultString += ":park: __**Paddock Level {}**__ - _Next Upgrade: {}_\n".format(
-                player.items["UPGRADE_PADDOCK"],
-                self.currencyString(self.HOUSE_UPGRADE_COSTS["UPGRADE_PADDOCK"][player.items["UPGRADE_PADDOCK"]])
-            )
-            resultString += self.generatePaddock(player)
-
+            resultString += ":park: __**Paddock Level {}**__ - _Next Upgrade: {}_\n".format(player.items["UPGRADE_PADDOCK"], nextPaddockCost)
+            resultString += self.generatePaddock(playerID)
 
             # Lab
-            resultString += ":microscope: __**Laboratory Level {}**__ - _Next Upgrade: {}_\n".format(player.items["UPGRADE_LAB"], self.currencyString(self.HOUSE_UPGRADE_COSTS["UPGRADE_LAB"][player.items["UPGRADE_LAB"]]))
-            if player.items["UPGRADE_LAB"] == 0:
-                resultString += "_This room seems just dark and stormy enough to build a laboratory in._\n\n"
-            elif player.items["UPGRADE_LAB"] == 1:
-                resultString += "• :syringe: **Hormones** Lvl 1 - (0% + .2%/min) Increase animal item production and reproduction\n"
-                resultString += "• :abacus:  **Finance** Lvl 1 - (0% + .2%/min) Increase income\n"
-                resultString += "• :books: **Research Practices** Lvl 1 - (0% + .2%/min) Increase research rates\n"
-                resultString += "• :alembic: **Alchemy** Lvl 1 - (0% + .2%/min) Unlock the secrets of alchemy\n"
+            resultString += ":microscope: __**Laboratory Level {}**__ - _Next Upgrade: {}_\n".format(player.items["UPGRADE_LAB"], nextLabCost)
+            resultString += self.generateLaboratory(playerID)
 
             return resultString
 
@@ -1178,7 +1312,8 @@ class IdleGameBot(DiscordBot):
         #### DISPLAY HELPERS
         ##################
 
-        def generatePaddock(self, player):
+        def generatePaddock(self, playerID):
+            player = self.players[playerID]
             paddockLevel = player.items["UPGRADE_PADDOCK"]
             if paddockLevel == 0:
                 return "_You've got a lot of land here. Why not build an enclosure for some animals?_\n\n"
@@ -1216,6 +1351,72 @@ class IdleGameBot(DiscordBot):
 
             return resultString
 
+        def generateLaboratory(self, playerID):
+            player = self.players[playerID]
+            labLevel = player.items["UPGRADE_LAB"]
+            resultString = ""
+            if labLevel == 0:
+                resultString += "_This room seems just dark and stormy enough to build a laboratory in._\n\n"
+            elif labLevel == 1:
+                itemDescriptions = {
+                    "RESEARCH_HORMONES": ":syringe: **Hormones** Lvl {} - `({}/{} + {}/min)` Increase animal item production and reproduction by 5% per level\n",
+                    "RESEARCH_FINANCE":  ":abacus:  **Finance** Lvl {} - `({}/{} + {}/min)` Increase income by 2% per level\n",
+                    "RESEARCH_RESEARCH": ":books: **Research Practices** Lvl {} - `({}/{} + {}/min)` Increase research rates by 10% per level\n",
+                    "RESEARCH_ALCHEMY":  ":alembic: **Alchemy** Lvl {} - `({}/{} + {}/min)` Unlock the secrets of alchemy\n",
+                }
+
+                for researchKey in self.HOUSE_UPGRADE_AVAILABLE_EMOJI["UPGRADE_LAB"][labLevel]:
+                    currentXP = player.research[researchKey]["TOTAL"]
+                    currentLevel = player.research[researchKey]["LEVEL"]
+
+                    xpForLastLevel = self.getXPLevelOffset(researchKey, currentLevel)
+                    currentXPMinusPreviousRequirements = currentXP - xpForLastLevel
+                    
+                    if currentLevel == len(self.RESEARCH_LEVEL_THRESHOLDS[researchKey]) - 1:
+                        currentLevel = "MAX"
+                        goalXP = "MAX"
+                    else:
+                        requiredXPMinusPreviousRequirements = self.RESEARCH_LEVEL_THRESHOLDS[researchKey][currentLevel + 1] - xpForLastLevel
+                        goalXP = self.currencyString(["", requiredXPMinusPreviousRequirements])
+
+                    resultString += itemDescriptions[researchKey].format(
+                        currentLevel,
+                        self.currencyString(["", currentXPMinusPreviousRequirements]),
+                        goalXP,
+                        self.currencyString(["", player.research[researchKey]["RATE"]]),
+                    )
+
+            return resultString
+
+        # remember that you need to refresh the housemessageobject to get the current reactions before calling this
+        async def recalculateResearchRatesForPlayer(self, playerID):
+            player = self.players[playerID]
+
+            if player.items["UPGRADE_LAB"] < 1:
+                return
+
+            totalRate = 4 * (1.0 + .1 * player.research["RESEARCH_RESEARCH"]["LEVEL"])
+
+            enabledResearchKeys = []
+            for reaction in player.houseMessageObject.reactions:
+                for user in await reaction.users().flatten():
+                    if user.id == playerID:
+                        enabledResearchKeys.append(self.EMOJI_TO_KEY_MAP[reaction.emoji])
+
+            for key in player.research:
+                player.research[key]["RATE"] = 0
+
+            for key in enabledResearchKeys:
+                player.research[key]["RATE"] = totalRate / len(enabledResearchKeys)
+
+        # Gives the amount of XP required to reach the level
+        def getXPLevelOffset(self, researchKey, level):
+            tot = 0
+            for i in range(level + 1):
+                tot += self.RESEARCH_LEVEL_THRESHOLDS[researchKey][i]
+
+            return tot
+
         def listStringsWithCommas(self, arr):
             if len(arr) == 0:
                 return ""
@@ -1235,8 +1436,11 @@ class IdleGameBot(DiscordBot):
             if isinstance(currencyTuple, str):
                 return currencyTuple
 
-            unit = currencyTuple[0]
-            currencyInteger = currencyTuple[1]
+            if currencyTuple[0] in self.KEY_TO_EMOJI_MAP:
+                unit = self.KEY_TO_EMOJI_MAP[currencyTuple[0]]
+            else:
+                unit = currencyTuple[0]
+            currencyInteger = round(currencyTuple[1], 1)
             negativeString = ""
             if currencyInteger < 0:
                 negativeString = "-"
@@ -1248,22 +1452,25 @@ class IdleGameBot(DiscordBot):
                 else:
                     return numStr
 
-            currencyStringRaw = str(currencyInteger)
+            currencyStringRawSplit = str(currencyInteger).split(".")
+            currencyStringRaw = currencyStringRawSplit[0]
             result = currencyStringRaw
 
-            # TODO decimal place for mbtq
             if len(currencyStringRaw) > 15:
                 result = doCommas(currencyStringRaw[0:len(currencyStringRaw) - 15]) + "q"
             elif len(currencyStringRaw) > 12:
-                result = currencyStringRaw[0:len(currencyStringRaw) - 12] + "t"
+                result = currencyStringRaw[0:len(currencyStringRaw) - 12] + "." + currencyStringRaw[len(currencyStringRaw) - 12] + "t"
             elif len(currencyStringRaw) > 9:
-                result = currencyStringRaw[0:len(currencyStringRaw) - 9] + "b"
+                result = currencyStringRaw[0:len(currencyStringRaw) - 9] + "." + currencyStringRaw[len(currencyStringRaw) - 9] + "b"
             elif len(currencyStringRaw) > 6:
-                result = currencyStringRaw[0:len(currencyStringRaw) - 6] + "m"
+                result = currencyStringRaw[0:len(currencyStringRaw) - 6] + "." + currencyStringRaw[len(currencyStringRaw) - 6] + "m"
             elif len(currencyStringRaw) > 3:
-                result = doCommas(currencyStringRaw)
+                result = currencyStringRaw[0:len(currencyStringRaw) - 3] + "." + currencyStringRaw[len(currencyStringRaw) - 3] + "k"
             else:
-                result = currencyStringRaw
+                if len(currencyStringRawSplit) == 1:
+                    result = currencyStringRaw
+                else:
+                    result = currencyStringRaw + "." + currencyStringRawSplit[1]
 
             return negativeString + unit + result
 
@@ -1395,12 +1602,12 @@ class IdleGameBot(DiscordBot):
 
     async def backup(self):
         while True:
+            await asyncio.sleep(10)
             filename = self.backupFilenames.pop(0)
             self.backupFilenames.append(filename)
             with open(filename, 'wb') as f:
                 pickle.dump(self.gameSessions, f, pickle.HIGHEST_PROTOCOL)
             print("Successfully backed up to {}".format(filename))
-            await asyncio.sleep(10)
 
     async def load(self, filename):
         loadedSessions = pickle.load(open(filename, "rb"))
@@ -1420,7 +1627,6 @@ class IdleGameBot(DiscordBot):
                     except discord.errors.NotFound:
                         gameSession.buildingMessageObjects[buildingKey] = -1
 
-
                 for playerID in gameSession.players:
                     player = gameSession.players[playerID]
                     player.discordUserObject = await self.client.fetch_user(playerID)
@@ -1429,7 +1635,6 @@ class IdleGameBot(DiscordBot):
                             player.houseMessageObject = await gameSession.channel.fetch_message(player.houseMessageObject)
                         except discord.errors.NotFound:
                             player.houseMessageObject = -1
-
 
                 self.gameSessions[guild.id] = gameSession
 
