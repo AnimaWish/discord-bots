@@ -40,11 +40,11 @@ class IdleGameBot(DiscordBot):
                 }
 
                 self.animalPositions = {
-                    "ANIMAL_CHICKEN": [5, 15, 33],
-                    "ANIMAL_RABBIT": [2, 3],
-                    "ANIMAL_PIG": [40],
-                    "ANIMAL_COW": [7,8,9,10,11],
-                    "ANIMAL_UNICORN": [12],
+                    "ANIMAL_CHICKEN": [],
+                    "ANIMAL_RABBIT": [],
+                    "ANIMAL_PIG": [],
+                    "ANIMAL_COW": [],
+                    "ANIMAL_UNICORN": [],
                 }
 
                 self.research = {
@@ -214,8 +214,8 @@ class IdleGameBot(DiscordBot):
             "ITEM_LEMON":         ["$", -100],
             "ITEM_MELON":         ["$", -990],
             "ITEM_MONEY_PRINTER": ["$", -49000],
-            "ITEM_BROKEN_HOUSE":  ["$", -1],
-            "UPGRADE_BULLETIN":   ["$", -1],
+            "ITEM_BROKEN_HOUSE":  ["$", -1], # TODO ["$", -1000000], 
+            "UPGRADE_BULLETIN":   ["$", -1], # TODO ["$", -1000],
             "ANIMAL_CHICKEN":     ["$", -50000],
             "ANIMAL_RABBIT":      ["$", -75000],
             "ANIMAL_PIG":         ["$", -100000],
@@ -272,26 +272,22 @@ class IdleGameBot(DiscordBot):
 
         HOUSE_UPGRADE_COSTS = {
             "UPGRADE_OFFICE":  [
-                ["$", -1],#["$",  -1000000],
-                #["$", -10000000],
-                #["$", -20000000],
+                ["$", -1],# TODO ["$",  -1000000],
             ],
             "UPGRADE_PADDOCK": [
-                ["$", -1],#["$",  -5000000],
-                ["$", -2],#["$", -30000000],
-                ["$", -3],#["$", -80000000],
+                ["$", -1],# TODO ["$",  -5000000],
+                ["$", -2],# TODO ["$", -30000000],
+                ["$", -3],# TODO ["$", -80000000],
             ],
             "UPGRADE_LAB":     [
-                ["$", -1],#["$",  -20000000],
-                ["$", -2],#["$", -100000000],
+                ["$", -1],# TODO ["$",  -20000000],
+                ["$", -2],# TODO ["$", -100000000],
             ],   
         }
 
         HOUSE_UPGRADE_AVAILABLE_EMOJI = {
             "UPGRADE_OFFICE": [
                 ["OPTION_LEDGER"],
-                #["OPTION_LEDGER"],
-                #["OPTION_LEDGER"],
             ],
             "UPGRADE_PADDOCK": [
                 ["OPTION_ANIMAL_TRUCK", "OPTION_ROOSTER"],
@@ -301,7 +297,6 @@ class IdleGameBot(DiscordBot):
             "UPGRADE_LAB": [
                 ["RESEARCH_HORMONES", "RESEARCH_FINANCE", "RESEARCH_RESEARCH"],
                 ["RESEARCH_HORMONES", "RESEARCH_FINANCE", "RESEARCH_RESEARCH", "RESEARCH_ALCHEMY"],
-                #["RESEARCH_HORMONES", "RESEARCH_FINANCE", "RESEARCH_RESEARCH", "RESEARCH_ALCHEMY"]
             ],
         }
 
@@ -327,9 +322,9 @@ class IdleGameBot(DiscordBot):
         }
 
         RESEARCH_LEVEL_THRESHOLDS = {
-            "RESEARCH_HORMONES": [0, 1000, 5000, 10000, 20000, 50000, 100000, 500000, 1000000, 5000000, 10000000, 99999999999999999999],
-            "RESEARCH_FINANCE":  [0, 1000, 5000, 10000, 20000, 50000, 100000, 500000, 1000000, 5000000, 10000000, 99999999999999999999],
-            "RESEARCH_RESEARCH": [0, 1000, 5000, 10000, 20000, 50000, 100000, 500000, 1000000, 5000000, 10000000, 99999999999999999999],
+            "RESEARCH_HORMONES": [0, 1000, 5000, 10000, 20000, 50000, 100000, 500000, 1000000, 5000000, 10000000, 20000000, 30000000, 40000000, 50000000, 100000000, 1000000000, 10000000000, 99999999999999999999],
+            "RESEARCH_FINANCE":  [0, 1000, 5000, 10000, 20000, 50000, 100000, 500000, 1000000, 5000000, 10000000, 20000000, 30000000, 40000000, 50000000, 100000000, 1000000000, 10000000000, 99999999999999999999],
+            "RESEARCH_RESEARCH": [0, 1000, 5000, 10000, 20000, 50000, 100000, 500000, 1000000, 5000000, 10000000, 20000000, 30000000, 40000000, 50000000, 100000000, 1000000000, 10000000000, 99999999999999999999],
             "RESEARCH_ALCHEMY":  [0, 10], #TODO [10000000],
         }
 
@@ -412,7 +407,6 @@ class IdleGameBot(DiscordBot):
                         await self.buildingMessageObjects["BLDG_SHOP_1"].add_reaction(self.KEY_TO_EMOJI_MAP[item])    
 
             elif buildingKey == "BLDG_LOTTERY":
-                #TODO offload some of this logic
                 self.yesterdayLotteryNumbers = self.todayLotteryNumbers
                 self.todayLotteryNumbers = self.drawLotteryNumbers()
                 self.lotteryDrawTime = datetime.datetime.now() + datetime.timedelta(seconds=10) # TODO make sure this doesn't drift
@@ -623,7 +617,6 @@ class IdleGameBot(DiscordBot):
             # Update bank based off of activity level
             if self.counter % BANK_SLUMBER_LEVEL_UPDATE_RATES[self.slumberLevel] == 0: 
                 await self.buildingMessageObjects["BLDG_BANK"].edit(content=self.generateBankMessage())
-
 
             # Update paddock positions and research display based off of activity level
             if self.counter % PADDOCK_SLUMBER_LEVEL_UPDATE_RATES[self.slumberLevel] == 0:
@@ -1592,7 +1585,7 @@ class IdleGameBot(DiscordBot):
 
     async def backup(self):
         while True:
-            await asyncio.sleep(10)
+            await asyncio.sleep(10) # TODO longer time
             filename = self.backupFilenames.pop(0)
             self.backupFilenames.append(filename)
             with open(filename, 'wb') as f:
