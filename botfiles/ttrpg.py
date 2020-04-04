@@ -5,6 +5,7 @@ import urllib.request
 import re
 import os, io
 import pickle
+import json
 import threading
 import datetime, time
 
@@ -91,6 +92,46 @@ class TTRPGBot(DiscordBot):
 
         await message.channel.send("New XP Total is **{}**! Only {} more XP to level {}!".format(self.xpTotals[message.guild.id], xpDiff, newLevel + 1))
 
+    async def lookupSpell(self, message, params):
+        hyphenSpellName = "-".join(params.lower().split(" ")).replace(",", "")
+
+        url = "http://dnd5eapi.co/api/spells/{}".format(hyphenSpellName)
+
+        response = None
+        try:
+            response = urllib.request.urlopen(url) #.read().decode("utf-8") 
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                backup = "https://duckduckgo.com/?q=!ducky+{}+site%3A5e.tools".format(params.replace(" ", "%20"))
+
+                await message.channel.send("Sorry, I couldn't find that spell. This link might work: {}".format(backup))
+                return
+
+            await message.channel.send("Yikes I spilled beer on my copy of the PHB! Hang on a sec while I clean up.")
+            return
+
+        spellDict = json.loads(response.read())
+
+        formatString = "__**{}**__\n*Level {} {}*\n\n**Casting Time:** {}\n**Range:** {}\n**Components:** {}\n**Duration:** {}\n\n{}\n***At Higher Levels.*** {}\n"
+
+        components = ",".join(spellDict["components"])
+        if "material" in spellDict:
+            components += " ({})".format(spellDict["material"])
+
+        output = formatString.format(
+            spellDict["name"],
+            spellDict["level"],
+            spellDict["school"]["name"],
+            spellDict["casting_time"],
+            spellDict["range"],
+            components,
+            spellDict["duration"],
+            "\n".join(spellDict["desc"]),
+            "\n".join(spellDict["higher_level"]),
+        )
+
+        await message.channel.send(output)
+
 
     async def refreshGMList(self, message, params):
         await self.fetchGMs()
@@ -130,3 +171,4 @@ class TTRPGBot(DiscordBot):
 
         self.addCommand('xp', self.manageXP, lambda x: True, "See XP", "+1000")
         self.addCommand('refresh', self.refreshGMList, lambda x: True)
+        self.addCommand('spell', self.lookupSpell, lambda x: True, "Look up a spell", "Acid Arrow")
