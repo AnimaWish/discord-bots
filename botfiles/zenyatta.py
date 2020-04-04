@@ -39,6 +39,9 @@ class ZenyattaBot(EventBot, SimpleVoteBot):
     #   Bot Methods   #
     ###################
 
+    def getName(self):
+        return "zenyatta"
+
     def __init__(self, prefix="!"):
         super().__init__(prefix, "Peace be upon you.", "Passing into the Iris.")
 

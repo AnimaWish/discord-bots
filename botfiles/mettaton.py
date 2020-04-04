@@ -37,6 +37,9 @@ class MettatonBot(SimpleVoteBot):
     #   Bot Methods   #
     ###################
 
+    def getName(self):
+        return "mettaton"
+
     def __init__(self, prefix="!"):
         super().__init__(prefix, "OHHH YES!", "GUESS YOU DON'T WANT TO JOIN MY FAN CLUB...?")
 

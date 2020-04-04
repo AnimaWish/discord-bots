@@ -234,6 +234,9 @@ class DiscordBot:
     #     Startup     #
     ###################
 
+    def getName(self):
+        return "generic"
+
     def __init__(self, prefix="!", greeting="Hello", farewell="Goodbye"):
         self.loop = asyncio.get_event_loop()
         self.client = discord.Client(loop=self.loop)
