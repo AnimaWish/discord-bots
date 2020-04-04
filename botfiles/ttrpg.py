@@ -116,7 +116,6 @@ class TTRPGBot(DiscordBot):
 
         spellDict = json.loads(response.read().decode("utf-8"))
 
-
         formatString = "__**{}**__\n*Level {} {}*\n\n**Casting Time:** {}\n**Range:** {}\n**Components:** {}\n**Duration:** {}\n\n{}\n***At Higher Levels.*** {}\n"
 
         components = ""
@@ -139,6 +138,8 @@ class TTRPGBot(DiscordBot):
 
         await message.channel.send(output)
 
+    async def spellListLink(self, message, params):
+        await message.channel.send("https://www.dnd-spells.com/spells")
 
     async def refreshGMList(self, message, params):
         await self.fetchGMs()
@@ -179,3 +180,4 @@ class TTRPGBot(DiscordBot):
         self.addCommand('xp', self.manageXP, lambda x: True, "See XP", "+1000")
         self.addCommand('refresh', self.refreshGMList, lambda x: True)
         self.addCommand('spell', self.lookupSpell, lambda x: True, "Look up a spell", "Acid Arrow")
+        self.addCommand('spelllist', self.spellListLink, lambda x: True, "Get a link to the spell list")

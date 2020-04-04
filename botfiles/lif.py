@@ -7,7 +7,7 @@ from .ttrpg import TTRPGBot
 import argparse
 import importlib
 
-class LiffBot(TTRPGBot):
+class LifBot(TTRPGBot):
     ###################
     #    Constants    #
     ###################
@@ -25,13 +25,13 @@ class LiffBot(TTRPGBot):
     ###################
 
     def getName(self):
-        return "liff"
+        return "lif"
 
     def __init__(self, prefix="!"):
         super().__init__(prefix, "*pours a drink*", "*ouija marker goes limp*")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Liff Bot')
+    parser = argparse.ArgumentParser(description='Lif Bot')
     parser.add_argument("token", type=str, nargs=1)
     args = parser.parse_args()
     liff = LiffBot()
