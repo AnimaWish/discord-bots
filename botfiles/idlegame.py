@@ -1514,20 +1514,19 @@ class IdleGameBot(DiscordBot):
 
         self.gameSessions = {} # maps guildIDs to GameSession objects
         self.backupFilenames = [
-            'backup1.pickle',
-            'backup2.pickle'
+            'storage/{}/backup1.pickle'.format(self.getName()),
+            'storage/{}/backup2.pickle'.format(self.getName())
         ]
 
     async def on_ready(self):
         await super().on_ready()
 
-
         newestFile = ""
-        for fname in self.backupFilenames:
-            if os.path.isfile(fname):
-                lastUpdated = os.path.getmtime(fname)
+        for filename in self.backupFilenames:
+            if os.path.isfile(filename):
+                lastUpdated = os.path.getmtime(filename)
                 if newestFile == "" or lastUpdated > os.path.getmtime(newestFile):
-                    newestFile = fname
+                    newestFile = filename
 
         if newestFile != "":
             await self.load(newestFile)
@@ -1587,6 +1586,10 @@ class IdleGameBot(DiscordBot):
         while True:
             await asyncio.sleep(10) # TODO longer time
             filename = self.backupFilenames.pop(0)
+
+            if not os.path.isfile(filename):
+                os.makedirs(os.path.dirname(filename), exist_ok=True)
+
             self.backupFilenames.append(filename)
             with open(filename, 'wb') as f:
                 pickle.dump(self.gameSessions, f, pickle.HIGHEST_PROTOCOL)
