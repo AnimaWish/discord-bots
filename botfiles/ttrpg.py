@@ -139,15 +139,9 @@ class TTRPGBot(DiscordBot):
 
         response = None
         try:
-            response = urllib.request.urlopen(url).read().decode("utf-8") 
-        except urllib.error.HTTPError as e:
-            if e.code == 404:
-                backup = "https://duckduckgo.com/?q=!ducky+{}+site%3A5e.tools".format(params.replace(" ", "%20"))
-
-                await message.channel.send("Sorry, I couldn't find that spell. Why not do me a favor and add it to my spellbook using `!addspell`?")
-                return
-
-            await message.channel.send("Yikes I spilled beer on my copy of the PHB! Hang on a sec while I clean up.")
+            response = urllib.request.urlopen(url.encode("utf-8")).read().decode("utf-8")
+        except Exception as e:
+            await message.channel.send("Sorry, I couldn't find that spell. Why not do me a favor and add it to my spellbook using `!addspell`?")
             return
 
         spellDict = json.loads(response.read().decode("utf-8"))
