@@ -139,7 +139,7 @@ class TTRPGBot(DiscordBot):
 
         response = None
         try:
-            response = urllib.request.urlopen(url) #.read().decode("utf-8") 
+            response = urllib.request.urlopen(url).read().decode("utf-8") 
         except urllib.error.HTTPError as e:
             if e.code == 404:
                 backup = "https://duckduckgo.com/?q=!ducky+{}+site%3A5e.tools".format(params.replace(" ", "%20"))
