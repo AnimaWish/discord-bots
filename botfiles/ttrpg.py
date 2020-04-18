@@ -278,7 +278,7 @@ class TTRPGBot(DiscordBot):
             description = params[match.end():].strip()
 
         descsplit = re.split("[Aa]t [Hh]igher [Ll]evels?\.?", description)
-        print(descsplit)
+
         higherLevel = ""
         if len(descsplit) > 1:
             description = descsplit[0]
@@ -287,8 +287,14 @@ class TTRPGBot(DiscordBot):
         if level.lower() == "cantrip":
             level = "0"
 
+        spellName = spellName.capitalize()
+
+        for i in range(len(spellName) - 2):
+            if spellName[i] == " " or spellName[i] == "-":
+                spellName = spellName[:i+1] + spellName[i+1].upper() + spellName[i+2:]
+
         spell = {
-            "name": " ".join(i.capitalize() for i in spellName.strip().lower().split(" ")),
+            "name": spellName,
             "book": book.strip(),
             "school": school.strip(),
             "level": level.strip(),
