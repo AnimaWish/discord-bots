@@ -391,7 +391,7 @@ class TTRPGBot(DiscordBot):
             self.xpTotals = {} # {guildID: int}
 
         if os.path.isfile(self.spellFilePath):
-            self.spells = json.load(open(self.spellFilePath, "rb"))
+            self.spells = json.load(open(self.spellFilePath, "r"))
             print ("Imported {} spells".format(len(self.spells)))
         else:
             self.spells = {} # {spellName: [spellDefinition1, spellDefinition2, ...]}
