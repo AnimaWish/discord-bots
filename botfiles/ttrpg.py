@@ -314,6 +314,12 @@ class TTRPGBot(DiscordBot):
         await msg.add_reaction(self.EMOJI_MAP["yes"])
         await msg.add_reaction(self.EMOJI_MAP["no"])
 
+    async def getSpellsFile(self, message, params):
+        if not os.path.isfile(self.spellFilePath):
+            await message.channel.send("I couldn't find my spellbook! :scream:")
+            return
+
+        await message.channel.send("I have {} spells in my spellbook.".format(len(self.spells)), file=discord.File(open(self.spellFilePath, "rb")))
 
     async def spellListLink(self, message, params):
         await message.channel.send("https://www.dnd-spells.com/spells")
@@ -381,7 +387,7 @@ class TTRPGBot(DiscordBot):
         super().__init__(prefix, greeting, farewell)
 
         self.xpFilePath = "storage/{}/xptotals.pickle".format(self.getName())
-        self.spellFilePath = "storage/{}/spells.pickle".format(self.getName())
+        self.spellFilePath = "storage/{}/spells.json".format(self.getName())
         if os.path.isfile(self.xpFilePath):
             self.xpTotals = pickle.load(open(self.xpFilePath, "rb"))
             print("Imported XP Totals:")
@@ -404,3 +410,4 @@ class TTRPGBot(DiscordBot):
         self.addCommand('spell', self.lookupSpell, lambda x: True, "Look up a spell", "Acid Arrow")
         self.addCommand('spelllist', self.spellListLink, lambda x: True, "Get a link to the spell list")
         self.addCommand('addspell', self.addSpell, lambda x: True, "Paste in a spell to save it forever")
+        self.addCommand('spellbackup', self.getSpellsFile, lambda x: True, "Get my spellbook")
