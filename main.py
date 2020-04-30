@@ -20,7 +20,8 @@ if __name__ == "__main__":
         "philippe": botfiles.PhilippeBot(),
         "mettaton": botfiles.MettatonBot(),
         "zenyatta": botfiles.ZenyattaBot(),
-        "lif":     botfiles.LifBot(),
+        "lif":      botfiles.LifBot(),
+        "gyoshin":  botfiles.GyoshinBot(),
     }
 
     loop = asyncio.get_event_loop()
