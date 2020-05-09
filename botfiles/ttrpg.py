@@ -139,7 +139,7 @@ class TTRPGBot(DiscordBot):
 
         response = None
         try:
-            response = urllib.request.urlopen(url.encode("utf-8")).read().decode("utf-8")
+            response = urllib.request.urlopen(url)
         except Exception as e:
             await message.channel.send("Sorry, I couldn't find that spell. Why not do me a favor and add it to my spellbook using `!addspell`?")
             return
