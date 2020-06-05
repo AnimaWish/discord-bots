@@ -4,8 +4,7 @@ import random
 import urllib.request
 import re
 import os, io
-import pickle
-import json
+import pickle, json
 import threading
 import datetime, time
 
@@ -43,7 +42,7 @@ class TTRPGBot(DiscordBot):
 
     def xpToLevel(self, xp):
         i = 0
-        while xp > self.XP_THRESHOLDS[i]:
+        while xp >= self.XP_THRESHOLDS[i]:
             i+=1
 
         return i
@@ -57,6 +56,24 @@ class TTRPGBot(DiscordBot):
             if guild.id not in self.guildGMRoleMap:
                 print("Couldn't find GM role for " + guild.name)
 
+    # throws ValueError exceptions
+    def parseSumDiff(self, inputString, allowDecimal=False):
+        deltaString = inputString.replace(",", "").strip()
+        sign = 1
+        if deltaString[0] == "-":
+            sign = -1
+            deltaString = deltaString[1:]
+        elif deltaString[0] == "+":
+            deltaString = deltaString[1:]
+
+        if allowDecimal:
+            absDelta = float(deltaString) # can except
+        else:
+            absDelta = int(deltaString) # can except
+
+        return sign * absDelta
+
+
     async def manageXP(self, message, params):
         if len(params) == 0:
             await message.channel.send("Current XP Total is " + str(self.xpTotals[message.guild.id]) + "!")
@@ -66,24 +83,14 @@ class TTRPGBot(DiscordBot):
             await message.channel.send("Last I checked, you weren't the GM.")
             return
 
-        # Determine if this is a subtraction
-        xpString = params
-        multiplier = 1
-        if xpString[0] == "-":
-            multiplier = -1
-            xpString = xpString[1:]
-        elif xpString[0] == "+":
-            xpString = xpString[1:]
-
-        addXP = 0
         try: 
-            addXP = int(xpString.strip())
+            parsedInput = self.parseSumDiff(params)
         except ValueError:
             await message.channel.send("I couldn't find a number in there.")
             return
 
         oldLevel = self.xpToLevel(self.xpTotals[message.guild.id])
-        self.xpTotals[message.guild.id] += multiplier * addXP
+        self.xpTotals[message.guild.id] += parsedInput
         newLevel = self.xpToLevel(self.xpTotals[message.guild.id])
 
         xpThresholdForNextLevel = self.XP_THRESHOLDS[newLevel]
@@ -324,6 +331,116 @@ class TTRPGBot(DiscordBot):
     async def spellListLink(self, message, params):
         await message.channel.send("https://www.dnd-spells.com/spells")
 
+    # !gp [ALIAS] +x
+    async def updateGPEntry(self, message, params):
+        if len(params) == 0:
+            maxLength_name = len("TOTAL")
+            maxLength_alias = 0
+            sumGP = 0
+            for gpHaverAlias in self.gpTotals[message.guild.id]:
+                if len(gpHaverAlias) > maxLength_alias:
+                    maxLength_alias = len(gpHaverAlias)
+                if len(self.gpTotals[message.guild.id][gpHaverAlias]["name"]) > maxLength_name:
+                    maxLength_name = len(self.gpTotals[message.guild.id][gpHaverAlias]["name"])
+                sumGP += self.gpTotals[message.guild.id][gpHaverAlias]["gp"]
+
+            output = "Alias{} | Name{} | GP\n".format(" "*(maxLength_alias - len("Alias")), " "*(maxLength_name - len("Name")))
+            numLines = len(output)
+            output += "{}\n".format("-"* numLines)
+
+            for gpHaverAlias in self.gpTotals[message.guild.id]:
+                name = self.gpTotals[message.guild.id][gpHaverAlias]["name"]
+                spaceBuffer_name = maxLength_name - len(self.gpTotals[message.guild.id][gpHaverAlias]["name"])
+                spaceBuffer_alias = maxLength_alias - len(gpHaverAlias)
+                output += "{}{} | {}{} | {}\n".format(
+                    gpHaverAlias, " "*spaceBuffer_alias, 
+                    name, " "*spaceBuffer_name, 
+                    self.gpTotals[message.guild.id][gpHaverAlias]["gp"]
+                )
+
+            output += "{}\n".format("-"* numLines)
+            output += "TOTAL{}  {}  | {}".format(" "*(maxLength_name - len("TOTAL")), " "*maxLength_alias, sumGP)
+
+            await message.channel.send("Current GP Totals are as follows:\n```{}```".format(output))
+            return
+
+        splitParams = params.split(" ")
+        alias = splitParams[0]
+
+        if alias not in self.gpTotals[message.guild.id]:
+            await message.channel.send("Creating new entry for alias `{}`.".format(alias))
+            self.gpTotals[message.guild.id][alias] = {"name": alias, "gp": 0.0}
+            self.saveGP()
+
+        if len(splitParams) == 1:
+            await message.channel.send("*{}* [`{}`] has **{}** gp in its coffers.".format(self.gpTotals[message.guild.id][alias]["name"], alias, self.gpTotals[message.guild.id][alias]["gp"]))
+            return
+
+        if message.author not in self.guildGMRoleMap[message.guild.id].members:
+            await message.channel.send("Last I checked, you weren't the GM.")
+            return
+
+        try: 
+            parsedInput = self.parseSumDiff(splitParams[1], allowDecimal=True)
+        except ValueError:
+            await message.channel.send("I couldn't find a number in there.")
+            return
+
+        self.gpTotals[message.guild.id][alias]["gp"] = round(self.gpTotals[message.guild.id][alias]["gp"] + parsedInput, 2)
+        await message.channel.send("*{}* [`{}`] now has **{}** gp in its coffers.".format(self.gpTotals[message.guild.id][alias]["name"], alias, self.gpTotals[message.guild.id][alias]["gp"]))
+
+        self.saveGP()
+
+    # !gp-edit [existing alias] ["name"/"alias"] [new entry]
+    async def manageGPEntry(self, message, params):
+        if message.author not in self.guildGMRoleMap[message.guild.id].members:
+            await message.channel.send("Last I checked, you weren't the GM.")
+            return
+
+        splitParams = params.split(" ")
+
+        if len(splitParams) < 2:
+            await message.channel.send("I expect this command to follow the following format: `!gp-edit [existing alias] [name/alias/delete] [new value]`".format(splitParams[0])) # TODO print usage, when it exists
+            return
+
+        if splitParams[0] not in self.gpTotals[message.guild.id]:
+            await message.channel.send("I do not have an entry for the alias `{}`. You can create it using `!gp {}`".format(splitParams[0]))
+            return
+
+        oldAlias = splitParams[0]
+
+        if splitParams[1] == "alias":
+            if len(splitParams) < 3 or len(splitParams[2:]) > 1 or len(splitParams[2]) == 0:
+                await message.channel.send("Aliases must be one word.")
+                return
+
+            if splitParams[2] in self.gpTotals[message.guild.id]:
+                await message.channel.send("That alias already exists.")
+                return
+
+            newAlias = splitParams[2]
+
+            self.gpTotals[message.guild.id][newAlias] = self.gpTotals[message.guild.id][oldAlias]
+            del self.gpTotals[message.guild.id][oldAlias]
+            await message.channel.send("The alias for \"{}\" has been successfully changed to `{}`".format(self.gpTotals[message.guild.id][newAlias]["name"], newAlias))
+        elif splitParams[1] == "name":
+            newName = " ".join(splitParams[2:])
+            if len(newName) == 0:
+                await message.channel.send("That name is empty???")
+                return
+
+            oldName = self.gpTotals[message.guild.id][oldAlias]["name"]
+            self.gpTotals[message.guild.id][oldAlias]["name"] = newName
+            await message.channel.send("\"{}\" is now called \"{}\".".format(oldName, newName))
+        elif splitParams[1] == "delete":
+            del self.gpTotals[message.guild.id][oldAlias]
+            await message.channel.send("Successfully deleted entry for `{}`".format(oldAlias))
+        else:
+            await message.channel.send("You must specify whether you are updating the 'name' or the 'alias', or 'delete'ing the entry. e.g. `!gp-edit tavern alias tavern2`")
+            return
+
+        self.saveGP()
+
     async def refreshGMList(self, message, params):
         await self.fetchGMs()
 
@@ -332,8 +449,11 @@ class TTRPGBot(DiscordBot):
         for guild in self.client.guilds:
             if guild.id not in self.xpTotals:
                 self.xpTotals[guild.id] = 0
+            if guild.id not in self.gpTotals:
+                self.gpTotals[guild.id] = {}
 
         self.saveXP()
+        self.saveGP()
 
     def saveXP(self):
         if not os.path.isfile(self.xpFilePath):
@@ -341,6 +461,13 @@ class TTRPGBot(DiscordBot):
 
         with open(self.xpFilePath, 'wb') as f:
             pickle.dump(self.xpTotals, f, pickle.HIGHEST_PROTOCOL)
+
+    def saveGP(self):
+        if not os.path.isfile(self.gpFilePath):
+            os.makedirs(os.path.dirname(self.gpFilePath), exist_ok=True)
+
+        with open(self.gpFilePath, 'wb') as f:
+            pickle.dump(self.gpTotals, f, pickle.HIGHEST_PROTOCOL)
 
     def formatSpellKey(self, name):
         return re.sub(r"['’]|\(.+\)", "", name.lower().replace("-", " ")).strip()
@@ -388,6 +515,8 @@ class TTRPGBot(DiscordBot):
 
         self.xpFilePath = "storage/{}/xptotals.pickle".format(self.getName())
         self.spellFilePath = "storage/{}/spells.json".format(self.getName())
+        self.gpFilePath = "storage/{}/gptotals.pickle".format(self.getName())
+
         if os.path.isfile(self.xpFilePath):
             self.xpTotals = pickle.load(open(self.xpFilePath, "rb"))
             print("Imported XP Totals:")
@@ -402,6 +531,12 @@ class TTRPGBot(DiscordBot):
         else:
             self.spells = {} # {spellName: [spellDefinition1, spellDefinition2, ...]}
 
+        if os.path.isfile(self.gpFilePath):
+            self.gpTotals = pickle.load(open(self.gpFilePath, "rb"))
+            print ("Imported gp for {} guilds".format(len(self.gpTotals)))
+        else:
+            self.gpTotals = {} # {GUILD_ID: {alias: {"name", GP_TOT}]}
+
         self.guildGMRoleMap = {} # { guildID: guildGMRole }
         self.pendingSpells = {} # {messageID: {message: confirmationMessageObj, spell: spellDict} }
 
@@ -411,3 +546,5 @@ class TTRPGBot(DiscordBot):
         self.addCommand('spelllist', self.spellListLink, lambda x: True, "Get a link to the spell list")
         self.addCommand('addspell', self.addSpell, lambda x: True, "Paste in a spell to save it forever")
         self.addCommand('spellbackup', self.getSpellsFile, lambda x: True, "Get my spellbook")
+        self.addCommand('gp', self.updateGPEntry, lambda x: True, "See or modify gold totals", "tavern +1000")
+        self.addCommand('gp-edit', self.manageGPEntry, lambda x: True, "Edit names/aliases for gold totals", "tavern name Patty's Pub")
