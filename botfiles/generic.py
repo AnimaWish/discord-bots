@@ -46,6 +46,7 @@ class DiscordBot:
         "Pick {}, just this once.",
         "If I had a nickel for every time it was {}...",
         ":sparkle:{}:sparkle:",
+        "Given the relative positions of Mercury and Capricorn, {} is the answer.",
     ]
 
     CAPTAIN_WEIGHT_RESET_COOLDOWN = datetime.timedelta(minutes=240)
@@ -149,6 +150,52 @@ class DiscordBot:
 
         await message.channel.send(random.choice(DiscordBot.CHOICE_STRINGS).format(resultString))
 
+    def constructReadyMessage(self, authorMention, readyUsers):
+        mentions = []
+        for userID in readyUsers:
+            if not readyUsers[userID]["isReady"]:
+                mentions.append(readyUsers[userID]["mention"])
+
+        if len(mentions) == 0:
+            return "Everyone is ready!"
+
+        return "{} has initiated a ready check! The following people are not ready:\n{}".format(authorMention, "\n".join(mentions))
+
+    async def readyCheck(self, message, params):
+        if message.author.voice == None or message.author.voice.channel == None:
+            await message.channel.send("You are not in a voice channel!")
+            return
+
+        candidates = message.author.voice.channel.members
+
+        readyUsers = {}
+
+        for candidate in candidates:
+            readyUsers[candidate.id] = {"mention": candidate.mention, "isReady": False}
+
+        message = await message.channel.send(self.constructReadyMessage(message.author.mention, readyUsers))
+
+        await message.add_reaction("👍")
+        self.readyChecks[message.id] = {"message": message, "users": readyUsers}
+
+    async def updateReadyCheck(self, message, reactPayload, isAddReactionEvent):
+        if reactPayload.emoji.name != "👍":
+            print(reactPayload.emoji)
+            return
+
+        if reactPayload.user_id not in self.readyChecks[message.id]["users"]:
+            return
+
+        self.readyChecks[message.id]["users"][reactPayload.user_id]["isReady"] = isAddReactionEvent
+
+        await message.edit(content=self.constructReadyMessage(message.author.mention, self.readyChecks[message.id]["users"]))
+
+        for userID in self.readyChecks[message.id]["users"]:
+            if not self.readyChecks[message.id]["users"][userID]["isReady"]:
+                return
+
+        del self.readyChecks[message.id]
+
     async def chooseCaptain(self, message, params):
         if message.author.voice == None or message.author.voice.channel == None:
             await message.channel.send("You are not in a voice channel!")
@@ -225,10 +272,12 @@ class DiscordBot:
                     print("Insufficient permissions for user {}".format(err))
 
     async def on_raw_reaction_add(self, payload):
-        pass
+        if payload.message_id in self.readyChecks:
+            await self.updateReadyCheck(self.readyChecks[payload.message_id]["message"], payload, True)
 
     async def on_raw_reaction_remove(self, payload):
-        pass
+        if payload.message_id in self.readyChecks:
+            await self.updateReadyCheck(self.readyChecks[payload.message_id]["message"], payload, False)
 
     ###################
     #     Startup     #
@@ -248,6 +297,8 @@ class DiscordBot:
         self.commandMap = {}
         self.eventListeners = {}
 
+        self.readyChecks = {} # {messageID => {users: {userID: {mention: mentionString, isReady: bool}}, message: messageObj}}
+
         self.addCommand('help',     self.getHelp,    lambda x: True)
         self.addCommand('ping',     self.ping,       lambda x: True)
         self.addCommand('echo',     self.echo,       lambda x: True)
@@ -256,6 +307,7 @@ class DiscordBot:
         self.addCommand('choose',   self.chooseRand, lambda x: True, "Choose a random member from the list", "a,list,of,things")
 
         self.addCommand('captain', self.chooseCaptain, lambda x: True, "Choose a random user from the current voice channel")
+        self.addCommand('ready', self.readyCheck, lambda x: True, "Initiate a ready check for users in the current voice channel")
         
         self.client.event(self.on_ready)
         self.client.event(self.on_message)
