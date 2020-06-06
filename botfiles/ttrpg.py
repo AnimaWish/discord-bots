@@ -84,7 +84,7 @@ class TTRPGBot(DiscordBot):
             return
 
         try: 
-            parsedInput = self.parseSumDiff(params)
+            parsedInput = self.parseSumDiff(params.split(" ")[0])
         except ValueError:
             await message.channel.send("I couldn't find a number in there.")
             return
@@ -334,6 +334,7 @@ class TTRPGBot(DiscordBot):
     # !gp [ALIAS] +x
     async def updateGPEntry(self, message, params):
         if len(params) == 0:
+            # Pre-compute margins and sum for table
             maxLength_name = len("TOTAL")
             maxLength_alias = 0
             sumGP = 0
@@ -343,11 +344,11 @@ class TTRPGBot(DiscordBot):
                 if len(self.gpTotals[message.guild.id][gpHaverAlias]["name"]) > maxLength_name:
                     maxLength_name = len(self.gpTotals[message.guild.id][gpHaverAlias]["name"])
                 sumGP += self.gpTotals[message.guild.id][gpHaverAlias]["gp"]
-
             output = "Alias{} | Name{} | GP\n".format(" "*(maxLength_alias - len("Alias")), " "*(maxLength_name - len("Name")))
             numLines = len(output)
             output += "{}\n".format("-"* numLines)
 
+            # populate table
             for gpHaverAlias in self.gpTotals[message.guild.id]:
                 name = self.gpTotals[message.guild.id][gpHaverAlias]["name"]
                 spaceBuffer_name = maxLength_name - len(self.gpTotals[message.guild.id][gpHaverAlias]["name"])
@@ -368,16 +369,11 @@ class TTRPGBot(DiscordBot):
         alias = splitParams[0]
 
         if alias not in self.gpTotals[message.guild.id]:
-            await message.channel.send("Creating new entry for alias `{}`.".format(alias))
-            self.gpTotals[message.guild.id][alias] = {"name": alias, "gp": 0.0}
-            self.saveGP()
+            await message.channel.send("I don't have an entry for {}! You can create one like this: `!gp-edit {} create The {} Group`".format(alias, alias, alias.capitalize()))
+            return
 
         if len(splitParams) == 1:
             await message.channel.send("*{}* [`{}`] has **{}** gp in its coffers.".format(self.gpTotals[message.guild.id][alias]["name"], alias, self.gpTotals[message.guild.id][alias]["gp"]))
-            return
-
-        if message.author not in self.guildGMRoleMap[message.guild.id].members:
-            await message.channel.send("Last I checked, you weren't the GM.")
             return
 
         try: 
@@ -393,17 +389,13 @@ class TTRPGBot(DiscordBot):
 
     # !gp-edit [existing alias] ["name"/"alias"] [new entry]
     async def manageGPEntry(self, message, params):
-        if message.author not in self.guildGMRoleMap[message.guild.id].members:
-            await message.channel.send("Last I checked, you weren't the GM.")
-            return
-
         splitParams = params.split(" ")
 
         if len(splitParams) < 2:
-            await message.channel.send("I expect this command to follow the following format: `!gp-edit [existing alias] [name/alias/delete] [new value]`".format(splitParams[0])) # TODO print usage, when it exists
+            await message.channel.send("I expect this command to follow the following format: `!gp-edit [an alias] [create/name/alias/delete] [new value]`".format(splitParams[0])) # TODO print usage, when it exists
             return
 
-        if splitParams[0] not in self.gpTotals[message.guild.id]:
+        if splitParams[0] not in self.gpTotals[message.guild.id] and splitParams[1] != "create":
             await message.channel.send("I do not have an entry for the alias `{}`. You can create it using `!gp {}`".format(splitParams[0]))
             return
 
@@ -423,18 +415,34 @@ class TTRPGBot(DiscordBot):
             self.gpTotals[message.guild.id][newAlias] = self.gpTotals[message.guild.id][oldAlias]
             del self.gpTotals[message.guild.id][oldAlias]
             await message.channel.send("The alias for \"{}\" has been successfully changed to `{}`".format(self.gpTotals[message.guild.id][newAlias]["name"], newAlias))
+
         elif splitParams[1] == "name":
             newName = " ".join(splitParams[2:])
             if len(newName) == 0:
                 await message.channel.send("That name is empty???")
                 return
-
             oldName = self.gpTotals[message.guild.id][oldAlias]["name"]
             self.gpTotals[message.guild.id][oldAlias]["name"] = newName
             await message.channel.send("\"{}\" is now called \"{}\".".format(oldName, newName))
+
         elif splitParams[1] == "delete":
             del self.gpTotals[message.guild.id][oldAlias]
             await message.channel.send("Successfully deleted entry for `{}`".format(oldAlias))
+
+        elif splitParams[1] == "create":
+            if oldAlias in self.gpTotals[message.guild.id]:
+                await message.channel.send("Alias `{}` already exists!.".format(oldAlias))
+                return
+
+            newName = oldAlias.capitalize()
+            if len(splitParams[2:]) > 0:
+                newName = " ".join(splitParams[2:])
+                if len(newName) == 0:
+                    newName = oldAlias.capitalize()
+
+            self.gpTotals[message.guild.id][oldAlias] = {"name": newName, "gp": 0.0}
+            await message.channel.send("Created new entry with alias `{}` and name `{}`.".format(oldAlias, newName))
+
         else:
             await message.channel.send("You must specify whether you are updating the 'name' or the 'alias', or 'delete'ing the entry. e.g. `!gp-edit tavern alias tavern2`")
             return
