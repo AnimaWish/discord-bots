@@ -259,7 +259,7 @@ class DiscordBot:
         print('------')
 
     async def on_message(self, message):
-        commandPattern = "^{}\S+\s*".format(self.prefix)
+        commandPattern = "^\{}\S+\s*".format(self.prefix)
         commandMatch = re.match(commandPattern, message.content)
         if commandMatch:
             commandString = message.content[commandMatch.start() + len(self.prefix) : commandMatch.end()].strip()
