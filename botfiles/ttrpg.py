@@ -4,7 +4,7 @@ import random
 import urllib.request
 import re
 import os, io
-import pickle, json
+import pickle, json, csv
 import threading
 import datetime, time
 
@@ -472,6 +472,23 @@ class TTRPGBot(DiscordBot):
 
         self.saveGP()
 
+    async def randomName(self, message, params):
+        race = params.lower()
+        if race not in self.names:
+            if len(race) > 0:
+                await message.channel.send("Race options are: `{}`. Giving a random name from any race.".format("`, `".join(self.names.keys())))
+            race = None
+        
+        choices = []
+        if race is not None:
+            choices = self.names[race]
+        else:
+            for race_key in self.names:
+                choices += self.names[race_key]
+
+        await message.channel.send(random.choice(choices))
+        return
+
     async def refreshGMList(self, message, params):
         await self.fetchGMs()
 
@@ -547,6 +564,7 @@ class TTRPGBot(DiscordBot):
         self.xpFilePath = "storage/{}/xptotals.pickle".format(self.getName())
         self.spellFilePath = "storage/{}/spells.json".format(self.getName())
         self.gpFilePath = "storage/{}/gptotals.pickle".format(self.getName())
+        self.namesFilePath = "assets/ttrpg/fantasy_names.csv"
 
         if os.path.isfile(self.xpFilePath):
             self.xpTotals = pickle.load(open(self.xpFilePath, "rb"))
@@ -568,6 +586,26 @@ class TTRPGBot(DiscordBot):
         else:
             self.gpTotals = {} # {GUILD_ID: {alias: {"name", GP_TOT}]}
 
+        self.names = {}
+        if os.path.isfile(self.namesFilePath):
+            importedNames = 0
+            importedRaces = 0
+            with open(self.namesFilePath, newline='') as csvfile:
+                r = csv.reader(csvfile)
+                headers = next(r, None)
+                for header in headers:
+                    self.names[header] = []
+                    importedRaces += 1
+
+                for row in r:
+                    for col_i in range(len(row)):
+                        name = row[col_i]
+                        if len(name) > 0:
+                            self.names[headers[col_i]].append(name)
+                            importedNames += 1
+            print("Imported {} names for {} races".format(importedNames, importedRaces))
+
+
         self.guildGMRoleMap = {} # { guildID: guildGMRole }
         self.pendingSpells = {} # {messageID: {message: confirmationMessageObj, spell: spellDict} }
 
@@ -579,3 +617,4 @@ class TTRPGBot(DiscordBot):
         self.addCommand('spellbackup', self.getSpellsFile, lambda x: True, "Get my spellbook")
         self.addCommand('gp', self.updateGPEntry, lambda x: True, "See or modify gold totals", "tavern +1000")
         self.addCommand('gp-edit', self.manageGPEntry, lambda x: True, "Edit names/aliases for gold totals", "tavern name Patty's Pub")
+        self.addCommand('name', self.randomName, lambda x: True, "Get a random fantasy name")
