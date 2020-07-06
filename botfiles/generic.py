@@ -49,9 +49,6 @@ class DiscordBot:
         "Given the relative positions of Mercury and Capricorn, {} is the answer.",
     ]
 
-    CAPTAIN_WEIGHT_RESET_COOLDOWN = datetime.timedelta(minutes=240)
-    CAPTAIN_WEIGHT_SEVERITY = 1.0
-
     ###################
     # Command Helpers #
     ###################
@@ -159,7 +156,7 @@ class DiscordBot:
         if len(mentions) == 0:
             return "Everyone is ready!"
 
-        return "{} has initiated a ready check! The following people are not ready:\n{}".format(authorMention, "\n".join(mentions))
+        return "The following people are not ready:\n{}".format(authorMention, "\n".join(mentions))
 
     async def readyCheck(self, message, params):
         if message.author.voice == None or message.author.voice.channel == None:
@@ -203,53 +200,84 @@ class DiscordBot:
 
         candidates = message.author.voice.channel.members
 
-        # Reset weights after time passes
-        if datetime.datetime.now() - self.captainData['lastUpdate'] > DiscordBot.CAPTAIN_WEIGHT_RESET_COOLDOWN:
-            self.captainData['captains'] = {}
+        await message.channel.send(random.choice(DiscordBot.CHOICE_STRINGS).format(random.choice(candidates).name))
 
-        class CandidateWeight:
-            def __init__(self, name, weight):
-                self.name = name
-                self.weight = weight
+    async def chooseTeams(self, message, params):
+        if message.author.voice == None or message.author.voice.channel == None:
+            await message.channel.send("You are not in a voice channel!")
+            return
 
-        # array of CandidateWeights
-        candidateWeights = []
+        # Parse out team count
+        splitParams = params.split(" ", 1)
+        specialUserString = ""
+        if len(splitParams) > 1:
+            specialUserString = splitParams[1]
+        teamCount = 2
+        if len(splitParams[0]) > 0:
+            try:
+                teamCount = int(splitParams[0])
+            except ValueError:
+                teamCount = 2
+                specialUserString = params
 
-        # construct weights
-        totalWeight = 0.0
+        # Parse out special players
+        specialUserMentions = []
+        if len(specialUserString) > 1:
+            specialUserMentions = specialUserString.replace("!", "").split(" ")
+            for user in specialUserMentions:
+                if user[:2] != "<@":
+                    await message.channel.send("You need to `@mention` exceptional users for team selection.")
+                    return
+
+        # Compile lists of candidate mentions
+        candidates = message.author.voice.channel.members
+        if len(candidates) < teamCount:
+            await message.channel.send("There are fewer players than teams!")
+            return
+        candidateMentions = []
         for candidate in candidates:
-            if candidate.name in self.captainData['captains']:
-                weight = 1.0/(DiscordBot.CAPTAIN_WEIGHT_SEVERITY * self.captainData['captains'][candidate.name])
-            else:
-                weight = 1.0
+            candidateMentions.append(candidate.mention)
+        for mention in specialUserMentions:
+            if mention not in candidateMentions:
+                await message.channel.send("{} is not in the current voice channel.".format(mention))
+                return
+        normalUserMentions = []
+        for candidate in candidates:
+            if candidate.mention not in specialUserMentions:
+                normalUserMentions.append(candidate.mention)
 
-            totalWeight = totalWeight + weight
-            candidateWeights.append(CandidateWeight(candidate.name, weight))
+        # Set up teams
+        teams = [[]]*teamCount
+        random.shuffle(specialUserMentions)
+        random.shuffle(normalUserMentions)
+        team_i = 0
 
-        choice = random.uniform(0.0, totalWeight)
+        # Evenly distribute special users
+        while len(specialUserMentions) > 0:
+            teams[team_i].append(specialUserMentions.pop())
+            team_i = (team_i + 1) % teamCount
 
-        # search for winner
-        currentPos = 0.0
-        for candidateWeight in candidateWeights:
-            currentPos = currentPos + candidateWeight.weight
-            selectedCaptainName = candidateWeight.name
-            if currentPos >= choice:
-                break
+        # If uneven special users, reorganize teams so teams with extra special users get remaining players last
+        specialCutoffIndex = team_i
+        while(team_i > 0):
+            teams[team_i].append(normalUserMentions.pop())
+            team_i(team_i + 1) % teamCount
+        teams = teams[specialCutoffIndex:] + teams[:specialCutoffIndex] 
 
-        # increment weight
-        if selectedCaptainName in self.captainData['captains']:
-            self.captainData['captains'][selectedCaptainName] = self.captainData['captains'][selectedCaptainName] + 1.0
-        else:
-            self.captainData['captains'][selectedCaptainName] = 2.0
+        # Distribute remaining players
+        while len(normalUserMentions) > 0:
+            teams[team_i].append(normalUserMentions.pop())
+            team_i = (team_i + 1) % teamCount
 
-        self.captainData['lastUpdate'] = datetime.datetime.now()
+        random.shuffle(teams)
 
-        stats = ""
-        if message.content == "!captain stats":
-            for candidateWeight in candidateWeights:
-                stats = "{}\n{} : {}".format(stats, candidateWeight.name, candidateWeight.weight)
+        outputMessage = "**__Teams__**\n"
+        for i in range(teamCount):
+            team = teams[team_i]
+            team.sort()
+            outputMessage += "**Team {}:** {}\n".format(i+1, ", ".join(team))
 
-        await message.channel.send(random.choice(DiscordBot.CHOICE_STRINGS).format(selectedCaptainName) + stats)
+        await message.channel.send(outputMessage)
 
     ###################
     #  Event Methods  #
@@ -307,14 +335,10 @@ class DiscordBot:
         self.addCommand('choose',   self.chooseRand, lambda x: True, "Choose a random member from the list", "a,list,of,things")
 
         self.addCommand('captain', self.chooseCaptain, lambda x: True, "Choose a random user from the current voice channel")
+        self.addCommand('teams', self.chooseTeams, lambda x: True, "Divide the current channel into teams, 2 by default")
         self.addCommand('ready', self.readyCheck, lambda x: True, "Initiate a ready check for users in the current voice channel")
         
         self.client.event(self.on_ready)
         self.client.event(self.on_message)
         self.client.event(self.on_raw_reaction_add)
         self.client.event(self.on_raw_reaction_remove)
-
-        self.captainData = {
-            'lastUpdate': datetime.datetime.fromordinal(1),
-            'captains': {}
-        }
