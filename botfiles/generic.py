@@ -247,7 +247,9 @@ class DiscordBot:
                 normalUserMentions.append(candidate.mention)
 
         # Set up teams
-        teams = [[]]*teamCount
+        teams = []
+        for i in range(teamCount):
+            teams.append([])
         random.shuffle(specialUserMentions)
         random.shuffle(normalUserMentions)
         team_i = 0
@@ -261,7 +263,7 @@ class DiscordBot:
         specialCutoffIndex = team_i
         while(team_i > 0):
             teams[team_i].append(normalUserMentions.pop())
-            team_i(team_i + 1) % teamCount
+            team_i = (team_i + 1) % teamCount
         teams = teams[specialCutoffIndex:] + teams[:specialCutoffIndex] 
 
         # Distribute remaining players
@@ -273,7 +275,7 @@ class DiscordBot:
 
         outputMessage = "**__Teams__**\n"
         for i in range(teamCount):
-            team = teams[team_i]
+            team = teams[i]
             team.sort()
             outputMessage += "**Team {}:** {}\n".format(i+1, ", ".join(team))
 
