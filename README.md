@@ -24,6 +24,7 @@ discord.py API documentation: https://discordpy.readthedocs.io/
   * command pattern needs sub-commands
   * better help message structure
   * botCommands are mapped to lists of callbacks, not just one
+  * better namespacing for state in bot modules
 * Event
   * Plus Ones
 * Logging

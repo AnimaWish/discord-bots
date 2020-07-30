@@ -210,6 +210,8 @@ class EventBot(DiscordBot):
         results = {}
         userVoteCounts = {}
         for reaction in eventMessage.reactions:
+            if str(reaction) not in emojiMap_reverse:
+                continue
             reactionString = emojiMap_reverse[str(reaction)] # reaction is "✅", reactionString is "yes"
             results[reactionString] = []
             async for user in reaction.users():
