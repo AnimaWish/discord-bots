@@ -3,7 +3,7 @@ import asyncio
 import random
 import urllib.request
 import re
-from .generic import DiscordBot
+from .botmodules import DiscordBot
 import argparse
 from datetime import datetime
 import importlib

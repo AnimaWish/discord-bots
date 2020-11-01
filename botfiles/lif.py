@@ -1,11 +1,7 @@
 import discord
 import asyncio
-import random
-import re
-import os
-from .ttrpg import TTRPGBot
+from .botmodules import TTRPGBot
 import argparse
-import importlib
 
 class LifBot(TTRPGBot):
     ###################

@@ -10,7 +10,7 @@ import datetime, time
 
 from .generic import DiscordBot
 
-class TTRPGBot(DiscordBot):
+class DNDBot(DiscordBot):
 
     EMOJI_MAP = {
         "yes": "✅",
@@ -489,20 +489,6 @@ class TTRPGBot(DiscordBot):
         await message.channel.send(random.choice(choices))
         return
 
-    async def refreshGMList(self, message, params):
-        await self.fetchGMs()
-
-    async def on_ready(self):
-        await self.fetchGMs()
-        for guild in self.client.guilds:
-            if guild.id not in self.xpTotals:
-                self.xpTotals[guild.id] = 0
-            if guild.id not in self.gpTotals:
-                self.gpTotals[guild.id] = {}
-
-        self.saveXP()
-        self.saveGP()
-
     def saveXP(self):
         if not os.path.isfile(self.xpFilePath):
             os.makedirs(os.path.dirname(self.xpFilePath), exist_ok=True)
@@ -539,6 +525,17 @@ class TTRPGBot(DiscordBot):
         with open(self.spellFilePath, 'w', encoding='utf8') as f:
             json.dump(self.spells, f, ensure_ascii=False)
 
+    async def on_ready(self):
+        await self.fetchGMs()
+        for guild in self.client.guilds:
+            if guild.id not in self.xpTotals:
+                self.xpTotals[guild.id] = 0
+            if guild.id not in self.gpTotals:
+                self.gpTotals[guild.id] = {}
+
+        self.saveXP()
+        self.saveGP()
+
     async def on_raw_reaction_add(self, payload):
         await super().on_raw_reaction_add(payload)
         if payload.user_id != self.client.user.id and payload.message_id in self.pendingSpells:
@@ -564,7 +561,7 @@ class TTRPGBot(DiscordBot):
         self.xpFilePath = "storage/{}/xptotals.pickle".format(self.getName())
         self.spellFilePath = "storage/{}/spells.json".format(self.getName())
         self.gpFilePath = "storage/{}/gptotals.pickle".format(self.getName())
-        self.namesFilePath = "assets/ttrpg/fantasy_names.csv"
+        self.namesFilePath = "assets/dnd/fantasy_names.csv"
 
         if os.path.isfile(self.xpFilePath):
             self.xpTotals = pickle.load(open(self.xpFilePath, "rb"))

@@ -1,9 +1,8 @@
 import discord
 import asyncio
 import random
-import re
 import os
-from .simplevote import SimpleVoteBot
+from .botmodules import SimpleVoteBot
 import argparse
 import importlib
 

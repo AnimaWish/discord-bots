@@ -1,12 +1,6 @@
 import discord
-import asyncio
-import random
-import re
-from .generic import DiscordBot
-from .simplevote import SimpleVoteBot
-from .event import EventBot
+from .botmodules import SimpleVoteBot
 import argparse
-import importlib
 
 class GyoshinBot(SimpleVoteBot):
     ###################
