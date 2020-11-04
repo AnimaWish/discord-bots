@@ -281,6 +281,10 @@ class DiscordBot:
 
         await message.channel.send(outputMessage)
 
+    async def meats(self, message, params):
+        meats = [":bacon:", ":meat_on_bone:", ":cut_of_meat:", ":poultry_leg:"]
+        await message.channel.send(random.choice(meats))
+
     ###################
     #  Event Methods  #
     ###################
@@ -339,6 +343,8 @@ class DiscordBot:
         self.addCommand('captain', self.chooseCaptain, lambda x: True, "Choose a random user from the current voice channel")
         self.addCommand('teams', self.chooseTeams, lambda x: True, "Divide the current channel into teams, 2 by default")
         self.addCommand('ready', self.readyCheck, lambda x: True, "Initiate a ready check for users in the current voice channel")
+
+        self.addCommand('meats', self.meats, lambda x: True)
         
         self.client.event(self.on_ready)
         self.client.event(self.on_message)

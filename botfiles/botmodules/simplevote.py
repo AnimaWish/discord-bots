@@ -10,6 +10,22 @@ import datetime, time
 from .generic import DiscordBot
 
 class SimpleVoteBot(DiscordBot):
+    EMOJI_SETS = {
+        "letters": ["🇦","🇧","🇨","🇩","🇪","🇫","🇬","🇭","🇮","🇯","🇰","🇱","🇲","🇳","🇴","🇵","🇶","🇷","🇸","🇹","🇺","🇻","🇼","🇽","🇾","🇿"],
+        "mammals": ["🐶","🐱","🐭","🐹","🐰","🦊","🐻","🐼","🐨","🐯","🦁","🐮","🐷","🐵","🐺","🐗","🐴",], 
+        "fish": ["🐙","🦑","🦀","🐡","🐠","🐟","🐬","🐳","🐋","🦈","🐊","🐚","🦐","🦞"], 
+        "bugs": ["🐝","🐛","🦋","🐌","🐞","🦟","🦗","🦂",],
+        "plants": ["🌵","🌲","🌴","🍁","🍄","💐","🌹","🌻","🌳"],
+        "fruit": ["🍎","🍐","🍊","🍋","🍌","🍉","🍇","🍓","🍈","🍒","🍑","🥭","🍍","🥥","🥝",],
+        "vegetables": ["🍅","🥑","🥦","🥒","🌶","🌽","🥕","🧅","🥔",],
+        "junkfood": ["🥨","🧀","🥓","🥞","🧇","🍗","🌭","🍔","🍟","🍕","🥪","🌮","🍝","🎂","🍭","🍫","🍿","🍩","🍪",],
+        "drinks": ["🍺","🥂","🍷","🥃","🍸","🍹",],
+        "sports": ["⚽", "🏀","🏈","⚾","🎾","🏐","🏉","🥏","🎱","🏓","🏸","🏒","🏏",],
+        "instruments": ["🎹","🥁","🎷","🎺","🎸","🪕","🎻","🎤",],
+        "vehicles": ["🚗","🚕","🚌","🏎","🚓","🚑","🚒","🚛","🚜","🚲","🛵","🚂","✈️","🚀","🛸","🚁","🚤","⛵️",],
+        "misc": ["🔫","🧲","💣","🔪","🚬","⚰️","🔮","🔬","💊","💉","🧬","🦠","🌡","🧸","🎁","💿","⏰","🧯","💎",], 
+    }
+
     async def callVote(self, message, params):
         ballotPattern = "^([^\?]+\?)\s*(.+)$"
 
@@ -23,11 +39,21 @@ class SimpleVoteBot(DiscordBot):
         choices = ballotMatch.group(2).split(",")[:20]
 
         # Construct the emoji map
-        emojiMap = {} # emojiMap[choiceID] = emoji
-        emojiCode = 127462 # :regional_identifier_a:
-        for i, choice in enumerate(choices):
-            emojiMap[i] = chr(emojiCode)
-            emojiCode = emojiCode + 1
+        # emojiMap = {} # emojiMap[choiceID] = emoji
+        # emojiCode = 127462 # :regional_identifier_a:
+        # for i, choice in enumerate(choices):
+        #     emojiMap[i] = chr(emojiCode)
+        #     emojiCode = emojiCode + 1
+
+        validEmojiSets = []
+        for key, emojiSet in SimpleVoteBot.EMOJI_SETS.items():
+            if len(emojiSet) >= len(choices):
+                validEmojiSets.append(key)
+
+        emojiSetKey = random.choice(validEmojiSets)
+        emojiMap = SimpleVoteBot.EMOJI_SETS[emojiSetKey]
+        if emojiSetKey != "letters":
+            random.shuffle(emojiMap)
 
         def constructBallotMessage(text, choices, emojiMap):
             ballotMessage = "__**Referendum:**__ {}\n\n__**Choices**__".format(text)
