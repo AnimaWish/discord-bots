@@ -4,7 +4,7 @@ import random
 import urllib.request
 import re
 import os, io
-import pickle, json, csv
+import json
 import threading
 import datetime, time
 
@@ -64,12 +64,12 @@ class TTRPGBot(DiscordBot):
                 inventory[itemAlias]["tags"] += tagArray
                 newCountString = "\nNew Total: {}".format(inventory[itemAlias]["count"])
 
-            return await message.channel.send(":shopping_bags: {}x `{}` added to inventory{}{}".format(
+            self.saveState()
+            await message.channel.send(":shopping_bags: {}x `{}` added to inventory{}{}".format(
                 count, itemAlias,
                 "!" if len(tagArray) == 0 else " with tags `{}`!".format("`; `".join(tagArray)),
                 newCountString
             ))
-
 
         async def removeItems(user, subTokens):
             if not await self.assertUserIsSelfOrGM(message.channel, message.author, user):
@@ -91,7 +91,8 @@ class TTRPGBot(DiscordBot):
 
             inventory[itemAlias]["count"] -= count
 
-            return await message.channel.send(":shopping_bags: {}x `{}` removed from inventory.".format(count, itemAlias))
+            self.saveState()
+            await message.channel.send(":shopping_bags: {}x `{}` removed from inventory.".format(count, itemAlias))
 
         async def manageItemTags(user, subTokens):
             if not await self.assertUserIsSelfOrGM(message.channel, message.author, user):
@@ -112,12 +113,14 @@ class TTRPGBot(DiscordBot):
 
             if subTokens[0] == "add":
                 inventory[itemAlias]["tags"].append(tag)
-                return await message.channel.send(":shopping_bags: `{}` tag added to `{}`!".format(tag, itemAlias))
+                self.saveState()
+                await message.channel.send(":shopping_bags: `{}` tag added to `{}`!".format(tag, itemAlias))
             elif subTokens[0] == "remove":
                 if tag not in inventory[itemAlias]["tags"]:
                     return await message.channel.send("There is no tag `{}` on your `{}`.".format(tag, itemAlias))
                 inventory[itemAlias]["tags"].remove(tag)
-                return await message.channel.send(":shopping_bags: `{}` tag removed from `{}`.".format(tag, itemAlias))
+                self.saveState()
+                await message.channel.send(":shopping_bags: `{}` tag removed from `{}`.".format(tag, itemAlias))
 
 
         async def listItems(user, subTokens):
@@ -189,7 +192,8 @@ class TTRPGBot(DiscordBot):
 
             if len(note) > 0:
                 self.guildCharactersMap[message.channel.guild.id][user.id]["notes"].append(note)
-                return await message.channel.send(":notepad_spiral: {} noted:\n> {}".format(self.guildCharactersMap[message.channel.guild.id][user.id]["name"], note))
+                self.saveState()
+                await message.channel.send(":notepad_spiral: {} noted:\n> {}".format(self.guildCharactersMap[message.channel.guild.id][user.id]["name"], note))
             else:
                 return await helpNotes(user, ["add"])
 
@@ -206,6 +210,7 @@ class TTRPGBot(DiscordBot):
                 return await message.channel.send("You need to tell me the number of the entry in the list.")
             note = self.guildCharactersMap[message.channel.guild.id][user.id]["notes"][noteIndex]
             del self.guildCharactersMap[message.channel.guild.id][user.id]["notes"][noteIndex]
+            self.saveState()
             await message.channel.send(":notepad_spiral: {} removed note:\n> {}".format(self.guildCharactersMap[message.channel.guild.id][user.id]["name"], note))
 
         # !note list
@@ -244,6 +249,7 @@ class TTRPGBot(DiscordBot):
             notes = notes[:newIndex] + [note] + notes[newIndex:]
             self.guildCharactersMap[message.channel.guild.id][user.id]["notes"] = notes
 
+            self.saveState()
             await message.channel.send("Successfully moved the following note to position {}:\n> {}".format(min(newIndex + 1, len(notes)), note))
 
 
@@ -270,24 +276,59 @@ class TTRPGBot(DiscordBot):
             await message.delete(delay=self.getDeleteDelay(message.channel.guild.id))
 
     async def damagePlayer(self, message, params):
-        #     splitParams = params.split(" ")
-        #     amount = int(splitParams[0])
-        #     target = message.author
-        #     if len(splitParams) > 1:
-        #         amount = int(splitParams[1])
-        #         target = await self.getUserFromMention(splitParams[0])
-        self.manageHP(message, params, "HP", -1)
-        pass
+        splitParams = params.split(" ")
+        amount = -1 * abs(int(splitParams[0]))
+        target = message.author
+        if len(splitParams) > 1:
+            try:
+                amount = int(splitParams[1])
+            except ValueError:
+                return await message.channel.send("I couldn't parse an int from that.")
+            target = await self.getUserFromMention(splitParams[0])
+
+        if await self.manageHP(message, target, amount):
+            await message.channel.send(":broken_heart: {} took {} damage. Their HP is now {}/{}".format(
+                self.guildCharactersMap[message.channel.guild.id][target.id]["name"],
+                abs(amount),
+                self.guildCharactersMap[message.channel.guild.id][target.id]["stats"]["HP"]["current"],
+                self.guildCharactersMap[message.channel.guild.id][target.id]["stats"]["HP"]["max"]
+            ))
 
     async def healPlayer(self, message, params):
-        #     splitParams = params.split(" ")
-        #     amount = int(splitParams[0])
-        #     target = message.author
-        #     if len(splitParams) > 1:
-        #         amount = int(splitParams[1])
-        #         target = await self.getUserFromMention(splitParams[0])
-        self.manageHP(message,params, "HP", 1)
-        pass
+        splitParams = params.split(" ")
+        amount = abs(int(splitParams[0]))
+        target = message.author
+        if len(splitParams) > 1:
+            try:
+                amount = int(splitParams[1])
+            except ValueError:
+                return await message.channel.send("I couldn't parse an int from that.")
+            target = await self.getUserFromMention(splitParams[0])
+
+        if await self.manageHP(message, target, amount):
+            await message.channel.send(":green_heart: {} healed {} HP. Their HP is now {}/{}".format(
+                self.guildCharactersMap[message.channel.guild.id][target.id]["name"],
+                abs(amount),
+                self.guildCharactersMap[message.channel.guild.id][target.id]["stats"]["HP"]["current"],
+                self.guildCharactersMap[message.channel.guild.id][target.id]["stats"]["HP"]["max"]
+            ))
+
+    # sign can be -1, 0, or 1. if it's 0, take param as value, not delta
+    async def manageHP(self, message, user, amount):
+        if not await self.assertPlayerExists(message.channel, user):
+            return False
+      
+        statBlock = self.guildCharactersMap[message.channel.guild.id][user.id]["stats"]["HP"]
+
+        currentAmount = statBlock["current"]
+        newAmount = currentAmount + amount
+
+        if newAmount > statBlock["max"]:
+            newAmount = statBlock["max"]
+
+        self.guildCharactersMap[message.channel.guild.id][user.id]["stats"]["HP"]["current"] = newAmount
+        self.saveState()
+        return True
 
     async def manageCharacter(self, message, params):
         if not await self.assertGuildConfigured(message.channel):
@@ -346,6 +387,7 @@ class TTRPGBot(DiscordBot):
             for i in range(len(newStatsArr)):
                 self.guildCharactersMap[message.guild.id][user.id]["stats"][guildStats[i]] = {"current": newStatsArr[i], "max": newStatsArr[i]}
 
+            self.saveState()
             await message.channel.send(":sparkles: New Character Created!\nWelcome to the party, {}!".format(name))
 
         # !c [@] name John Wick
@@ -359,6 +401,7 @@ class TTRPGBot(DiscordBot):
                 return await helpManageCharacter(user, ["name"])
 
             self.guildCharactersMap[message.guild.id][user.id]["name"] = newName
+            self.saveState()
             await message.channel.send("{}'s character is now named {}".format(user.mention, newName))
 
         # !c [@] stat WIS 10
@@ -376,12 +419,12 @@ class TTRPGBot(DiscordBot):
                 await message.channel.send("Could not parse a value for stat {}".format(statKey))
 
             self.guildCharactersMap[message.guild.id][user.id]["stats"][statKey]["current"] = newVal
+            self.saveState()
             await message.channel.send("{}'s current {} stat is now {}".format(
                 self.guildCharactersMap[message.channel.guild.id][user.id]["name"],
                 statKey,
                 str(newVal)
             ))
-
             
         # !c [@] maxstat WIS 15
         async def maxstat(user, subTokens):
@@ -398,6 +441,7 @@ class TTRPGBot(DiscordBot):
                 await message.channel.send("Could not parse a value for stat {}".format(statKey))
 
             self.guildCharactersMap[message.guild.id][user.id]["stats"][statKey]["max"] = newVal
+            self.saveState()
             await message.channel.send("{}'s max {} stat is now {}".format(
                 self.guildCharactersMap[message.channel.guild.id][user.id]["name"],
                 statKey,
@@ -420,12 +464,11 @@ class TTRPGBot(DiscordBot):
             for itemKey in char["inventory"].keys():
                 maxItemKeyStrLength = max(maxItemKeyStrLength, len(itemKey))
 
-            dividerStr = "__# {} #__\n"
             output = ":memo: {}'s Character Sheet:\n**Name:** {}\n".format(user.mention, char["name"])
-            output += dividerStr.format("STATS")
+            output += ":bar_chart: **STATS** :bar_chart:\n"
             for stat in stats:
                 output += "**{}**{}: {}/{}\n".format(stat, " "*(maxStatStrLength - len(stat)), char["stats"][stat]["current"], char["stats"][stat]["max"])
-            output += dividerStr.format("INVENTORY")
+            output += ":shopping_bags: **INVENTORY** :shopping_bags:\n"
             for itemKey, itemObj in char["inventory"].items():
                 if itemObj["count"] == 0:
                     continue
@@ -433,7 +476,7 @@ class TTRPGBot(DiscordBot):
                 if len(itemObj["tags"]) > 0:
                     tagString = " - `{}`".format("`, `".join(itemObj["tags"]))
                 output += "{}{} ({}){}\n".format(itemKey, " "*(maxItemKeyStrLength - len(itemKey)), itemObj["count"], tagString)
-            output += dividerStr.format("NOTES")
+            output += ":notepad_spiral: **NOTES** :notepad_spiral:\n"
             for note_i in range(len(char["notes"])):
                 output += "**{}.** {}\n".format(note_i + 1, char["notes"][note_i])
             
@@ -447,6 +490,7 @@ class TTRPGBot(DiscordBot):
             await info(user, subTokens)
             name = self.guildCharactersMap[message.channel.guild.id][user.id]["name"]
             del self.guildCharactersMap[message.channel.guild.id][user.id]
+            self.saveState()
             await message.channel.send(":skull_crossbones: {} was deleted! さよなら!".format(name))
 
         async def listChars(user, subTokens):
@@ -501,6 +545,10 @@ class TTRPGBot(DiscordBot):
                 return await message.channel.send(":thought_balloon: `config refresh` refreshes my reference to the GM role.")
             elif subTokens[0] == "delay":
                 return await message.channel.send(":thought_balloon: `config delay` sets how many seconds I wait before deleting commands that I have followed. Set to a negative number to make me never delete messages. Expected format: `!config delay 10`")
+            elif subTokens[0] == "export":
+                return await message.channel.send(":thought_balloon: `config export` exports server configuration and character data as a json file.")
+            elif subTokens[0] == "import":
+                return await message.channel.send(":thought_balloon: `config import` imports server configuration and character data. Make sure to attach the json file in the same message!")
             else:
                 return await message.channel.send(":thought_balloon: I don't know that subcommand. Try `!char help`")
 
@@ -530,6 +578,7 @@ class TTRPGBot(DiscordBot):
             if message.guild.id not in self.guildCharactersMap:
                 self.guildCharactersMap[message.channel.guild.id] = {}
 
+            self.saveState()
             await message.channel.send(":tools: Available character stats on this server have changed from `{}` to `{}`. Please note that character data may be affected.".format(
                 oldStatsString,
                 newStatsString
@@ -548,11 +597,13 @@ class TTRPGBot(DiscordBot):
 
             if not liveNuke:
                 self.guildConfigMap[message.channel.guild.id]["nuke_live_datetime"] = datetime.datetime.now()
-                return await message.channel.send(":skull_crossbones: The nuclear option is armed. Repeat the nuke command within 60 seconds to complete the operation. :skull_crossbones:")
+                await message.channel.send(":skull_crossbones: The nuclear option is armed. Repeat the nuke command within 60 seconds to complete the operation. :skull_crossbones:")
+                await handleExport(subTokens)
             elif liveNuke:
                 self.guildConfigMap = {}
                 self.guildCharactersMap = {}
-                return await message.channel.send(":skull_crossbones: Missiles launched. Data destroyed. May God have mercy on us all. :skull_crossbones:")
+                self.saveState()
+                await message.channel.send(":skull_crossbones: Missiles launched. Data destroyed. May God have mercy on us all. :skull_crossbones:")
 
         async def refreshGMs(subTokens):
             await self.fetchGMs()
@@ -574,7 +625,40 @@ class TTRPGBot(DiscordBot):
                 delayStr = "never"
 
             self.guildConfigMap[message.channel.guild.id]["messageDeleteDelay"] = delay
-            return await message.channel.send("Message destruct delay set to `{}`.".format(delayStr))
+            self.saveState()
+            await message.channel.send("Message destruct delay set to `{}`.".format(delayStr))
+
+        async def handleExport(subTokens):
+            if not await self.assertGuildConfigured(message.channel):
+                return
+
+            if not os.path.isfile(self.stateFilePath):
+                await message.channel.send("I can't find my ledger! :scream:")
+                return
+
+            with io.BytesIO() as f:
+                f.write(json.dumps({"config": self.guildConfigMap[message.channel.guild.id], "characters": self.guildCharactersMap[message.channel.guild.id]}, ensure_ascii=False).encode())
+                f.seek(0)
+                await message.channel.send("This is everything I've got.", file=discord.File(f, "{}_export.json".format(message.channel.guild.name)))
+
+        async def handleImport(subTokens):
+            if len(message.attachments) == 0 or message.attachments[0].filename.split(".")[-1] != "json":
+                return await message.channel.send("You need to attach a JSON file to your import command.")
+
+            with io.BytesIO() as f:
+                await message.attachments[0].save(f)
+                newState = json.load(f)
+
+                self.guildConfigMap[message.channel.guild.id] = newState["config"]
+                self.guildCharactersMap[message.channel.guild.id] = {}
+                for playerID, playerObj in newState["characters"].items():
+                    self.guildCharactersMap[message.channel.guild.id][int(playerID)] = playerObj
+
+            self.saveState()
+            await message.channel.send("Imported {} stats and {} characters".format(
+                len(self.guildConfigMap[message.channel.guild.id]["stats"]),
+                len(self.guildCharactersMap[message.channel.guild.id])
+            ))
 
         subcommands = {
             "help": helpConfig,
@@ -582,7 +666,9 @@ class TTRPGBot(DiscordBot):
             "stats": configureStats,
             "nuke": nuke,
             "refresh": refreshGMs,
-            "delay": setMessageDeleteDelay
+            "delay": setMessageDeleteDelay,
+            "export": handleExport,
+            "import": handleImport,
         }
 
         tokens = params.split(" ")
@@ -658,52 +744,30 @@ class TTRPGBot(DiscordBot):
         if self.getDeleteDelay(message.channel.guild.id) > 0:
             await message.delete(delay=self.getDeleteDelay(message.channel.guild.id))
 
+    def saveState(self):
+        if not os.path.isfile(self.stateFilePath):
+            os.makedirs(os.path.dirname(self.stateFilePath), exist_ok=True)
 
-    async def handleExport(self, message, params):
-        pass
+        with open(self.stateFilePath, 'w', encoding='utf8') as f:
+            json.dump({"guildConfigMap": self.guildConfigMap, "guildCharactersMap": self.guildCharactersMap}, f, ensure_ascii=False)
 
-    # throws ValueError exceptions
-    def parseSumDiff(self, inputString, allowDecimal=False):
-        deltaString = inputString.replace(",", "").strip()
-        sign = 1
-        if deltaString[0] == "-":
-            sign = -1
-            deltaString = deltaString[1:]
-        elif deltaString[0] == "+":
-            deltaString = deltaString[1:]
-
-        if allowDecimal:
-            absDelta = float(deltaString) # can except
+    def loadState(self):
+        if os.path.isfile(self.stateFilePath):
+            fileData = json.load(open(self.stateFilePath, "r"))
+            for key, item in fileData["guildConfigMap"].items():
+                self.guildConfigMap[int(key)] = item
+            for guildID, playerDict in fileData["guildCharactersMap"].items():
+                self.guildCharactersMap[int(guildID)] = {}
+                for playerID, playerObj in playerDict.items():
+                    self.guildCharactersMap[int(guildID)][int(playerID)] = playerObj
+            numChars = 0
+            for guild in self.guildCharactersMap:
+                numChars += len(self.guildCharactersMap[guild])
+            print("Loaded config with {} guilds and {} characters".format(len(self.guildConfigMap), numChars))
+            print(self.guildConfigMap)
         else:
-            absDelta = int(deltaString) # can except
-
-        return sign * absDelta
-
-    # # sign can be -1, 0, or 1. if it's 0, take param as value, not delta
-    # async def managePlayerStat(self, message, params, stat, sign):
-    #     splitParams = params.split(" ")
-    #     amount = int(splitParams[0])
-    #     target = message.author
-    #     if len(splitParams) > 1:
-    #         amount = int(splitParams[1])
-    #         target = await self.getUserFromMention(splitParams[0])
-
-    #     if not self.checkForPlayerInCharactersMap(message.channel, target):
-    #             await message.channel.send("{} does not have a character registered. Use `!c new` to create one!".format(target.mention))
-
-    #     statBlock = self.guildCharactersMap[message.channel.guild.id][target.id]["stats"][stat]
-
-    #     newAmount = amount
-    #     if sign != 0:
-    #         currentAmount = statBlock["current"]
-    #         newAmount = currentAmount + sign * abs(amount)
-
-    #     if newAmount > statBlock["max"]:
-    #         newAmount = statBlock["max"]
-
-    #     statBlock["current"] = newAmount
-
-    #     await message.channel.send("FIXME {}={}".format(stat, newAmount))
+            self.guildConfigMap = {}
+            self.guildCharactersMap = {}
 
     # sign can be -1, 0, or 1. if it's 0, take param as value, not delta
     async def managePlayerStat(self, channel, target, stat, amount, sign):
@@ -795,8 +859,7 @@ class TTRPGBot(DiscordBot):
     def __init__(self, prefix="!", greeting="Hello", farewell="Goodbye"):
         super().__init__(prefix, greeting, farewell)
 
-        self.serverConfigFilePath = "storage/{}/serverconfig.json".format(self.getName())
-        self.charactersFilePath = "storage/{}/characterdata.json".format(self.getName())
+        self.stateFilePath = "storage/{}/state.json".format(self.getName())
 
         self.guildGMRoleMap = {} # { guildID: guildGMRole }
         self.guildConfigMap = {} # { guildID: {destructMessages: int, stats: []} }
@@ -820,6 +883,8 @@ class TTRPGBot(DiscordBot):
         # }
         self.guildCharactersMap = {}
 
+        self.loadState()
+
         self.addCommand('roll', self.rollDice, lambda x: True, "Roll dice", "4d3 + 4 + 1d20")
         self.addCommand('r', self.rollDice, lambda x: True)
         self.addCommand('config', self.manageGuildConfig, lambda x: True, "Manage server configurations")
@@ -833,3 +898,7 @@ class TTRPGBot(DiscordBot):
         self.addCommand('i', self.manageInventory, lambda x: True)
         self.addCommand('inv', self.manageInventory, lambda x: True)
         self.addCommand('inventory', self.manageInventory, lambda x: True)
+        self.addCommand('damage', self.damagePlayer, lambda x: True, "Deal damage to a player", "@Wish 5")
+        self.addCommand('d', self.damagePlayer, lambda x: True)
+        self.addCommand('heal', self.healPlayer, lambda x: True, "Heal a player", "@Wish 3")
+        self.addCommand('h', self.healPlayer, lambda x: True)
