@@ -17,11 +17,11 @@ def fetchToken(botName):
 
 if __name__ == "__main__":
     bots = {
-        # "philippe": botfiles.PhilippeBot(),
-        # "mettaton": botfiles.MettatonBot(),
-        # "zenyatta": botfiles.ZenyattaBot(),
-        # "lif":      botfiles.LifBot(),
-        # "gyoshin":  botfiles.GyoshinBot(),
+        "philippe": botfiles.PhilippeBot(),
+        "mettaton": botfiles.MettatonBot(),
+        "zenyatta": botfiles.ZenyattaBot(),
+        "lif":      botfiles.LifBot(),
+        "gyoshin":  botfiles.GyoshinBot(),
         "pullman":  botfiles.PullmanBot(),
     }
 
