@@ -1,9 +1,9 @@
 import discord
 import asyncio
-from .botmodules import TTRPGBot
+from .botmodules import TTRPGBot, SimpleVoteBot
 
 #importlib.reload(generic)
-class PullmanBot(TTRPGBot):
+class PullmanBot(TTRPGBot, SimpleVoteBot):
 	def getName(self):
 		return "pullman"
 
