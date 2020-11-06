@@ -565,10 +565,14 @@ class TTRPGBot(DiscordBot):
 
             hpIndex = None
             for i in range(len(stats)):
+                isValid = False
                 try:
                     int(stats[i])
                 except ValueError:
+                    isValid = True
+                if not isValid:
                     return await message.channel.send("Stats cannot have numeric names.")
+
                 stats[i] = stats[i].upper()
                 if stats[i] == "HP":
                     hpIndex = i
