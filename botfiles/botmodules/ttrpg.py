@@ -28,25 +28,24 @@ class TTRPGBot(DiscordBot):
         if sign > 0:
             damagePromptCmdStr = "heal"
             resultParams = [":green_heart:", "recovered"]
-        print(params)
+
         patt = "(?:<@!(\d+)>\s+)?(?:(\w+)\s+)?(\d+)"
         match = re.match(patt, params)
         if match == None:
             return await message.channel.send("I couldn't parse that. Expected format: `!{} @Wish HP 5`".format(damagePromptCmdStr))
 
-        mention = match[1]
-        print(mention)
+        mention = match.group(1)
         user = message.author
         if mention is not None:
             user = self.getUserFromMention(message.guild, mention)
         if not await self.assertPlayerExists(message.channel, user):
             return
 
-        stat = match[2].upper() if match[2] is not None else "HP"
+        stat = match.group(2).upper() if match.group(2) is not None else "HP"
         if not self.assertIsValidStat(message.channel, stat):
             return
 
-        amount = sign * abs(int(match[3]))
+        amount = sign * abs(int(match.group(3)))
         statBlock = self.guildCharactersMap[message.channel.guild.id][user.id]["stats"][stat]
         currentAmount = statBlock["current"]
         newAmount = currentAmount + amount
@@ -69,24 +68,25 @@ class TTRPGBot(DiscordBot):
         ))
 
     async def manageInventory(self, message, params):
+        usedCommandAlias = self.getCommandStrFromMessage(message)
         async def helpItems(user, subTokens):
             if len(subTokens) == 0 or subTokens[0] not in subcommands:
-                return await message.channel.send(":thought_balloon: Available subcommands: `{}`\n\n Try `!item help add`\n".format("`, `".join(subcommands.keys())))    
+                return await message.channel.send(":thought_balloon: Available subcommands: `{}`\n\n Try `!{} help add`\n".format("`, `".join(subcommands.keys()), usedCommandAlias))
             elif subTokens[0] == "help":
                 await message.channel.send(":thought_balloon: Aren't you clever.")
             elif subTokens[0] == "add":
-                return await message.channel.send(":thought_balloon: `item add` adds 1 or more items to your character's inventory. Note that the name of the item must be a hyphenated string - no spaces. Each semicolon-deliniated item after it adds a tag. Expected format: `!item add 50 gold-pieces shiny; valuable`")
+                return await message.channel.send(":thought_balloon: `{} add` adds 1 or more items to your character's inventory. Note that the name of the item must be a hyphenated string - no spaces. Each semicolon-deliniated item after it adds a tag. Expected format: `!{} add 50 gold-pieces shiny; valuable`".format(usedCommandAlias, usedCommandAlias))
             elif subTokens[0] == "remove":
-                return await message.channel.send(":thought_balloon: `item remove` removes 1 or more items from your character's inventory. Expected format: `!item remove 50 gold-pieces`")
+                return await message.channel.send(":thought_balloon: `{} remove` removes 1 or more items from your character's inventory. Expected format: `!{} remove 50 gold-pieces`".format(usedCommandAlias, usedCommandAlias))
             elif subTokens[0] == "tag":
                 if len(subTokens) == 1:
-                    return await message.channel.send(":thought_balloon: `item tag` has available subcommands: `{}`\n\n Try `!item help tag add`\n".format("`, `".join(["add", "remove"])))    
+                    return await message.channel.send(":thought_balloon: `{} tag` has available subcommands: `{}`\n\n Try `!{} help tag add`\n".format(usedCommandAlias, "`, `".join(["add", "remove"]), usedCommandAlias))
                 elif subTokens[1] == "add":
-                    return await message.channel.send(":thought_balloon: `item tag add` adds a tag to an item. Expected format: `!item tag add really cool`")
+                    return await message.channel.send(":thought_balloon: `{} tag add` adds a tag to an item. Expected format: `!{} tag add really cool`".format(usedCommandAlias, usedCommandAlias))
                 elif subTokens[1] == "remove":
-                    return await message.channel.send(":thought_balloon: `item tag remove` removess a tag from an item. Expected format: `!item tag remove ugly`")
+                    return await message.channel.send(":thought_balloon: `{} tag remove` removess a tag from an item. Expected format: `!{} tag remove ugly`".format(usedCommandAlias, usedCommandAlias))
             elif subTokens[0] == "list": 
-                return await message.channel.send(":thought_balloon: `item list` gives you a list of your items")
+                return await message.channel.send(":thought_balloon: `{} list` gives you a list of your items".format(usedCommandAlias))
 
         # !item add 50 gp
         # !item add Magic Sword "A sword that is magical"
@@ -99,9 +99,9 @@ class TTRPGBot(DiscordBot):
             if addMatch == None:
                 return await helpItems(user, ["add"])
 
-            count = int(addMatch[1]) if addMatch[1] is not None else 1
-            itemAlias = addMatch[2]
-            tagArray = addMatch[3].split(",") if addMatch[3] is not None else []
+            count = int(addMatch.group(1)) if addMatch.group(1) is not None else 1
+            itemAlias = addMatch.group(2)
+            tagArray = addMatch.group(3).split(",") if addMatch.group(3) is not None else []
 
             if count == 0:
                 return await message.channel.send("You keep that up and you'll have 0 frontal lobes when I'm done with you")
@@ -132,8 +132,8 @@ class TTRPGBot(DiscordBot):
             if removeMatch == None:
                 return await helpItems(user, ["remove"])
 
-            count = int(removeMatch[1])
-            itemAlias = removeMatch[2]
+            count = int(removeMatch.group(1))
+            itemAlias = removeMatch.group(2)
 
             inventory = self.guildCharactersMap[message.channel.guild.id][user.id]["inventory"]
             if itemAlias not in inventory:
@@ -209,7 +209,7 @@ class TTRPGBot(DiscordBot):
 
         if tokens[0] in subcommands.keys():
             await subcommands[tokens[0]](message.author, tokens[1:])
-        elif tokens[1] in subcommands.keys():
+        elif len(tokens) > 1 and tokens[1] in subcommands.keys():
             user = self.getUserFromMention(message.guild, tokens[0])
             await subcommands[tokens[1]](user, tokens[2:])
         else:
@@ -218,22 +218,23 @@ class TTRPGBot(DiscordBot):
             await message.delete(delay=self.getDeleteDelay(message.channel.guild.id))
 
     async def manageNotes(self, message, params):
+        usedCommandAlias = self.getCommandStrFromMessage(message)
         # !note help
         async def helpNotes(user, subTokens):
             if len(subTokens) == 0 or subTokens[0] not in subcommands:
-                return await message.channel.send(":thought_balloon: Available subcommands: `{}`\n\n Try `!note help add`\n".format("`, `".join(subcommands.keys())))    
+                return await message.channel.send(":thought_balloon: Available subcommands: `{}`\n\n Try `!{} help add`\n".format("`, `".join(subcommands.keys()), usedCommandAlias))
             elif subTokens[0] == "help":
                 await message.channel.send(":thought_balloon: Aren't you clever.")
             elif subTokens[0] == "add":
-                return await message.channel.send(":thought_balloon: `note add` adds a new note to your character sheet. Expected format: `!note add The salty seadog is named Ishmael.`".format("/".join(self.guildConfigMap[message.channel.guild.id]["stats"])))
+                return await message.channel.send(":thought_balloon: `{} add` adds a new note to your character sheet. Expected format: `!{} add The salty seadog is named Ishmael.`".format(usedCommandAlias, usedCommandAlias))
             elif subTokens[0] == "remove":
-                return await message.channel.send(":thought_balloon: `note remove` deletes the given note # from your character. Expected format: `!note remove 5`")
+                return await message.channel.send(":thought_balloon: `{} remove` deletes the given note # from your character. Expected format: `!{} remove 5`".format(usedCommandAlias, usedCommandAlias))
             elif subTokens[0] == "list":
-                return await message.channel.send(":thought_balloon: `note list` prints out all of your notes.")
+                return await message.channel.send(":thought_balloon: `{} list` prints out all of your notes.".format(usedCommandAlias))
             elif subTokens[0] == "move":
-                return await message.channel.send(":thought_balloon: `note move` allows you to rearrange your notes. The first number you provide is the note you're moving, the second number is the position you're moving it to. Expected format: `!note move 1 2`")
+                return await message.channel.send(":thought_balloon: `{} move` allows you to rearrange your notes. The first number you provide is the note you're moving, the second number is the position you're moving it to. Expected format: `!{} move 1 2`".format(usedCommandAlias, usedCommandAlias))
             else:
-                return await message.channel.send(":thought_balloon: I don't know that subcommand. Try `!note help`")
+                return await message.channel.send(":thought_balloon: I don't know that subcommand. Try `!{} help`".format(usedCommandAlias))
 
         # !note add Hello World
         async def addNote(user, subTokens):
@@ -319,7 +320,7 @@ class TTRPGBot(DiscordBot):
 
         if tokens[0] in subcommands.keys():
             await subcommands[tokens[0]](message.author, tokens[1:])
-        elif tokens[1] in subcommands.keys():
+        elif len(tokens) > 1 and tokens[1] in subcommands.keys():
             user = self.getUserFromMention(message.guild, tokens[0])
             await subcommands[tokens[1]](user, tokens[2:])
         else:
@@ -333,32 +334,37 @@ class TTRPGBot(DiscordBot):
         if not await self.assertGuildConfigured(message.channel):
             return
 
+        usedCommandAlias = self.getCommandStrFromMessage(message)
+
         guildStats = self.guildConfigMap[message.guild.id]["stats"]
 
         async def helpManageCharacter(user, subTokens):
             if len(subTokens) == 0 or subTokens[0] not in subcommands:
-                return await message.channel.send(":thought_balloon: Available subcommands: `{}`\n\n Try `!help char new`\n".format("`, `".join(subcommands.keys())))    
+                return await message.channel.send(":thought_balloon: Available subcommands: `{}`\n\n Try `!{} help new`\n".format("`, `".join(subcommands.keys()), usedCommandAlias))
             elif subTokens[0] == "help":
                 await message.channel.send(":thought_balloon: Aren't you clever.")
             elif subTokens[0] == "new":
-                return await message.channel.send(":thought_balloon: `char new` creates a new character. Expected format: `!char new Character Name {}`".format("/".join(self.guildConfigMap[message.channel.guild.id]["stats"])))
+                return await message.channel.send(":thought_balloon: `{} new` creates a new character. Expected format: `!{} new Character Name {}`".format(usedCommandAlias, usedCommandAlias, "/".join(self.guildConfigMap[message.channel.guild.id]["stats"])))
             elif subTokens[0] == "name":
-                return await message.channel.send(":thought_balloon: `char name` changes a character's name. Expected format: `!char name New Name`")
+                return await message.channel.send(":thought_balloon: `{} name` changes a character's name. Expected format: `!{} name New Name`".format(usedCommandAlias, usedCommandAlias))
             elif subTokens[0] == "stat":
-                return await message.channel.send(":thought_balloon: `char stat` updates the CURRENT value of a stat. Expected format: `!char stat {} 69`".format(random.choice(self.guildConfigMap[message.channel.guild.id]["stats"])))
+                return await message.channel.send(":thought_balloon: `{} stat` updates the CURRENT value of a stat. Expected format: `!{} stat {} 69`".format(usedCommandAlias, usedCommandAlias, random.choice(self.guildConfigMap[message.channel.guild.id]["stats"])))
             elif subTokens[0] == "maxstat":
-                return await message.channel.send(":thought_balloon: `char maxstat` updates the MAX value of a stat. Expected format: `!char maxstat {} 420`".format(random.choice(self.guildConfigMap[message.channel.guild.id]["stats"])))
+                return await message.channel.send(":thought_balloon: `{} maxstat` updates the MAX value of a stat. Expected format: `!{} maxstat {} 420`".format(usedCommandAlias, usedCommandAlias, random.choice(self.guildConfigMap[message.channel.guild.id]["stats"])))
             elif subTokens[0] == "info":
-                return await message.channel.send(":thought_balloon: `char info` prints out the character sheet.")
+                return await message.channel.send(":thought_balloon: `{} info` prints out the character sheet.".format(usedCommandAlias))
             elif subTokens[0] == "delete":
-                return await message.channel.send(":thought_balloon: `char delete` deletes a character. Expected format: `!char delete @Wish` Be careful!")
+                return await message.channel.send(":thought_balloon: `{} delete` deletes a character. Expected format: `!{} delete @Wish` Be careful!".format(usedCommandAlias, usedCommandAlias))
             elif subTokens[0] == "list":
-                return await message.channel.send(":thought_balloon: `char list` gets a list of all the characters.")
+                return await message.channel.send(":thought_balloon: `{} list` gets a list of all the characters.".format(usedCommandAlias))
             else:
-                return await message.channel.send(":thought_balloon: I don't know that subcommand. Try `!char help`")
+                return await message.channel.send(":thought_balloon: I don't know that subcommand. Try `!{} help`".format(usedCommandAlias))
 
         # !c [@] new Name HP/STAT1/STAT2
         async def new(user, subTokens):
+            if user.id in self.guildCharactersMap[message.channel.guild.id]:
+                return await message.channel.send("{} already has a character! If you want to roll a new one use `!{} delete`".format(user.mention, usedCommandAlias))
+
             newCharPattern = "^(.+)\s+(\d+(?:\/\d+){" + str(len(guildStats) - 1) + "})$"
 
             charMatch = re.match(newCharPattern, " ".join(subTokens))
@@ -367,8 +373,8 @@ class TTRPGBot(DiscordBot):
                 return await helpManageCharacter(user, ["new"])
                 return
 
-            name = charMatch[1]
-            newStatsArr = charMatch[2].split("/")
+            name = charMatch.group(1)
+            newStatsArr = charMatch.group(2).split("/")
 
             if (len(newStatsArr) != len(guildStats)):
                 await message.channel.send("Invalid number of stats, expected {}".format("/".join(newStatsArr)))
@@ -489,12 +495,20 @@ class TTRPGBot(DiscordBot):
             if not await self.assertUserIsSelfOrGM(message.channel, message.author, user):
                 return
 
-            await message.channel.send("Character info for posterity:")
-            await info(user, subTokens)
-            name = self.guildCharactersMap[message.channel.guild.id][user.id]["name"]
-            del self.guildCharactersMap[message.channel.guild.id][user.id]
-            self.saveState()
-            await message.channel.send(":skull_crossbones: {} was deleted! さよなら!".format(name))
+            liveDelete = "char_delete_live_datetimes" in self.guildConfigMap[message.channel.guild.id] and user.id in self.guildConfigMap[message.channel.guild.id]["char_delete_live_datetimes"] and datetime.datetime.now() - self.guildConfigMap[message.channel.guild.id]["char_delete_live_datetimes"][user.id] < datetime.timedelta(minutes=1)
+
+            if not liveDelete:
+                if "char_delete_live_datetimes" not in self.guildConfigMap[message.channel.guild.id]:
+                    self.guildConfigMap[message.channel.guild.id]["char_delete_live_datetimes"] = {}
+                self.guildConfigMap[message.channel.guild.id]["char_delete_live_datetimes"][user.id] = datetime.datetime.now()
+                await message.channel.send(":skull_crossbones: I've got my gun loaded. Repeat the delete command within 60 seconds to complete the operation. :skull_crossbones:")
+            elif liveDelete:
+                await message.channel.send("Character info for posterity:")
+                await info(user, subTokens)
+                name = self.guildCharactersMap[message.channel.guild.id][user.id]["name"]
+                del self.guildCharactersMap[message.channel.guild.id][user.id]
+                self.saveState()
+                await message.channel.send(":skull_crossbones: {} was deleted! さよなら! :skull_crossbones".format(name))
 
         async def listChars(user, subTokens):
             output = ":notebook_with_decorative_cover: Characters in party:\n"
@@ -521,7 +535,7 @@ class TTRPGBot(DiscordBot):
 
         if tokens[0] in subcommands.keys():
             await subcommands[tokens[0]](message.author, tokens[1:])
-        elif tokens[1] in subcommands.keys():
+        elif len(tokens) > 1 and tokens[1] in subcommands.keys():
             user = self.getUserFromMention(message.guild, tokens[0])
             await subcommands[tokens[1]](user, tokens[2:])
         else:
@@ -598,7 +612,7 @@ class TTRPGBot(DiscordBot):
         async def listStats(subTokens):
             if not await self.assertGuildConfigured(message.channel): 
                 return
-            await message.channel.send("Stats are: {}\nMessage Delete delay is:{}".format("/".join(self.guildConfigMap[message.channel.guild.id]["stats"], self.guildConfigMap[message.channel.guild.id]["messageDeleteDelay"])))
+            await message.channel.send("Stats are: {}\nMessage Delete delay is:{}".format("/".join(self.guildConfigMap[message.channel.guild.id]["stats"]), self.guildConfigMap[message.channel.guild.id]["messageDeleteDelay"]))
 
         async def nuke(subTokens):
             if not await self.assertUserIsGM(message.channel, message.author):
@@ -609,8 +623,8 @@ class TTRPGBot(DiscordBot):
             if not liveNuke:
                 self.guildConfigMap[message.channel.guild.id]["nuke_live_datetime"] = datetime.datetime.now()
                 await message.channel.send(":skull_crossbones: The nuclear option is armed. Repeat the nuke command within 60 seconds to complete the operation. :skull_crossbones:")
-                await handleExport(subTokens)
             elif liveNuke:
+                await handleExport(subTokens)
                 self.guildConfigMap = {}
                 self.guildCharactersMap = {}
                 self.saveState()
@@ -648,6 +662,11 @@ class TTRPGBot(DiscordBot):
                 return
 
             with io.BytesIO() as f:
+                if "nuke_live_datetime" in self.guildConfigMap[message.channel.guild.id]:
+                    del self.guildConfigMap[message.channel.guild.id]["nuke_live_datetime"]
+                if "char_delete_live_datetimes" in self.guildConfigMap[message.channel.guild.id]:
+                    del self.guildConfigMap[message.channel.guild.id]["char_delete_live_datetimes"]
+
                 f.write(json.dumps({"config": self.guildConfigMap[message.channel.guild.id], "characters": self.guildCharactersMap[message.channel.guild.id]}, ensure_ascii=False).encode())
                 f.seek(0)
                 await message.channel.send("This is everything I've got.", file=discord.File(f, "{}_export.json".format(message.channel.guild.name)))
@@ -759,6 +778,12 @@ class TTRPGBot(DiscordBot):
         if not os.path.isfile(self.stateFilePath):
             os.makedirs(os.path.dirname(self.stateFilePath), exist_ok=True)
 
+        for guildID, config in self.guildConfigMap.items():
+            if "nuke_live_datetime" in config:
+                del config["nuke_live_datetime"]
+            if "char_delete_live_datetimes" in config:
+                del config["char_delete_live_datetimes"]
+
         with open(self.stateFilePath, 'w', encoding='utf8') as f:
             json.dump({"guildConfigMap": self.guildConfigMap, "guildCharactersMap": self.guildCharactersMap}, f, ensure_ascii=False)
 
@@ -824,7 +849,7 @@ class TTRPGBot(DiscordBot):
     # Returns True if instigatingUser is targetUser or a GM, otherwise returns false and prints message
     async def assertUserIsSelfOrGM(self, channel, instigatingUser, targetUser):
         if await self.assertPlayerExists(channel, targetUser):
-            return False
+            return True
         if instigatingUser.id == targetUser.id:
             return True
         else:
@@ -846,7 +871,7 @@ class TTRPGBot(DiscordBot):
         except ValueError:
             userIDMatch = re.search("\d{15,}", mentionStr)
             if userIDMatch != None:
-                return self.client.get_user(int(userIDMatch[0]))
+                return self.client.get_user(int(userIDMatch.group(0)))
 
         for user in guild.members:
             if user.mention == mentionStr:
@@ -858,6 +883,9 @@ class TTRPGBot(DiscordBot):
             return self.guildConfigMap[guildID]["messageDeleteDelay"]
         else:
             return -1
+
+    def getCommandStrFromMessage(self, message):
+        return message.content.split(" ")[0][1:]
 
     # returns true if the user has a registered character in the channel
     async def checkForPlayerInCharactersMap(self, channel, user):
