@@ -32,6 +32,17 @@ class MettatonBot(SimpleVoteBot):
         poseFile = open(os.path.join(DIR, "{}.png".format(choice)), 'rb')
         await message.channel.send(file=discord.File(poseFile))
 
+    async def getGenre(self, message, params):
+        thematicArr = ["Action", "Drama", "Romance", "Documentary", "Horror", "Comedy", "Adventure", "Mystery", "Thriller", "Musical"]
+        aestheticArr = ["Sci-Fi","Fantasy","Holiday","School","Historical","Crime","Family","Spy","Sports","Western","War","Slice of Life","Martial Arts","Legal","Kaiju","Apocalypse","Superhero","Urban","Cooking"]
+        productionArr = ["Foreign","B-movie","Indie","Hollywood","Silent","Animated","Exploitation","<1960s","1960s","1970s","1980s","1990s","2000s","2010-20s"]
+
+        qualifierArr = random.choice([aestheticArr, productionArr])
+
+        decision = "a **" + random.choice(qualifierArr) + " " + random.choice(thematicArr) + "** film"
+
+        await message.channel.send(random.choice(self.CHOICE_STRINGS).format(decision))
+
     ###################
     #   Bot Methods   #
     ###################
@@ -43,6 +54,7 @@ class MettatonBot(SimpleVoteBot):
         super().__init__(prefix, "OHHH YES!", "GUESS YOU DON'T WANT TO JOIN MY FAN CLUB...?")
 
         self.addCommand('pose', self.getPose, lambda x: True, "Strike a pose")
+        self.addCommand('genre', self.getGenre, lambda x: True, "Select a film genre from my massive database")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Mettaton Bot')

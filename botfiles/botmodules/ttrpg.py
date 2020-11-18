@@ -94,13 +94,24 @@ class TTRPGBot(DiscordBot):
             if not await self.assertUserIsSelfOrGM(message.channel, message.author, user):
                 return
 
-            addPattern = "^(?:(\d+)\s+)?(\w+(?:-\w+)*)\s*(?:\s+(.+))?"
+            addPattern = "^(?:(\d+)\s+)?(\w+(?:-\w+)*)(?:\s+(.+))?"
             addMatch = re.match(addPattern, " ".join(subTokens))
             if addMatch == None:
                 return await helpItems(user, ["add"])
 
             count = int(addMatch.group(1)) if addMatch.group(1) is not None else 1
-            itemAlias = addMatch.group(2)
+            
+            itemAliasIsInteger = True
+            try:
+                itemAlias = int(addMatch.group(2))
+            except ValueError:
+                itemAliasIsInteger = False
+
+            if itemAliasIsInteger:
+                return await message.channel.send("I don't allow numeric item names, sorry.")
+
+            itemAlias = addMatch.group(2).lower()
+
             tagArray = addMatch.group(3).split(",") if addMatch.group(3) is not None else []
 
             if count == 0:
@@ -132,8 +143,8 @@ class TTRPGBot(DiscordBot):
             if removeMatch == None:
                 return await helpItems(user, ["remove"])
 
-            count = int(removeMatch.group(1))
-            itemAlias = removeMatch.group(2)
+            count = int(removeMatch.group(1)) if removeMatch.group(1) is not None else 1
+            itemAlias = removeMatch.group(2).lower()
 
             inventory = self.guildCharactersMap[message.channel.guild.id][user.id]["inventory"]
             if itemAlias not in inventory:
@@ -150,7 +161,7 @@ class TTRPGBot(DiscordBot):
             if not await self.assertUserIsSelfOrGM(message.channel, message.author, user):
                 return
 
-            if subTokens[0] != "add" and subTokens[0] != "remove":
+            if len(subTokens) == 0 or (subTokens[0] != "add" and subTokens[0] != "remove"):
                 return await helpItems(user, ["tag"])
 
             inventory = self.guildCharactersMap[message.channel.guild.id][user.id]["inventory"]
@@ -176,24 +187,8 @@ class TTRPGBot(DiscordBot):
 
 
         async def listItems(user, subTokens):
-            if not await self.assertPlayerExists(message.channel, user):
-                return
             output = ":shopping_bags: **{}'s Items:**\n".format(self.guildCharactersMap[message.channel.guild.id][user.id]["name"])
-
-            maxItemKeyStrLength = 0
-            for itemKey in self.guildCharactersMap[message.channel.guild.id][user.id]["inventory"].keys():
-                maxItemKeyStrLength = max(maxItemKeyStrLength, len(itemKey))
-
-            for itemKey, itemObj in self.guildCharactersMap[message.channel.guild.id][user.id]["inventory"].items():
-                if itemObj["count"] == 0:
-                    continue
-                tagString = ""
-                if len(itemObj["tags"]) > 0:
-                    tagString = " - `{}`".format("`, `".join(itemObj["tags"]))
-                output += "{}{} ({}){}\n".format(itemKey, " "*(maxItemKeyStrLength - len(itemKey)), itemObj["count"], tagString)
-
-            await message.channel.send(output)
-
+            await message.channel.send(output + await self.getInventoryList(message, user))
 
         subcommands = {
             "help": helpItems,
@@ -205,7 +200,7 @@ class TTRPGBot(DiscordBot):
 
         tokens = params.split(" ")
         if len(params) == 0:
-            tokens = ["help"]
+            tokens = ["list"]
 
         if tokens[0] in subcommands.keys():
             await subcommands[tokens[0]](message.author, tokens[1:])
@@ -478,13 +473,7 @@ class TTRPGBot(DiscordBot):
             for stat in stats:
                 output += "**{}**{}: {}/{}\n".format(stat, " "*(maxStatStrLength - len(stat)), char["stats"][stat]["current"], char["stats"][stat]["max"])
             output += ":shopping_bags: **__INVENTORY__** :shopping_bags:\n"
-            for itemKey, itemObj in char["inventory"].items():
-                if itemObj["count"] == 0:
-                    continue
-                tagString = ""
-                if len(itemObj["tags"]) > 0:
-                    tagString = " - `{}`".format("`, `".join(itemObj["tags"]))
-                output += "• {}{} ({}){}\n".format(itemKey, " "*(maxItemKeyStrLength - len(itemKey)), itemObj["count"], tagString)
+            output += await self.getInventoryList(message, user)
             output += ":notepad_spiral: **__NOTES__** :notepad_spiral:\n"
             for note_i in range(len(char["notes"])):
                 output += "**{}.** {}\n".format(note_i + 1, char["notes"][note_i])
@@ -508,7 +497,7 @@ class TTRPGBot(DiscordBot):
                 name = self.guildCharactersMap[message.channel.guild.id][user.id]["name"]
                 del self.guildCharactersMap[message.channel.guild.id][user.id]
                 self.saveState()
-                await message.channel.send(":skull_crossbones: {} was deleted! さよなら! :skull_crossbones".format(name))
+                await message.channel.send(":skull_crossbones: {} was deleted! さよなら! :skull_crossbones:".format(name))
 
         async def listChars(user, subTokens):
             output = ":notebook_with_decorative_cover: Characters in party:\n"
@@ -823,6 +812,25 @@ class TTRPGBot(DiscordBot):
 
         await channel.send("FIXME {}={}".format(stat, newAmount))
 
+    async def getInventoryList(self, message, user):
+        if not await self.assertPlayerExists(message.channel, user):
+            return
+
+        # maxItemKeyStrLength = 0
+        # for itemKey in self.guildCharactersMap[message.channel.guild.id][user.id]["inventory"].keys():
+        #     maxItemKeyStrLength = max(maxItemKeyStrLength, len(itemKey))
+
+        output = ""
+        for itemKey, itemObj in sorted(self.guildCharactersMap[message.channel.guild.id][user.id]["inventory"].items()):
+            if itemObj["count"] == 0:
+                continue
+            tagString = ""
+            if len(itemObj["tags"]) > 0:
+                tagString = " - `{}`".format("`, `".join(itemObj["tags"]))
+            output += "{} ({}){}\n".format(itemKey, itemObj["count"], tagString)
+
+        return output
+
     # Returns True if the guild has been configured, otherwise False and prints message
     async def assertGuildConfigured(self, channel):
         if channel.guild.id not in self.guildConfigMap:
@@ -952,6 +960,7 @@ class TTRPGBot(DiscordBot):
         self.addCommand('notes', self.manageNotes, lambda x: True)
         self.addCommand('n', self.manageNotes, lambda x: True)
         self.addCommand('item', self.manageInventory, lambda x: True, "Manage your inventory")
+        self.addCommand('items', self.manageInventory, lambda x: True)
         self.addCommand('i', self.manageInventory, lambda x: True)
         self.addCommand('inv', self.manageInventory, lambda x: True)
         self.addCommand('inventory', self.manageInventory, lambda x: True)
