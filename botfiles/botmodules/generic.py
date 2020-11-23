@@ -125,18 +125,76 @@ class DiscordBot:
     async def echo(self, message, params):
         await message.channel.send(params)
 
-    async def getDieRoll(self, message, params):
-            params = params.split("d")
-            if len(params) != 2 or not (params[0].isdigit() and params[1].isdigit()):
-                await message.channel.send("Required syntax: `!roll XdY`")
-            elif int(params[0]) > DiscordBot.MAX_DICE:
-                await message.channel.send("I can't possibly hold {} dice!".format(params[0]))
-            else:
-                result = 0
-                for x in range(0, int(params[0])):
-                    result = result + random.randint(1, int(params[1]))
+    # async def getDieRoll(self, message, params):
+    #         params = params.split("d")
+    #         if len(params) != 2 or not (params[0].isdigit() and params[1].isdigit()):
+    #             await message.channel.send("Required syntax: `!roll XdY`")
+    #         elif int(params[0]) > DiscordBot.MAX_DICE:
+    #             await message.channel.send("I can't possibly hold {} dice!".format(params[0]))
+    #         else:
+    #             result = 0
+    #             for x in range(0, int(params[0])):
+    #                 result = result + random.randint(1, int(params[1]))
 
-            await message.channel.send("You rolled {}!".format(result))
+    #         await message.channel.send("You rolled {}!".format(result))
+
+    #!roll 4 - 1d4 + 24 - 3 + 23d100
+    async def rollDice(self, message, params):
+        statements = re.sub('\s+', "", params).split(",") # remove whitespace and split on commas
+        output = "🎲 " + message.author.mention + " rolled:\n"
+        for statement in statements[:5]: # max of 5 rolls at once
+            if statement[0] != "-":
+                statement = "+"+statement
+
+            tokens = re.findall('[\+-]\d+(?:d\d+)?', statement) # => ["+4", "-1d4", "+24", "-3", "+23d100"]
+
+            tokenResults = [] # [[-3],[99, 3, 42, ...]]
+            total = 0 # 4 - 3 + 24 - 3 + 99 + 3 + 42 + ...
+            constantSubtotal = 0 # 4 + 24 - 3
+
+            output += "**"+ statement[1:] + "** : `"
+            if len(tokens) == 0:
+                output += "Could not parse roll`\n"
+                continue
+
+            for token in tokens:
+                sign = 1 if token[0] == "+" else -1
+                token = token[1:] # remove sign
+                diceParams = token.split("d")
+                numDice = int(diceParams[0])
+                if len(diceParams) == 1:
+                    subtotal = sign * numDice
+                    constantSubtotal += subtotal
+                    total += subtotal
+                else:
+                    rolls = []
+                    diceRange = int(diceParams[1])
+                    for x in range(0, numDice):
+                        subtotal = sign * random.randint(1, diceRange)
+                        rolls.append(subtotal)
+                        total += subtotal
+                    tokenResults.append(rolls)
+
+            rollResultsString = ""
+            for res in tokenResults:
+                rollResultsString += "+ ("
+                for diceRes in res[:-1]:
+                    rollResultsString += str(diceRes) + ", "
+                rollResultsString += str(res[-1]) + ") "
+            rollResultsString = rollResultsString[2:-1] # take off the starting plus and ending space
+
+            constStr = ""
+            if constantSubtotal != 0:
+                if len(tokenResults) > 0:
+                    constSignStr = "+" if constantSubtotal >= 0 else "-"
+                    constStr = " " + constSignStr + " " + str(abs(constantSubtotal))
+                else:
+                    constStr = str(constantSubtotal)
+            output += "{}{}` = **{}**\n".format(rollResultsString, constStr, str(total))
+
+        await message.channel.send(output)
+        if self.getDeleteDelay(message.channel.guild.id) > 0:
+            await message.delete(delay=self.getDeleteDelay(message.channel.guild.id))
 
     async def chooseRand(self, message, params):
         a = re.match('^\d+', params)
@@ -248,6 +306,9 @@ class DiscordBot:
 
         # Compile lists of candidate mentions
         candidates = message.author.voice.channel.members
+        print(message.author, message.author.voice, message.author.voice.channel)
+        print("Teams:", teamCount )
+        print("Candidates:", candidates)
         if len(candidates) < teamCount:
             await message.channel.send("There are fewer players than teams!")
             return
@@ -354,7 +415,7 @@ class DiscordBot:
         self.addCommand('ping',     self.ping,       lambda x: True)
         self.addCommand('echo',     self.echo,       lambda x: True)
 
-        self.addCommand('roll',     self.getDieRoll, lambda x: True, "Roll X Y-sided dice",                  "XdY")
+        self.addCommand('roll',     self.rollDice,   lambda x: True, "Roll dice", "4d3 + 4 + 1d20")
         self.addCommand('choose',   self.chooseRand, lambda x: True, "Choose a random member from the list", "a,list,of,things")
 
         self.addCommand('captain', self.chooseCaptain, lambda x: True, "Choose a random user from the current voice channel")

@@ -1,9 +1,9 @@
 import discord
 import asyncio
-from .botmodules import TTRPGBot
+from .botmodules import DNDBot
 import argparse
 
-class LifBot(TTRPGBot):
+class LifBot(DNDBot):
     ###################
     #    Constants    #
     ###################
