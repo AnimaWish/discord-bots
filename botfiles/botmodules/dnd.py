@@ -489,6 +489,10 @@ class DNDBot(DiscordBot):
         await message.channel.send(random.choice(choices))
         return
 
+    async def refreshGMs(subTokens):
+        await self.fetchGMs()
+        return await message.channel.send(":tropical_drink: GMs refreshed")
+
     def saveXP(self):
         if not os.path.isfile(self.xpFilePath):
             os.makedirs(os.path.dirname(self.xpFilePath), exist_ok=True)
@@ -607,7 +611,7 @@ class DNDBot(DiscordBot):
         self.pendingSpells = {} # {messageID: {message: confirmationMessageObj, spell: spellDict} }
 
         self.addCommand('xp', self.manageXP, lambda x: True, "See XP", "+1000")
-        self.addCommand('refresh', self.refreshGMList, lambda x: True)
+        self.addCommand('refresh', self.refreshGMs, lambda x: True)
         self.addCommand('spell', self.lookupSpell, lambda x: True, "Look up a spell", "Acid Arrow")
         self.addCommand('spelllist', self.spellListLink, lambda x: True, "Get a link to the spell list")
         self.addCommand('addspell', self.addSpell, lambda x: True, "Paste in a spell to save it forever")
