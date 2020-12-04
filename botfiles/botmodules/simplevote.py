@@ -152,7 +152,7 @@ class SimpleVoteBot(DiscordBot):
         standings = [0]*len(electionObj["choices"])
         for ballot in electionObj["ballots"]:
             for vote_i in range(len(electionObj["ballots"][ballot])):
-                standings[electionObj["ballots"][ballot][vote_i]] = strengths[vote_i]
+                standings[electionObj["ballots"][ballot][vote_i]] += strengths[vote_i]
 
         outputString = self.constructRankChoiceMessage(electionObj["text"], electionObj["choices"], electionObj["emoji"], standings, electionObj["ballots"], electionObj["names"], isClosed)
         await electionObj["message"].edit(content=outputString)
