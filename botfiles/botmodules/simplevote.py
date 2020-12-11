@@ -24,6 +24,11 @@ class SimpleVoteBot(DiscordBot):
         "sports": ["⚽", "🏀","🏈","⚾","🎾","🏐","🏉","🥏","🎱","🏓","🏸","🏒","🏏",],
         "instruments": ["🎹","🥁","🎷","🎺","🎸","🪕","🎻","🎤",],
         "vehicles": ["🚗","🚕","🚌","🏎","🚓","🚑","🚒","🚛","🚜","🚲","🛵","🚂","✈️","🚀","🛸","🚁","🚤","⛵️",],
+        "money": ["💵","💴","💶","💷","💳","💎","⏳","🧂"],
+        "hearts": ["❤️","🧡","💛","💚","💙","💜","🤍","🤎"],
+        "photos": ["🗾","🎑","🏞","🌄","🌠","🎆","🌇","🌃","🌉","🌁"],
+        "bodyparts": ["🦶","🦵","👄","🦷","👅","👂","👃","👁","🧠"],
+        "clothes": ["🧥","🥼","🦺","👚","👕","👖","🩲","🩳","👔","👗","👙","👘","🥻","🩱"],
         "misc": ["🔫","🧲","💣","🔪","🚬","⚰️","🔮","🔬","💊","💉","🧬","🦠","🌡","🧸","🎁","💿","⏰","🧯","💎",], 
     }
 
@@ -45,11 +50,11 @@ class SimpleVoteBot(DiscordBot):
                 validEmojiSets.append(key)
 
         emojiSetKey = random.choice(validEmojiSets)
-        emojiMap = SimpleVoteBot.EMOJI_SETS[emojiSetKey][:len(choices)]
+        emojiMap = SimpleVoteBot.EMOJI_SETS[emojiSetKey]
         if emojiSetKey != "letters":
             random.shuffle(emojiMap)
 
-        return (referendum, choices, emojiMap)
+        return (referendum, choices, emojiMap[:len(choices)])
 
     async def populateVoteEmoji(self, voteMessage, emojiMap, depth=1):
         # Add the ballot options as reactions. If we get a Forbidden error, that means that people added extra reactions before the bot could finish adding them.
@@ -218,7 +223,9 @@ class SimpleVoteBot(DiscordBot):
         if len(standings) > 0:
             for i in range(len(standings)):
                 numEmoji = 0
-                if largestStandingValue > 0:
+                if largestStandingValue > 0 and largestStandingValue <= 12:
+                    numEmoji = standings[i]
+                elif largestStandingValue > 12:
                     numEmoji = int(math.floor(12 * standingsProportions[i]))
                 if numEmoji == 0 and standings[i] > 0:
                     numEmoji = 1
