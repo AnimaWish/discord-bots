@@ -23,7 +23,7 @@ class SimpleVoteBot(DiscordBot):
         "drinks": ["🍺","🥂","🍷","🥃","🍸","🍹",],
         "sports": ["⚽", "🏀","🏈","⚾","🎾","🏐","🏉","🥏","🎱","🏓","🏸","🏒","🏏",],
         "instruments": ["🎹","🥁","🎷","🎺","🎸","🪕","🎻","🎤",],
-        "vehicles": ["🚗","🚕","🚌","🏎","🚓","🚑","🚒","🚛","🚜","🚲","🛵","🚂","✈️","🚀","🛸","🚁","🚤","⛵️",],
+        "vehicles": ["🚗","🚕","🚌","🏎","🚓","🚑","🚒","🚛","🚜","🚲","🛵","🚂","✈️","🚀","🛸","🚁","🚤"],
         "money": ["💵","💴","💶","💷","💳","💎","⏳","🧂"],
         "hearts": ["❤️","🧡","💛","💚","💙","💜","🤍","🤎"],
         "photos": ["🗾","🎑","🏞","🌄","🌠","🎆","🌇","🌃","🌉","🌁"],
@@ -31,6 +31,8 @@ class SimpleVoteBot(DiscordBot):
         "clothes": ["🧥","🥼","🦺","👚","👕","👖","🩲","🩳","👔","👗","👙","👘","🥻","🩱"],
         "misc": ["🔫","🧲","💣","🔪","🚬","⚰️","🔮","🔬","💊","💉","🧬","🦠","🌡","🧸","🎁","💿","⏰","🧯","💎",], 
     }
+
+    CANCEL_EMOJI = ["🚫", "⛔", "🛑"]
 
     async def parseVote(self, message, params):
         ballotPattern = "^([^\?]+\?)\s*(.+)$"
@@ -42,7 +44,7 @@ class SimpleVoteBot(DiscordBot):
             return
 
         referendum = ballotMatch.group(1)
-        choices = ballotMatch.group(2).split(",")[:20]
+        choices = [a.strip() for a in ballotMatch.group(2).split(",")[:20]]
 
         validEmojiSets = []
         for key, emojiSet in SimpleVoteBot.EMOJI_SETS.items():
@@ -100,6 +102,7 @@ class SimpleVoteBot(DiscordBot):
         postedMessage = await message.channel.send(text)
 
         self.elections[postedMessage.id] = {
+            "ownerId": message.author.id,
             "message": postedMessage,
             "text": referendum,
             "choices": choices,
@@ -119,17 +122,18 @@ class SimpleVoteBot(DiscordBot):
                 newVote = i
                 break
 
-        if newVote == -1:
+        if newVote == -1 and reactionPayload.emoji.name not in self.CANCEL_EMOJI:
             return
 
-        if reactionPayload.event_type == "REACTION_ADD":
-            if reactionPayload.user_id not in electionObj["names"]:
-                electionObj["names"][reactionPayload.user_id] = reactionPayload.member.nick or reactionPayload.member.name
-                electionObj["ballots"][reactionPayload.user_id] = []
-            electionObj["ballots"][reactionPayload.user_id].append(newVote)
-        else:
-            if reactionPayload.user_id in electionObj["names"]:
-                electionObj["ballots"][reactionPayload.user_id].remove(newVote)
+        if newVote != -1:
+            if reactionPayload.event_type == "REACTION_ADD":
+                if reactionPayload.user_id not in electionObj["names"]:
+                    electionObj["names"][reactionPayload.user_id] = reactionPayload.member.nick or reactionPayload.member.name
+                    electionObj["ballots"][reactionPayload.user_id] = []
+                electionObj["ballots"][reactionPayload.user_id].append(newVote)
+            else:
+                if reactionPayload.user_id in electionObj["names"]:
+                    electionObj["ballots"][reactionPayload.user_id].remove(newVote)
 
         def generateExponentialVoteStrength():
             voteStrengths = [0]*len(electionObj["choices"])
@@ -161,6 +165,8 @@ class SimpleVoteBot(DiscordBot):
 
         outputString = self.constructRankChoiceMessage(electionObj["text"], electionObj["choices"], electionObj["emoji"], standings, electionObj["ballots"], electionObj["names"], isClosed)
         await electionObj["message"].edit(content=outputString)
+        if isClosed:
+            del self.elections[reactionPayload.message_id] 
 
     #
     # referendum: string          referendum
@@ -190,9 +196,9 @@ class SimpleVoteBot(DiscordBot):
                 longestStandingLength = len(str(standing))
             if standing > largestStandingValue:
                 largestStandingValue = standing
-                currentLeaders = [i]
+                currentLeaders = [emoji[i] + " " + choices[i]]
             elif standing == largestStandingValue:
-                currentLeaders.append(i)
+                currentLeaders.append(emoji[i] + " " + choices[i])
         standingsPaddings = {}
         for i in range(len(standings)):
             standingsPaddings[i] = " "*(longestStandingLength - len(str(standings[i])))
@@ -239,10 +245,10 @@ class SimpleVoteBot(DiscordBot):
             if len(currentLeaders) > 2:
                 leaderString = ""
                 for leader in currentLeaders[:-1]:
-                    leaderString += "**{}**,".format(leader)
+                    leaderString += "**{}**, ".format(leader)
                 leaderString += "and **{}** are the victors!".format(currentLeaders[-1])
 
-            output += "\nThe polls have closed, and {}".format(leaderString)
+            output += "\n🗳️ *The polls have closed, and {}* 🗳️".format(leaderString)
         else:
             output += "\n*Click emoji in order from favorite to least favorite! Remember to double check your ballot!*"
         return output
@@ -251,15 +257,15 @@ class SimpleVoteBot(DiscordBot):
         await super().on_raw_reaction_add(payload)
 
         if payload.user_id != self.client.user.id and payload.message_id in self.elections:
-            await self.updateRankVote(payload, False)
+            if payload.emoji.name in self.CANCEL_EMOJI and payload.user_id == self.elections[payload.message_id]["ownerId"]:
+                await self.updateRankVote(payload, True)
+            else:
+                await self.updateRankVote(payload, False)
 
     async def on_raw_reaction_remove(self, payload):
         await super().on_raw_reaction_remove(payload)
         if payload.user_id != self.client.user.id and payload.message_id in self.elections:
-            if payload.emoji.name == "🚫" and payload.user_id == self.elections[payload.message_id]["message"].author.id:
-                await self.updateRankVote(payload, True)
-            else:
-                await self.updateRankVote(payload, False)
+            await self.updateRankVote(payload, False)
 
     ###################
     #     Startup     #
@@ -270,6 +276,7 @@ class SimpleVoteBot(DiscordBot):
 
 
         # self.elections[message.id] = {
+        #     "ownerId": string,
         #     "message": messageObj,
         #     "text": string,
         #     "choices": []string,
