@@ -222,30 +222,33 @@ class DiscordBot:
 
         await message.channel.send(random.choice(DiscordBot.CHOICE_STRINGS).format(resultString))
 
-    def constructReadyMessage(self, authorMention, readyUsers):
+    def constructReadyMessage(self, readyUsers):
         mentions = []
         for userID in readyUsers:
             if not readyUsers[userID]["isReady"]:
                 mentions.append(readyUsers[userID]["mention"])
-
         if len(mentions) == 0:
             return "Everyone is ready!"
 
-        return "The following people are not ready:\n{}".format(authorMention, "\n".join(mentions))
+        return "The following people are not ready:\n{}".format("\n".join(mentions))
 
     async def readyCheck(self, message, params):
         if message.author.voice == None or message.author.voice.channel == None:
             await message.channel.send("You are not in a voice channel!")
             return
 
-        candidates = message.author.voice.channel.members
+        voice_states = message.author.voice.channel.voice_states
 
+        candidates = []
+        for memberID in voice_states.keys():
+            candidates.append(message.channel.guild.get_member(memberID))
+        
         readyUsers = {}
 
         for candidate in candidates:
             readyUsers[candidate.id] = {"mention": candidate.mention, "isReady": False}
 
-        message = await message.channel.send(self.constructReadyMessage(message.author.mention, readyUsers))
+        message = await message.channel.send(self.constructReadyMessage(readyUsers))
 
         await message.add_reaction("👍")
         self.readyChecks[message.id] = {"message": message, "users": readyUsers}
@@ -260,7 +263,7 @@ class DiscordBot:
 
         self.readyChecks[message.id]["users"][reactPayload.user_id]["isReady"] = isAddReactionEvent
 
-        await message.edit(content=self.constructReadyMessage(message.author.mention, self.readyChecks[message.id]["users"]))
+        await message.edit(content=self.constructReadyMessage(self.readyChecks[message.id]["users"]))
 
         for userID in self.readyChecks[message.id]["users"]:
             if not self.readyChecks[message.id]["users"][userID]["isReady"]:
