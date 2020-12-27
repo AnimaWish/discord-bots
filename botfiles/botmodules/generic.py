@@ -238,6 +238,7 @@ class DiscordBot:
             return
 
         voice_states = message.author.voice.channel.voice_states
+
         candidates = []
         for memberID in voice_states.keys():
             candidates.append(message.channel.guild.get_member(memberID))
@@ -275,11 +276,8 @@ class DiscordBot:
             await message.channel.send("You are not in a voice channel!")
             return
 
-        voice_states = message.author.voice.channel.voice_states
-        candidates = []
-        for memberID in voice_states.keys():
-            candidates.append(message.channel.guild.get_member(memberID))
-        
+        candidates = message.author.voice.channel.members
+
         await message.channel.send(random.choice(DiscordBot.CHOICE_STRINGS).format(random.choice(candidates).name))
 
     async def chooseTeams(self, message, params):
@@ -310,11 +308,10 @@ class DiscordBot:
                     return
 
         # Compile lists of candidate mentions
-        voice_states = message.author.voice.channel.voice_states
-        candidates = []
-        for memberID in voice_states.keys():
-            candidates.append(message.channel.guild.get_member(memberID))
-
+        candidates = message.author.voice.channel.members
+        print(message.author, message.author.voice, message.author.voice.channel)
+        print("Teams:", teamCount )
+        print("Candidates:", candidates)
         if len(candidates) < teamCount:
             await message.channel.send("There are fewer players than teams!")
             return
