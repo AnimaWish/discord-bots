@@ -237,14 +237,10 @@ class DiscordBot:
             await message.channel.send("You are not in a voice channel!")
             return
 
-        voice_states = message.author.voice.channel.voice_states
-
-        candidates = []
-        for memberID in voice_states.keys():
-            candidates.append(message.channel.guild.get_member(memberID))
+        candidates = message.author.voice.channel.members
+        print(candidates)
         
         readyUsers = {}
-
         for candidate in candidates:
             readyUsers[candidate.id] = {"mention": candidate.mention, "isReady": False}
 
