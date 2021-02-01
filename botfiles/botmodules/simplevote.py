@@ -12,7 +12,7 @@ from .generic import DiscordBot
 
 class SimpleVoteBot(DiscordBot):
     EMOJI_SETS = {
-        #"letters": ["🇦","🇧","🇨","🇩","🇪","🇫","🇬","🇭","🇮","🇯","🇰","🇱","🇲","🇳","🇴","🇵","🇶","🇷","🇸","🇹","🇺","🇻","🇼","🇽","🇾","🇿"],
+        "letters": ["🇦","🇧","🇨","🇩","🇪","🇫","🇬","🇭","🇮","🇯","🇰","🇱","🇲","🇳","🇴","🇵","🇶","🇷","🇸","🇹","🇺","🇻","🇼","🇽","🇾","🇿"],
         "mammals": ["🐶","🐱","🐭","🐹","🐰","🦊","🐻","🐼","🐨","🐯","🦁","🐮","🐷","🐵","🐺","🐗","🐴",], 
         "fish": ["🐙","🦑","🦀","🐡","🐠","🐟","🐬","🐳","🦈","🐊","🐚","🦐","🦞"], 
         "bugs": ["🐝","🐛","🦋","🐌","🐞","🦟","🦗","🦂",],
@@ -33,6 +33,8 @@ class SimpleVoteBot(DiscordBot):
     }
 
     CANCEL_EMOJI = ["🚫", "⛔", "🛑"]
+
+    ZERO_WIDTH_SPACE = "‎"
 
     async def parseVote(self, message, params):
         ballotPattern = "^([^\?]+\?)\s*(.+)$"
@@ -80,16 +82,7 @@ class SimpleVoteBot(DiscordBot):
     async def callSimpleVote(self, message, params):
         ballotText, choices, emoji = await self.parseVote(message, params)
 
-        def constructBallotMessage(text, choices, emoji):
-            ballotMessage = "__**Referendum:**__ {}\n\n__**Choices**__".format(ballotText)
-            for i, choice in enumerate(choices):
-                ballotMessage = "{}\n{} {}".format(ballotMessage, emoji[i], choice.strip())
-
-            ballotMessage = ballotMessage + "\n\n*Click an emoji below to vote! You can see how people voted by clicking \"Reactions\" in the menu on this message!*"
-
-            return ballotMessage
-
-        messageText = constructBallotMessage(ballotText, choices, emoji)
+        messageText = self.constructBallotMessage(ballotText, choices, emoji, "You can see how people voted by clicking \"Reactions\" in the menu on this message!*")
 
         postedMessage = await message.channel.send(messageText)
         await self.populateVoteEmoji(postedMessage, emoji)
@@ -98,12 +91,16 @@ class SimpleVoteBot(DiscordBot):
     async def callRankVote(self, message, params):
         referendum, choices, emoji = await self.parseVote(message, params)
 
-        text = self.constructRankChoiceMessage(referendum, choices, emoji, [], {}, {})
-        postedMessage = await message.channel.send(text)
+        text = self.constructBallotMessage(referendum, choices, emoji, "*Click emoji in order from favorite to least favorite! Remember to double check your ballot!*")
+        choiceMessage = await message.channel.send(text)
 
-        self.elections[postedMessage.id] = {
+        text2 = self.constructRankChoiceResultsMessage(referendum, choices, emoji, [], {}, {})
+        resultMessage = await message.channel.send(text2)
+
+        self.elections[choiceMessage.id] = {
             "ownerId": message.author.id,
-            "message": postedMessage,
+            "ballotMessage": choiceMessage,
+            "resultMessage": resultMessage,
             "text": referendum,
             "choices": choices,
             "emoji": emoji,
@@ -111,7 +108,7 @@ class SimpleVoteBot(DiscordBot):
             "names": {}
         }
 
-        await self.populateVoteEmoji(postedMessage, emoji)
+        await self.populateVoteEmoji(choiceMessage, emoji)
 
     async def updateRankVote(self, reactionPayload, isClosed=False):
         electionObj = self.elections[reactionPayload.message_id]
@@ -163,11 +160,24 @@ class SimpleVoteBot(DiscordBot):
             for vote_i in range(len(electionObj["ballots"][ballot])):
                 standings[electionObj["ballots"][ballot][vote_i]] += strengths[vote_i]
 
-        outputString = self.constructRankChoiceMessage(electionObj["text"], electionObj["choices"], electionObj["emoji"], standings, electionObj["ballots"], electionObj["names"], isClosed)
-        await electionObj["message"].edit(content=outputString)
+        if isClosed:
+            await electionObj["ballotMessage"].edit(content=self.constructBallotMessage(electionObj["text"], electionObj["choices"], electionObj["emoji"], "*This poll is now closed!*"))
+
+        outputString = self.constructRankChoiceResultsMessage(electionObj["text"], electionObj["choices"], electionObj["emoji"], standings, electionObj["ballots"], electionObj["names"], isClosed)
+        await electionObj["resultMessage"].edit(content=outputString)
         if isClosed:
             del self.elections[reactionPayload.message_id] 
+    
+    def constructBallotMessage(self, referendum, choices, emoji, helpString):
+        output = "**__Referendum:__** {}\n".format(referendum)
+        output += "\n**__Choices__**\n"
+        for i in range(len(choices)):
+            output += "{} {}\n".format(emoji[i], choices[i])
 
+        output += "\n" + helpString
+
+        return output
+        
     #
     # referendum: string          referendum
     # choices: []string           choices, ordered
@@ -177,7 +187,7 @@ class SimpleVoteBot(DiscordBot):
     # names: {userId: []string}   usernames, per user
     # isClosed: bool
     #
-    def constructRankChoiceMessage(self, referendum, choices, emoji, standings, ballots, names, isClosed=False):
+    def constructRankChoiceResultsMessage(self, referendum, choices, emoji, standings, ballots, names, isClosed=False):
         # Determine padding information for Ballots
         longestNameLength = 0
         for name in names.values():
@@ -210,11 +220,7 @@ class SimpleVoteBot(DiscordBot):
             if largestStandingValue > 0:
                 standingsProportions[i] = float(standings[i]) / float(largestStandingValue)
 
-        output = "**__Referendum:__** {}\n".format(referendum)
-        output += "\n**__Choices__**\n"
-        for i in range(len(choices)):
-            output += "{} {}\n".format(emoji[i], choices[i])
-        output += "\n**__Ballots__**\n"
+        output = self.ZERO_WIDTH_SPACE + "\n**__Ballots__**\n"
         if len(ballots) > 0:
             for userId, votes in ballots.items():
                 if len(votes) == 0:
@@ -235,7 +241,7 @@ class SimpleVoteBot(DiscordBot):
                     numEmoji = int(math.floor(12 * standingsProportions[i]))
                 if numEmoji == 0 and standings[i] > 0:
                     numEmoji = 1
-                output += "{} `{}{}` {}\n".format(emoji[i], standingsPaddings[i], standings[i], emoji[i]*numEmoji)
+                output += "{} `{}{}` {}\n".format(emoji[i], standingsPaddings[i], standings[i], (emoji[i]+self.ZERO_WIDTH_SPACE)*numEmoji)
         else:
             output += "*No ballots have been cast!*\n"
         if isClosed:
@@ -250,7 +256,7 @@ class SimpleVoteBot(DiscordBot):
 
             output += "\n🗳️ *The polls have closed, and {}* 🗳️".format(leaderString)
         else:
-            output += "\n*Click emoji in order from favorite to least favorite! Remember to double check your ballot!*"
+            output += "\n🗳️ *Thank you for taking part in the democratic process!* 🗳️"
         return output
 
     async def on_raw_reaction_add(self, payload):
