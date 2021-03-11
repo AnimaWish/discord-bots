@@ -140,8 +140,11 @@ class DiscordBot:
 
     #!roll 4 - 1d4 + 24 - 3 + 23d100
     async def rollDice(self, message, params):
-        statements = re.sub('\s+', "", params).split(",") # remove whitespace and split on commas
+        commentSplit = params.split(";")
+        statements = re.sub('\s+', "", commentSplit[0]).split(",") # remove whitespace and split on commas
         output = "🎲 " + message.author.mention + " rolled:\n"
+        if len(commentSplit[1]) > 0:
+            output += "> " + commentSplit[1].strip() + "\n"
         for statement in statements[:5]: # max of 5 rolls at once
             if statement[0] != "-":
                 statement = "+"+statement
