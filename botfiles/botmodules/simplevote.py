@@ -151,7 +151,7 @@ class SimpleVoteBot(DiscordBot):
         def sequence_gamix(n,i):
             return min(sequence_geometric(n,i,2),sequence_arithmetic(n,i,1))
 
-        strengths = [sequence_gamix(len(electionObj["choices"]),i) for i in range(len(electionObj["choices"]))]
+        strengths = [int(sequence_gamix(len(electionObj["choices"]),i)) for i in range(len(electionObj["choices"]))]
         standings = [0]*len(electionObj["choices"])
         for ballot in electionObj["ballots"]:
             for vote_i in range(len(electionObj["ballots"][ballot])):
