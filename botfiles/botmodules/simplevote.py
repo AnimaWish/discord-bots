@@ -13,7 +13,7 @@ from .generic import DiscordBot
 class SimpleVoteBot(DiscordBot):
     EMOJI_SETS = {
         "letters": ["🇦","🇧","🇨","🇩","🇪","🇫","🇬","🇭","🇮","🇯","🇰","🇱","🇲","🇳","🇴","🇵","🇶","🇷","🇸","🇹","🇺","🇻","🇼","🇽","🇾","🇿"],
-        "mammals": ["🐶","🐱","🐭","🐹","🐰","🦊","🐻","🐼","🐨","🐯","🦁","🐮","🐷","🐵","🐺","🐗","🐴",], 
+        #"mammals": ["🐶","🐱","🐭","🐹","🐰","🦊","🐻","🐼","🐨","🐯","🦁","🐮","🐷","🐵","🐺","🐗","🐴",], 
         "fish": ["🐙","🦑","🦀","🐡","🐠","🐟","🐬","🐳","🦈","🐊","🐚","🦐","🦞"], 
         "bugs": ["🐝","🐛","🦋","🐌","🐞","🦟","🦗","🦂",],
         "plants": ["🌵","🌲","🌴","🍁","🍄","💐","🌹","🌻","🌳"],
@@ -132,29 +132,26 @@ class SimpleVoteBot(DiscordBot):
                 if reactionPayload.user_id in electionObj["names"]:
                     electionObj["ballots"][reactionPayload.user_id].remove(newVote)
 
-        def generateExponentialVoteStrength():
-            voteStrengths = [0]*len(electionObj["choices"])
-            for ballot in electionObj["ballots"]:
-                voteStrength = 2**(len(electionObj["choices"]) - 1)
-                for i in range(len(voteStrength)):
-                    voteStrengths[i] = voteStrength
-                    voteStrength /= 2
-            return voteStrengths
+        def sequence_exponential(n, i):
+            return 2^(n-i-1)
 
-        def generate421VoteStrength():
-            voteStrengths = [0]*len(electionObj["choices"])
-            if len(electionObj["choices"]) == 1:
-                return [1]
-            elif len(electionObj["choices"]) == 2:
-                return [2,1]
-            else:
-                voteStrengths[0] = 4
-                voteStrengths[1] = 2
-                for i in range(len(voteStrengths) - 2):
-                    voteStrengths[i + 2] = 1
-                return voteStrengths
+        def sequence_421(n, i):
+            if i == 0:
+                return 4
+            if i == 1:
+                return 2
+            return 1
 
-        strengths = generate421VoteStrength()
+        def sequence_geometric(n,i,c):
+            return (n*n)/(n+c*i)
+
+        def sequence_arithmetic(n,i,c):
+            return n-(c*i)
+
+        def sequence_gamix(n,i):
+            return min(sequence_geometric(n,i,2),sequence_arithmetic(n,i,1))
+
+        strengths = [sequence_gamix(len(electionObj["choices"]),i) for i in range(len(electionObj["choices"]))]
         standings = [0]*len(electionObj["choices"])
         for ballot in electionObj["ballots"]:
             for vote_i in range(len(electionObj["ballots"][ballot])):
