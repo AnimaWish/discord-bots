@@ -167,8 +167,8 @@ class SimpleVoteBot(DiscordBot):
         if isClosed:
             await electionObj["ballotMessage"].edit(content=self.constructBallotMessage(electionObj["text"], electionObj["choices"], electionObj["emoji"], "*This poll is now closed!*"))
 
-        ballotsOutputString = self.constructRankChoiceResultsMessage(electionObj["text"], electionObj["choices"], electionObj["emoji"], standings, electionObj["ballots"], electionObj["names"], isClosed)
-        standingsOutputString = self.constructRankChoiceResultsMessage(electionObj["text"], electionObj["choices"], electionObj["emoji"], standings, electionObj["ballots"], electionObj["names"], isClosed)
+        ballotsOutputString = self.constructRankChoiceResultBallotsMessage(electionObj["text"], electionObj["choices"], electionObj["emoji"], standings, electionObj["ballots"], electionObj["names"], isClosed)
+        standingsOutputString = self.constructRankChoiceResultStandingsMessage(electionObj["text"], electionObj["choices"], electionObj["emoji"], standings, electionObj["ballots"], electionObj["names"], isClosed)
         await electionObj["resultBallotsMessage"].edit(content=ballotsOutputString)
         await electionObj["resultStandingsMessage"].edit(content=standingsOutputString)
         if isClosed:
@@ -214,6 +214,7 @@ class SimpleVoteBot(DiscordBot):
                 output += "`{}{}` {}\n".format(names[userId], voteListPaddings[userId], voteListString)
         else:
             output += "*No ballots have been cast!*\n"
+        return output
 
     #
     # referendum: string          referendum
