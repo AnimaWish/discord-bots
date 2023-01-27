@@ -23,12 +23,6 @@ class LifBot(DNDBot):
     def getName(self):
         return "lif"
 
-    def __init__(self, prefix="!"):
-        super().__init__(prefix, "*pours a drink*", "*ouija marker goes limp*")
+    def __init__(self, prefix="!", *, intents, **options):
+        super().__init__(prefix, "*pours a drink*", "*ouija marker goes limp*", intents=intents, options=options)
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Lif Bot')
-    parser.add_argument("token", type=str, nargs=1)
-    args = parser.parse_args()
-    liff = LiffBot()
-    liff.run(args.token[0])

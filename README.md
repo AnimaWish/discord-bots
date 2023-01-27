@@ -16,6 +16,8 @@ A repo for Caius' Discord Bots
 discord.py API documentation: https://discordpy.readthedocs.io/
 
 ## To Do
+* Use Bot/Command structure https://discordpy.readthedocs.io/en/stable/ext/commands/api.html#discord.ext.commands.Bot
+
 * Generic
   * Need a better pattern for persisting data
   * Regular expressions for command matching
@@ -25,9 +27,23 @@ discord.py API documentation: https://discordpy.readthedocs.io/
   * better help message structure
   * botCommands are mapped to lists of callbacks, not just one
   * better namespacing for state in bot modules
+  * fix !roll command (semicolon bug and also the format just sucks)
 * Event
   * Plus Ones
 * Logging
   * Full logs saved to disk (?)
   * Bots should self identify in print statements
+  * https://discordpy.readthedocs.io/en/stable/logging.html
 * Unit testing :scream:
+
+
+
+
+## Migration TODO
+* Test Captain/Teams/Ready commands
+* Test Event features
+* Test simplevote features
+
+
+* Test DND bot features
+* Test TTRPG bot features

@@ -23,7 +23,7 @@ class BotCommand:
         else:
             raise PermissionError("{}#{}:({})".format(message.author.name, message.author.discriminator, message.author.id))
 
-class DiscordBot:
+class DiscordBot(discord.Client):
     WISH_USER_ID = 199401793032028160
 
     MAX_DICE = 1000000
@@ -369,7 +369,7 @@ class DiscordBot:
     #  Event Methods  #
     ###################
     async def on_ready(self):
-        print('Logged in as {} ({})'.format(self.client.user.name, self.client.user.id))
+        print('Logged in as {} ({})'.format(self.user.name, self.user.id))
         print('------')
 
     async def on_message(self, message):
@@ -400,9 +400,8 @@ class DiscordBot:
     def getName(self):
         return "generic"
 
-    def __init__(self, prefix="!", greeting="Hello", farewell="Goodbye"):
-        self.loop = asyncio.get_event_loop()
-        self.client = discord.Client(loop=self.loop)
+    def __init__(self, prefix="!", greeting="Hello", farewell="Goodbye", *, intents, **options):
+        super().__init__(intents=intents, options=options)
 
         self.prefix = prefix
         self.greeting = greeting
@@ -425,8 +424,13 @@ class DiscordBot:
         self.addCommand('ready', self.readyCheck, lambda x: True, "Initiate a ready check for users in the current voice channel")
 
         self.addCommand('meats', self.meats, lambda x: True)
+
         
-        self.client.event(self.on_ready)
-        self.client.event(self.on_message)
-        self.client.event(self.on_raw_reaction_add)
-        self.client.event(self.on_raw_reaction_remove)
+
+    async def start(self, token, *, reconnect=True):
+        self.event(self.on_ready)
+        self.event(self.on_message)
+        self.event(self.on_raw_reaction_add)
+        self.event(self.on_raw_reaction_remove)
+
+        await super().start(token, reconnect=reconnect)

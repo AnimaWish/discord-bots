@@ -4,4 +4,3 @@ from .event      import EventBot
 from .idlegame   import IdleGameBot
 from .simplevote import SimpleVoteBot
 from .ttrpg      import TTRPGBot
-from .vote       import VoteBot

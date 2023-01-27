@@ -864,8 +864,8 @@ class TTRPGBot(DiscordBot):
     #     Startup     #
     ###################
 
-    def __init__(self, prefix="!", greeting="Hello", farewell="Goodbye"):
-        super().__init__(prefix, greeting, farewell)
+    def __init__(self, prefix="!", greeting="Hello", farewell="Goodbye", *, intents, **options):
+        super().__init__(prefix, greeting, farewell, intents=intents, options=options)
 
         self.stateFilePath = "storage/{}/state.json".format(self.getName())
 

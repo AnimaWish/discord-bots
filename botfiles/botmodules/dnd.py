@@ -559,8 +559,8 @@ class DNDBot(DiscordBot):
     #     Startup     #
     ###################
 
-    def __init__(self, prefix="!", greeting="Hello", farewell="Goodbye"):
-        super().__init__(prefix, greeting, farewell)
+    def __init__(self, prefix="!", greeting="Hello", farewell="Goodbye", *, intents, **options):
+        super().__init__(prefix, greeting, farewell, intents=intents, options=options)
 
         self.xpFilePath = "storage/{}/xptotals.pickle".format(self.getName())
         self.spellFilePath = "storage/{}/spells.json".format(self.getName())

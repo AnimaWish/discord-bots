@@ -457,8 +457,8 @@ class EventBot(DiscordBot):
     #   Bot Methods   #
     ###################
 
-    def __init__(self, prefix="!", greeting="Hello", farewell="Goodbye"):
-        super().__init__(prefix, greeting, farewell)
+    def __init__(self, prefix="!", greeting="Hello", farewell="Goodbye", *, intents, **options):
+        super().__init__(prefix, greeting, farewell, intents=intents, options=options)
 
         self.addCommand('event-create', self.createEvent, lambda x: True, "Create an event", "cool party name! 1/2/19 7:00pm here is a description")
         self.addCommand('event-guests', self.getGuestList, lambda x: True, "Get guest list",  "")

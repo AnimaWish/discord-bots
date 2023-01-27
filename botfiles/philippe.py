@@ -239,16 +239,18 @@ class PhilippeBot(DiscordBot):
     def getName(self):
         return "mettaton"
 
-    def __init__(self, prefix="!"):
-        super().__init__(prefix, "Here comes a special bot! Here comes a special bot! Here comes a special bot!", "Bye bye!")
+    def __init__(self, prefix="!", *, intents, **options):
+        super().__init__(prefix, "Here comes a special bot! Here comes a special bot! Here comes a special bot!", "Bye bye!", intents=intents, options=options)
 
+        self.progressLogs = {} # Value is another dict with "name", "date", "updated"
+        
         self.addCommand('random', self.getRandomStrip,  lambda x: True, "Get a random comic")
         self.addCommand('prompt', self.getPrompt,       lambda x: True, "Get a random discussion prompt")
         self.addCommand('search', self.searchStrips,    lambda x: True, "Search comic dialogue", "[searchterms]")
         self.addCommand('log',    self.logProgress,     lambda x: True, "Log your progress in the comic", "[comic link or date]")
         self.addCommand('logs',   self.getProgressLogs, lambda x: True, "Print recorded progress logs")
 
-        self.progressLogs = {} # Value is another dict with "name", "date", "updated"
+        
 
     async def on_ready(self):
         await super().on_ready()
@@ -260,10 +262,3 @@ class PhilippeBot(DiscordBot):
             await message.channel.send(comicLink)
 
         await super().on_message(message)
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Philippe Bot')
-    parser.add_argument("token", type=str, nargs=1)
-    args = parser.parse_args()
-    philippe = PhilippeBot()
-    philippe.run(args.token[0])

@@ -50,15 +50,8 @@ class MettatonBot(SimpleVoteBot):
     def getName(self):
         return "mettaton"
 
-    def __init__(self, prefix="!"):
-        super().__init__(prefix, "OHHH YES!", "GUESS YOU DON'T WANT TO JOIN MY FAN CLUB...?")
+    def __init__(self, prefix="!", *, intents, **options):
+        super().__init__(prefix, "OHHH YES!", "GUESS YOU DON'T WANT TO JOIN MY FAN CLUB...?", intents=intents, options=options)
 
         self.addCommand('pose', self.getPose, lambda x: True, "Strike a pose")
         self.addCommand('genre', self.getGenre, lambda x: True, "Select a film genre from my massive database")
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Mettaton Bot')
-    parser.add_argument("token", type=str, nargs=1)
-    args = parser.parse_args()
-    mettaton = MettatonBot()
-    mettaton.run(args.token[0])
