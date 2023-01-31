@@ -31,14 +31,9 @@ discord.py API documentation: https://discordpy.readthedocs.io/
 * Event
   * Plus Ones
 * Test DND/TTRPG commands post-v2.0-migration
+* Test Captain/Teams/Ready commands
 * Logging
   * Full logs saved to disk (?)
   * Bots should self identify in print statements
   * https://discordpy.readthedocs.io/en/stable/logging.html
 * Unit testing :scream:
-
-
-
-
-## Migration TODO
-* Test Captain/Teams/Ready commands

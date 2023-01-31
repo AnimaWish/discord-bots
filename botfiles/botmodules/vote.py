@@ -4,6 +4,7 @@ import re
 import traceback
 from datetime import datetime, timedelta
 import pickle, json, csv, os
+import asyncio
 
 from .generic import DiscordBot
 
@@ -15,13 +16,13 @@ class VoteBot(DiscordBot):
     EMOJI_SETS = {
         "letters": ["🇦","🇧","🇨","🇩","🇪","🇫","🇬","🇭","🇮","🇯","🇰","🇱","🇲","🇳","🇴","🇵","🇶","🇷","🇸","🇹","🇺","🇻","🇼","🇽","🇾","🇿"],
         #"mammals": ["🐶","🐱","🐭","🐹","🐰","🦊","🐻","🐼","🐨","🐯","🦁","🐮","🐷","🐵","🐺","🐗","🐴",], 
-        "fish": ["🐙","🦑","🦀","🐡","🐠","🐟","🐬","🐳","🦈","🐊","🐚","🦐","🦞"], 
+        "fish": ["🐙","🦑","🦀","🐡","🐠","🐟","🐬","🐳","🦈","🐊","🐚","🦐"], 
         "bugs": ["🐝","🐛","🦋","🐌","🐞","🦟","🦗","🦂",],
         "plants": ["🌵","🌲","🌴","🍁","🍄","💐","🌹","🌻","🌳"],
         "fruit": ["🍎","🍐","🍊","🍋","🍌","🍉","🍇","🍓","🍈","🍒","🍑","🥭","🍍","🥥","🥝",],
         "vegetables": ["🍅","🥑","🥦","🥒","🌶","🌽","🥕","🧅","🥔",],
         "junkfood": ["🥨","🧀","🥓","🥞","🧇","🍗","🌭","🍔","🍟","🍕","🥪","🌮","🍝","🎂","🍭","🍫","🍿","🍩","🍪",],
-        "drinks": ["🍺","🥂","🍷","🥃","🍸","🍹",],
+        "drinks": ["🍺","🥂","🍷","🥃","🍸","🍹","🍶"],
         "sports": ["⚽", "🏀","🏈","⚾","🎾","🏐","🏉","🥏","🎱","🏓","🏸","🏒","🏏",],
         "instruments": ["🎹","🥁","🎷","🎺","🎸","🪕","🎻","🎤",],
         "vehicles": ["🚗","🚕","🚌","🏎","🚓","🚑","🚒","🚛","🚜","🚲","🛵","🚂","✈️","🚀","🛸","🚁","🚤"],
@@ -30,18 +31,19 @@ class VoteBot(DiscordBot):
         "photos": ["🗾","🎑","🏞","🌄","🌠","🎆","🌇","🌃","🌉","🌁"],
         "bodyparts": ["🦶","🦵","👄","🦷","👅","👂","👃","👁","🧠"],
         "clothes": ["🧥","🥼","🦺","👚","👕","👖","🩲","🩳","👔","👗","👙","👘","🥻","🩱"],
-        "misc": ["🔫","🧲","💣","🔪","🚬","⚰️","🔮","🔬","💊","💉","🧬","🦠","🌡","🧸","🎁","💿","⏰","🧯","💎",], 
+        "misc": ["🔫","🧲","🔪","🚬","⚰️","🔮","🔬","💊","💉","🧬","🦠","🌡","🧸","🎁","💿","⏰","🧯","💎",], 
+        "shoes": ["👟","🥿","🦶","🥾","👠","👞","👢","🩰","🩴","🛼","👡",],
+        "bags": ["👝","👜","🧳","💼","🎒","👛","🛍️","🥡","📦",],
+        "icons": ["🚹","🚺", "🚼", "♿", "💹","⚕️", "🈲", "📴",],
+        "lewd": ["🥕","🍑","🍆","🥒","🌽","🍌","🍒","🍈","🦴","🌮","🥜","😏","🥵","💦", "🧴",],
+        "bathroom": ["🚽", "🛁", "🪒", "🧴", "🧼","🧻","🪥","🚿","🧽","🪠",]
     }
 
     CANCEL_EMOJI = ["🚫", "⛔", "🛑"]
     ZERO_WIDTH_SPACE = "‎"
     REASSIGNED_VOTE_EMOJI = "⬜"
-    SAVE_EMOJI = ["🖨", "💾"]
+    # SAVE_EMOJI = ["🖨", "💾"]
     REFRESH_EMOJI = ["🔄", "↻", "🔃", "🔁"]
-
-
-
-
 
     async def parseVote(self, message, params):
         ballotPattern = "^([^\?]+\?)\s*(.+)$"
@@ -217,10 +219,13 @@ class VoteBot(DiscordBot):
                 if reactionPayload.user_id in electionObj["names"]:
                     electionObj["ballots"][reactionPayload.user_id].remove(newVote)
 
-        await self.regenerateStandings(electionObj, isClosed)
+        # await self.regenerateStandings(electionObj, isClosed)
+        self.queueRegenerateStandings(electionObj, isClosed)
 
         self.marshalElectionState()
 
+    def queueRegenerateStandings(self, electionObj, isClosed=False):    
+        self.updateQueue[electionObj["messageID"]] = (electionObj, isClosed)
 
     async def regenerateStandings(self, electionObj, isClosed=False):
         if electionObj["isInstantRunoff"]:
@@ -229,7 +234,7 @@ class VoteBot(DiscordBot):
             await self.regenerateStandings_WeightedVote(electionObj, isClosed)
 
         if isClosed:
-            del self.elections[electionObj.guildID][electionObj.messageID] 
+            del self.elections[electionObj["guildID"]][electionObj["messageID"]] 
 
     async def regenerateStandings_InstantRunoff(self, electionObj, isClosed):
         # Count ballots
@@ -534,18 +539,19 @@ class VoteBot(DiscordBot):
 
 
     async def cleanupElections(self):
-        deletedSomething = False
         timeDeltaThreshold = timedelta(seconds=10)#timedelta(weeks=4)
+        electionsToClose = []
         for guildID, guildElectionsMap in self.elections.items():
             for messageID, electionObj in guildElectionsMap.items():
                 delta = datetime.now() - electionObj["lastInteraction"]
                 if delta > timeDeltaThreshold:
-                    print("Automatically closed election: {}".format(messageID))
-                    await self.regenerateStandings(electionObj, True)
-                    deletedSomething = True
+                    electionsToClose.append(electionObj)
+
+        for electionObj in electionsToClose:
+            print("Automatically closed election: {}".format(messageID))
+            await self.regenerateStandings(electionObj, True)
 
         self.marshalElectionState()
-
 
     def marshalElectionState(self):
         if not os.path.isfile(self.electionsDataFilePath):
@@ -590,19 +596,20 @@ class VoteBot(DiscordBot):
 
         # Clear added reactions because we don't know what order they came in
         # Update ballot for removed reactions
-        reactionsToRemove = [] # [[emoji, user], ...]
+        reactionsToRemove = [] # [(emoji, user), ...]
         ballotWasUpdated = False
         for userID, emojiList in userEmojiMap.items():
             if userID in electionObj["ballots"]:
                 ballot = electionObj["ballots"][userID]
                 seenChoices = set()
+                # Remove "new" reactions
                 for emoji in emojiList:
                     choice = self.getVoteFromEmoji(electionObj, emoji)
                     if choice in ballot:
                         seenChoices.add(choice)
                     else:
-                        reactionsToRemove.append([emoji,userMap[userID]])
-
+                        reactionsToRemove.append((emoji,userMap[userID]))
+                # If the reaction is missing, remove it from the ballot
                 for choice in reversed(ballot):
                     if choice not in seenChoices:
                         ballotWasUpdated = True
@@ -610,10 +617,16 @@ class VoteBot(DiscordBot):
 
             else: # new voter added reactions while bot was offline, clear their reactions
                 for emoji in emojiList:
-                    reactionsToRemove.append([emoji,userMap[userID]])
+                    reactionsToRemove.append((emoji,userMap[userID]))
 
         for tup in reactionsToRemove:
             await electionObj["choicesMessage"].remove_reaction(tup[0], tup[1])
+
+        # If all of a user's reactions were removed, update the ballot list accordingly
+        for userID in electionObj["ballots"]:
+            if userID not in userEmojiMap:
+                ballotWasUpdated = True
+                electionObj["ballots"][userID] = []
 
         if ballotWasUpdated:
             await self.regenerateStandings(electionObj)
@@ -677,9 +690,27 @@ class VoteBot(DiscordBot):
             print("Error unmarshaling election state: {}".format(e)) 
             print(traceback.format_exc())
 
+
+    async def processQueue(self):
+        pollTime = .5
+        while True:
+            handledIDs = []
+            for messageID, tup in self.updateQueue.items():
+                if datetime.now() - tup[0]["lastInteraction"] > timedelta(seconds=pollTime):
+                    await self.regenerateStandings(tup[0], tup[1])
+                    handledIDs.append(messageID)
+            for messageID in handledIDs:
+                del self.updateQueue[messageID]
+            await asyncio.sleep(pollTime)
+
     async def on_ready(self):
         await super().on_ready()
         await self.unmarshalElectionState()
+
+        try:
+            asyncio.get_event_loop().create_task(self.processQueue())
+        except Exception as e:
+            print("err: ", e)
 
     async def on_raw_reaction_add(self, payload):
         try:
@@ -716,6 +747,7 @@ class VoteBot(DiscordBot):
         #     "isInstantRunoff": bool,
         # }
         self.elections = {}
+        self.updateQueue = {} # {messageID: [electionObj, isClosed], ...}
 
         try:
             self.tree.add_command(app_commands.Command(
