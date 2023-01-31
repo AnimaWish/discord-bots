@@ -237,7 +237,7 @@ class PhilippeBot(DiscordBot):
     ###################
 
     def getName(self):
-        return "mettaton"
+        return "philippe"
 
     def __init__(self, prefix="!", *, intents, **options):
         super().__init__(prefix, "Here comes a special bot! Here comes a special bot! Here comes a special bot!", "Bye bye!", intents=intents, options=options)
