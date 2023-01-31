@@ -504,7 +504,7 @@ class TTRPGBot(DiscordBot):
             if len(self.guildCharactersMap[message.channel.guild.id].items()) == 0:
                 output += "Nobody :pensive:"
             for userID, char in self.guildCharactersMap[message.channel.guild.id].items():
-                output += "{}, played by {}\n".format(char["name"], self.client.get_user(userID).mention)
+                output += "{}, played by {}\n".format(char["name"], self.get_user(userID).mention)
             await message.channel.send(output)
 
         subcommands = {
@@ -818,11 +818,11 @@ class TTRPGBot(DiscordBot):
     def getUserFromMention(self, guild, mentionStr):
         try:
             userID = int(mentionStr)
-            return self.client.get_user(userID)
+            return self.get_user(userID)
         except ValueError:
             userIDMatch = re.search("\d{15,}", mentionStr)
             if userIDMatch != None:
-                return self.client.get_user(int(userIDMatch.group(0)))
+                return self.get_user(int(userIDMatch.group(0)))
 
         for user in guild.members:
             if user.mention == mentionStr:
@@ -846,7 +846,7 @@ class TTRPGBot(DiscordBot):
         return self.guildGMRoleMap[guildID] in user.roles
 
     async def fetchGMs(self):
-        for guild in self.client.guilds:
+        for guild in self.guilds:
             for role in guild.roles:
                 if role.name == "GM" or role.name == "DM":
                     self.guildGMRoleMap[guild.id] = role

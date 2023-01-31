@@ -90,10 +90,10 @@ class EventBot(DiscordBot):
         for guildID in self.guildChannelMap.keys():
             self.guildEventMap[guildID] = {}
             async for message in self.guildChannelMap[guildID][EVENT_LIST_CHANNEL_NAME].history():
-                if message.author.id == self.client.user.id:
+                if message.author.id == self.user.id:
                     eventInfo = self.decodeEventInfo(message.content)
                     if eventInfo is not None:
-                        channel = self.client.get_channel(eventInfo.channelID)
+                        channel = self.get_channel(eventInfo.channelID)
                         if channel is None:
                             print("Could not import event, channel [" + str(eventInfo.channelID) + "] not found")
                         elif channel.category_id == self.guildChannelMap[channel.guild.id][EVENTS_CATEGORY_NAME].id:
@@ -110,7 +110,7 @@ class EventBot(DiscordBot):
                                 await pinnedMessage.pin()
 
     def getConfigs(self):
-        for guild in self.client.guilds:
+        for guild in self.guilds:
             self.guildChannelMap[guild.id] = {}
             for channel in guild.channels:
                 if channel.name == EVENT_CREATION_CHANNEL_NAME and isinstance(channel, discord.TextChannel):
@@ -215,7 +215,7 @@ class EventBot(DiscordBot):
             reactionString = emojiMap_reverse[str(reaction)] # reaction is "✅", reactionString is "yes"
             results[reactionString] = []
             async for user in reaction.users():
-                if user.id == self.client.user.id:
+                if user.id == self.user.id:
                     continue
                 results[reactionString].append(user)
                 if user.id not in userVoteCounts:
@@ -444,10 +444,10 @@ class EventBot(DiscordBot):
         if self.guildChannelMap[reactionPayload.guild_id][EVENT_LIST_CHANNEL_NAME].id == reactionPayload.channel_id:
             eventListingMessage = await self.guildChannelMap[reactionPayload.guild_id][EVENT_LIST_CHANNEL_NAME].fetch_message(reactionPayload.message_id)
 
-            if eventListingMessage.author.id == self.client.user.id and eventListingMessage.id in self.guildEventMap[eventListingMessage.guild.id]:
+            if eventListingMessage.author.id == self.user.id and eventListingMessage.id in self.guildEventMap[eventListingMessage.guild.id]:
                 eventInfo = self.guildEventMap[eventListingMessage.guild.id][eventListingMessage.id]
 
-                eventChannel = self.client.get_channel(eventInfo.channelID)
+                eventChannel = self.get_channel(eventInfo.channelID)
                 pinnedMessage = await eventChannel.fetch_message(eventInfo.messageID)
                 newContent = await self.constructGuestList(eventChannel)
 

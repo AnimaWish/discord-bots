@@ -2,11 +2,11 @@ import discord
 import asyncio
 import random
 import os
-from .botmodules import SimpleVoteBot
+from .botmodules import VoteBot
 import argparse
 import importlib
 
-class MettatonBot(SimpleVoteBot):
+class MettatonBot(VoteBot):
     ###################
     #    Constants    #
     ###################

@@ -2,11 +2,11 @@ import discord
 import asyncio
 import random
 import re
-from .botmodules import SimpleVoteBot, EventBot
+from .botmodules import VoteBot, EventBot
 import argparse
 import importlib
 
-class ZenyattaBot(EventBot, SimpleVoteBot):
+class ZenyattaBot(EventBot, VoteBot):
     ###################
     #    Constants    #
     ###################

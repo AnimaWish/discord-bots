@@ -76,7 +76,7 @@ class TesterBot:
 
 
 	async def on_ready(self):
-		for guild in self.client.guilds:
+		for guild in self.guilds:
 			testchannel = guild.get_channel(TEST_CHANNEL_ID)
 			if testchannel != None:
 				self.testchannel = testchannel

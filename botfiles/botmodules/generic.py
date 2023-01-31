@@ -6,6 +6,10 @@ import re
 import os, io
 import threading
 import datetime, time
+import traceback
+
+from discord.ext import commands 
+from discord import app_commands
 
 class BotCommand:
     # method must accept `message` and `params`, and return a string or None
@@ -23,7 +27,7 @@ class BotCommand:
         else:
             raise PermissionError("{}#{}:({})".format(message.author.name, message.author.discriminator, message.author.id))
 
-class DiscordBot(discord.Client):
+class DiscordBot(commands.Bot):
     WISH_USER_ID = 199401793032028160
 
     MAX_DICE = 1000000
@@ -370,6 +374,14 @@ class DiscordBot(discord.Client):
     ###################
     async def on_ready(self):
         print('Logged in as {} ({})'.format(self.user.name, self.user.id))
+
+        print("syncing commands...")
+        try:
+            #print(await self.tree.sync()) TODO
+            pass
+        except Exception as e:
+            print(f'caught {type(e)}: ', e)
+        print("commands synced")
         print('------')
 
     async def on_message(self, message):
@@ -384,6 +396,9 @@ class DiscordBot(discord.Client):
                     await command.execute(params, message)
                 except PermissionError as err:
                     print("Insufficient permissions for user {}".format(err))
+                except Exception as err:
+                    print("ERROR executing command `{}`: {}".format(commandString, err))
+                    print(traceback.format_exc())
 
     async def on_raw_reaction_add(self, payload):
         if payload.message_id in self.readyChecks:
@@ -401,7 +416,7 @@ class DiscordBot(discord.Client):
         return "generic"
 
     def __init__(self, prefix="!", greeting="Hello", farewell="Goodbye", *, intents, **options):
-        super().__init__(intents=intents, options=options)
+        super().__init__(prefix, intents=intents, options=options)
 
         self.prefix = prefix
         self.greeting = greeting

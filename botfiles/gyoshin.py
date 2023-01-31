@@ -1,8 +1,8 @@
 import discord
-from .botmodules import SimpleVoteBot
+from .botmodules import VoteBot
 import argparse
 
-class GyoshinBot(SimpleVoteBot):
+class GyoshinBot(VoteBot):
     ###################
     #    Constants    #
     ###################

@@ -48,7 +48,7 @@ class DNDBot(DiscordBot):
         return i
 
     async def fetchGMs(self):
-        for guild in self.client.guilds:
+        for guild in self.guilds:
             for role in guild.roles:
                 if role.name == "GM" or role.name == "DM":
                     self.guildGMRoleMap[guild.id] = role
@@ -531,7 +531,7 @@ class DNDBot(DiscordBot):
 
     async def on_ready(self):
         await self.fetchGMs()
-        for guild in self.client.guilds:
+        for guild in self.guilds:
             if guild.id not in self.xpTotals:
                 self.xpTotals[guild.id] = 0
             if guild.id not in self.gpTotals:
@@ -542,7 +542,7 @@ class DNDBot(DiscordBot):
 
     async def on_raw_reaction_add(self, payload):
         await super().on_raw_reaction_add(payload)
-        if payload.user_id != self.client.user.id and payload.message_id in self.pendingSpells:
+        if payload.user_id != self.user.id and payload.message_id in self.pendingSpells:
             msg = self.pendingSpells[payload.message_id]["message"]
             if payload.emoji.name == self.EMOJI_MAP["no"]:
                 await msg.channel.send("Spell discarded.")

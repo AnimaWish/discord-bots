@@ -30,6 +30,7 @@ discord.py API documentation: https://discordpy.readthedocs.io/
   * fix !roll command (semicolon bug and also the format just sucks)
 * Event
   * Plus Ones
+* Test DND/TTRPG commands post-v2.0-migration
 * Logging
   * Full logs saved to disk (?)
   * Bots should self identify in print statements
@@ -41,9 +42,3 @@ discord.py API documentation: https://discordpy.readthedocs.io/
 
 ## Migration TODO
 * Test Captain/Teams/Ready commands
-* Test Event features
-* Test simplevote features
-
-
-* Test DND bot features
-* Test TTRPG bot features
