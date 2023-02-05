@@ -35,7 +35,7 @@ class VoteBot(DiscordBot):
         "shoes": ["👟","🥿","🦶","🥾","👠","👞","👢","🩰","🩴","🛼","👡",],
         "bags": ["👝","👜","🧳","💼","🎒","👛","🛍️","🥡","📦",],
         "icons": ["🚹","🚺", "🚼", "♿", "💹","⚕️", "🈲", "📴",],
-        "lewd": ["🥕","🍑","🍆","🥒","🌽","🍌","🍒","🍈","🦴","🌮","🥜","😏","🥵","💦", "🧴",],
+        "lewd": ["🥕","🍑","🍆","🥒","🌽","🍌","🍒","🍈","🦴","🌮","🥜","💦", "🧴",],
         "bathroom": ["🚽", "🛁", "🪒", "🧴", "🧼","🧻","🪥","🚿","🧽","🪠",]
     }
 
@@ -539,7 +539,7 @@ class VoteBot(DiscordBot):
 
 
     async def cleanupElections(self):
-        timeDeltaThreshold = timedelta(seconds=10)#timedelta(weeks=4)
+        timeDeltaThreshold = timedelta(weeks=4)
         electionsToClose = []
         for guildID, guildElectionsMap in self.elections.items():
             for messageID, electionObj in guildElectionsMap.items():
