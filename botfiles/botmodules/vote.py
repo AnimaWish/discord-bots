@@ -129,7 +129,7 @@ class VoteBot(DiscordBot):
             "emoji": emoji,
             "ballots": {},
             "names": {},
-            "isInstantRunoff": True
+            "isInstantRunoff": False
         }
 
         await self.populateVoteEmoji(choiceMessage, emoji)
@@ -202,7 +202,6 @@ class VoteBot(DiscordBot):
             if reactionPayload.emoji.name in self.CANCEL_EMOJI:
                 isClosed = True
             elif reactionPayload.emoji.name in self.REFRESH_EMOJI:
-                print("swapski")
                 electionObj["isInstantRunoff"] = not electionObj["isInstantRunoff"]
 
         # Determine what vote was cast
@@ -658,7 +657,7 @@ class VoteBot(DiscordBot):
                                         electionObj["choicesMessage"] = await channel.fetch_message(electionObj["choicesMessageID"])
                                         electionObj["ballotsMessage"] = await channel.fetch_message(electionObj["ballotsMessageID"])
                                         electionObj["resultsMessage"] = await channel.fetch_message(electionObj["resultsMessageID"])
-                                        electionObj["isInstantRunoff"] = True # Easier with syncing logic to just discard this
+                                        electionObj["isInstantRunoff"] = False # Easier with syncing logic to just discard this
                                         successCount += 1
                                 except Exception as e:
                                     print("Failed to fetch ballot messages for choicesMessage {}: {}".format(electionObj["choicesMessageID"], e))
