@@ -147,7 +147,7 @@ class DiscordBot(commands.Bot):
         commentSplit = params.split(";")
         statements = re.sub('\s+', "", commentSplit[0]).split(",") # remove whitespace and split on commas
         output = "🎲 " + message.author.mention + " rolled:\n"
-        if len(commentSplit[1]) > 0:
+        if len(commentSplit) > 1 and len(commentSplit[1]) > 0:
             output += "> " + commentSplit[1].strip() + "\n"
         for statement in statements[:5]: # max of 5 rolls at once
             if statement[0] != "-":
@@ -176,11 +176,21 @@ class DiscordBot(commands.Bot):
                 else:
                     rolls = []
                     diceRange = int(diceParams[1])
-                    for x in range(0, numDice):
-                        subtotal = sign * random.randint(1, diceRange)
-                        rolls.append(subtotal)
-                        total += subtotal
+                    if diceRange == 0:
+                        rolls.append(0)
+                    else:
+                        for x in range(0, numDice):
+                            if diceRange == 0:
+                                rolls.append(0)
+                            else:
+                                subtotal = sign * random.randint(1, diceRange)
+                                rolls.append(subtotal)
+                                total += subtotal
                     tokenResults.append(rolls)
+
+            if len(tokenResults) == 0:
+                output += "Could not parse roll`\n"
+                continue
 
             rollResultsString = ""
             for res in tokenResults:
@@ -197,11 +207,14 @@ class DiscordBot(commands.Bot):
                     constStr = " " + constSignStr + " " + str(abs(constantSubtotal))
                 else:
                     constStr = str(constantSubtotal)
+
             output += "{}{}` = **{}**\n".format(rollResultsString, constStr, str(total))
 
+        MAX_LEN = 2000
+        if len(output) > MAX_LEN:
+            output = output[-(MAX_LEN-15):-1] 
+
         await message.channel.send(output)
-        if self.getDeleteDelay(message.channel.guild.id) > 0:
-            await message.delete(delay=self.getDeleteDelay(message.channel.guild.id))
 
     async def chooseRand(self, message, params):
         a = re.match('^\d+', params)
