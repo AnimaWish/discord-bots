@@ -164,11 +164,17 @@ class DiscordBot(commands.Bot):
                 output += "Could not parse roll`\n"
                 continue
 
+            tooBig = False
+
             for token in tokens:
                 sign = 1 if token[0] == "+" else -1
                 token = token[1:] # remove sign
                 diceParams = token.split("d")
                 numDice = int(diceParams[0])
+                if numDice > 1000:
+                    tooBig = True
+                    break
+
                 if len(diceParams) == 1:
                     subtotal = sign * numDice
                     constantSubtotal += subtotal
@@ -188,6 +194,9 @@ class DiscordBot(commands.Bot):
                                 total += subtotal
                     tokenResults.append(rolls)
 
+            if tooBig:
+                output += "I can't hold that many dice...`\n"
+                continue
             if len(tokenResults) == 0:
                 output += "Could not parse roll`\n"
                 continue
@@ -196,9 +205,9 @@ class DiscordBot(commands.Bot):
             for res in tokenResults:
                 if len(res) > 0:
                     rollResultsString += "+ ("
-                        for diceRes in res[:-1]:
-                            rollResultsString += str(diceRes) + ", "
-                        rollResultsString += str(res[-1]) + ") "
+                    for diceRes in res[:-1]:
+                        rollResultsString += str(diceRes) + ", "
+                    rollResultsString += str(res[-1]) + ") "
                 else:
                     rollResultsString += "+ (0) "
     
@@ -217,7 +226,10 @@ class DiscordBot(commands.Bot):
 
         MAX_LEN = 2000
         if len(output) > MAX_LEN:
-            output = output[-(MAX_LEN-15):-1] 
+            startOfMessage = "**"+ statement[1:] + "** : `"
+            tempOut = output[-(MAX_LEN-20):-1]
+            tempOut = tempOut.split(",", 1)[1]
+            output = startOfMessage + "(..., " + tempOut
 
         await message.channel.send(output)
 

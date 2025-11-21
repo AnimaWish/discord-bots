@@ -233,7 +233,8 @@ class VoteBot(DiscordBot):
             await self.regenerateStandings_WeightedVote(electionObj, isClosed)
 
         if isClosed:
-            del self.elections[electionObj["guildID"]][electionObj["messageID"]] 
+            del self.elections[electionObj["guildID"]][electionObj["messageID"]]
+            await self.cleanupElections()
 
     async def regenerateStandings_InstantRunoff(self, electionObj, isClosed):
         # Count ballots
@@ -694,7 +695,8 @@ class VoteBot(DiscordBot):
         pollTime = .5
         while True:
             handledIDs = []
-            for messageID, tup in self.updateQueue.items():
+            items = list(self.updateQueue.items())
+            for messageID, tup in items:
                 if datetime.now() - tup[0]["lastInteraction"] > timedelta(seconds=pollTime):
                     await self.regenerateStandings(tup[0], tup[1])
                     handledIDs.append(messageID)
