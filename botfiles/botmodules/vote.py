@@ -101,7 +101,6 @@ class VoteBot(DiscordBot):
         pass
 
     async def callRankVote(self, message, params):
-        print("a")
         referendum, choices, emoji = await self.parseVote(message, params)
 
         text = self.constructChoicesMessage(referendum, choices, emoji, "*Click emoji in order from favorite to least favorite! Remember to double check your ballot!*")
@@ -664,6 +663,7 @@ class VoteBot(DiscordBot):
                                     print("Failed to fetch ballot messages for choicesMessage {}: {}".format(electionObj["choicesMessageID"], e))
                                     print(traceback.format_exc())
                                     del importedElections[guildID][messageID]
+                                    await self.cleanupElections()
                         except Exception as e:
                             print("Failed to fetch guild for guildID {}: {}".format(guildID, e))
                             print(traceback.format_exc())
