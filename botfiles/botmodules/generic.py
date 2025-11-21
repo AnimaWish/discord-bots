@@ -194,11 +194,16 @@ class DiscordBot(commands.Bot):
 
             rollResultsString = ""
             for res in tokenResults:
-                rollResultsString += "+ ("
-                for diceRes in res[:-1]:
-                    rollResultsString += str(diceRes) + ", "
-                rollResultsString += str(res[-1]) + ") "
-            rollResultsString = rollResultsString[2:-1] # take off the starting plus and ending space
+                if len(res) > 0:
+                    rollResultsString += "+ ("
+                        for diceRes in res[:-1]:
+                            rollResultsString += str(diceRes) + ", "
+                        rollResultsString += str(res[-1]) + ") "
+                else:
+                    rollResultsString += "+ (0) "
+    
+            if len(rollResultsString) > 2:
+                rollResultsString = rollResultsString[2:-1] # take off the starting plus and ending space
 
             constStr = ""
             if constantSubtotal != 0:
