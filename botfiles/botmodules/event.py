@@ -290,7 +290,7 @@ class EventBot(DiscordBot):
             if eventName == None or len(eventName) < 2:
                 await message.channel.send("Sorry, I couldn't read the name of the party. Every party needs a name. Make sure yours has one!")
                 return
-            channelName = re.sub("[^\w -]", "", eventName)
+            channelName = re.sub(r"[^\w -]", "", eventName)
             if len(channelName) > MAX_EVENT_NAME_LENGTH:
                 await message.channel.send("Slow down bucko! Keep that party name succinct!")
                 return

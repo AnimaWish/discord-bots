@@ -983,9 +983,9 @@ class IdleGameBot(DiscordBot):
             resultString += "_This money, like most money, is just a number in a computer._\n\n"
 
             if self.bankMarketStatus == "BANK_STATUS_BULL":
-                resultString += ":cow2: _We're currently in a __bull__ market! Select the bull to get 25\% extra income!_ :cow2:\n\n"
+                resultString += ":cow2: _We're currently in a __bull__ market! Select the bull to get 25% extra income!_ :cow2:\n\n"
             else:
-                resultString += ":camel: _We're currently in a __camel__ market! Select the camel to get 25\% extra income!_ :camel:\n\n"
+                resultString += ":camel: _We're currently in a __camel__ market! Select the camel to get 25% extra income!_ :camel:\n\n"
 
 
             longestNameLength = 0

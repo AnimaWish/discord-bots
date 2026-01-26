@@ -46,7 +46,7 @@ class VoteBot(DiscordBot):
     REFRESH_EMOJI = ["🔄", "↻", "🔃", "🔁"]
 
     async def parseVote(self, message, params):
-        ballotPattern = "^([^\?]+\?)\s*(.+)$"
+        ballotPattern = r"^([^\?]+\?)\s*(.+)$"
 
         ballotMatch = re.match(ballotPattern, params)
 

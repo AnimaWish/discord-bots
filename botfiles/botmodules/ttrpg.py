@@ -29,7 +29,7 @@ class TTRPGBot(DiscordBot):
             damagePromptCmdStr = "heal"
             resultParams = [":green_heart:", "recovered"]
 
-        patt = "(?:<@!(\d+)>\s+)?(?:(\w+)\s+)?(\d+)"
+        patt = r"(?:<@!(\d+)>\s+)?(?:(\w+)\s+)?(\d+)"
         match = re.match(patt, params)
         if match == None:
             return await message.channel.send("I couldn't parse that. Expected format: `!{} @Wish HP 5`".format(damagePromptCmdStr))
@@ -94,7 +94,7 @@ class TTRPGBot(DiscordBot):
             if not await self.assertUserIsSelfOrGM(message.channel, message.author, user):
                 return
 
-            addPattern = "^(?:(\d+)\s+)?(\w+(?:-\w+)*)(?:\s+(.+))?"
+            addPattern = r"^(?:(\d+)\s+)?(\w+(?:-\w+)*)(?:\s+(.+))?"
             addMatch = re.match(addPattern, " ".join(subTokens))
             if addMatch == None:
                 return await helpItems(user, ["add"])
@@ -138,7 +138,7 @@ class TTRPGBot(DiscordBot):
             if not await self.assertUserIsSelfOrGM(message.channel, message.author, user):
                 return
 
-            removePattern = "^(?:(\d+)\s+)?(\w+(?:-\w+)*)"
+            removePattern = r"^(?:(\d+)\s+)?(\w+(?:-\w+)*)"
             removeMatch = re.match(removePattern, " ".join(subTokens))
             if removeMatch == None:
                 return await helpItems(user, ["remove"])
@@ -360,7 +360,7 @@ class TTRPGBot(DiscordBot):
             if user.id in self.guildCharactersMap[message.channel.guild.id]:
                 return await message.channel.send("{} already has a character! If you want to roll a new one use `!{} delete`".format(user.mention, usedCommandAlias))
 
-            newCharPattern = "^(.+)\s+(\d+(?:\/\d+){" + str(len(guildStats) - 1) + "})$"
+            newCharPattern = r"^(.+)\s+(\d+(?:\/\d+){" + str(len(guildStats) - 1) + "})$"
 
             charMatch = re.match(newCharPattern, " ".join(subTokens))
 
@@ -820,7 +820,7 @@ class TTRPGBot(DiscordBot):
             userID = int(mentionStr)
             return self.get_user(userID)
         except ValueError:
-            userIDMatch = re.search("\d{15,}", mentionStr)
+            userIDMatch = re.search(r"\d{15,}", mentionStr)
             if userIDMatch != None:
                 return self.get_user(int(userIDMatch.group(0)))
 
