@@ -145,7 +145,7 @@ class DiscordBot(commands.Bot):
     #!roll 4 - 1d4 + 24 - 3 + 23d100
     async def rollDice(self, message, params):
         commentSplit = params.split(";")
-        statements = re.sub('\s+', "", commentSplit[0]).split(",") # remove whitespace and split on commas
+        statements = re.sub(r'\s+', "", commentSplit[0]).split(",") # remove whitespace and split on commas
         output = "🎲 " + message.author.mention + " rolled:\n"
         if len(commentSplit) > 1 and len(commentSplit[1]) > 0:
             output += "> " + commentSplit[1].strip() + "\n"
@@ -153,7 +153,7 @@ class DiscordBot(commands.Bot):
             if statement[0] != "-":
                 statement = "+"+statement
 
-            tokens = re.findall('[\+-]\d+(?:d\d+)?', statement) # => ["+4", "-1d4", "+24", "-3", "+23d100"]
+            tokens = re.findall(r'[\+-]\d+(?:d\d+)?', statement) # => ["+4", "-1d4", "+24", "-3", "+23d100"]
 
             tokenResults = [] # [[-3],[99, 3, 42, ...]]
             total = 0 # 4 - 3 + 24 - 3 + 99 + 3 + 42 + ...
@@ -234,7 +234,7 @@ class DiscordBot(commands.Bot):
         await message.channel.send(output)
 
     async def chooseRand(self, message, params):
-        a = re.match('^\d+', params)
+        a = re.match(r'^\d+', params)
 
         chooseNum = 1
         if a is not None:
@@ -415,7 +415,7 @@ class DiscordBot(commands.Bot):
         print('------')
 
     async def on_message(self, message):
-        commandPattern = "^\{}\S+\s*".format(self.prefix)
+        commandPattern = r"^\{}\S+\s*".format(self.prefix)
         commandMatch = re.match(commandPattern, message.content)
         if commandMatch:
             commandString = message.content[commandMatch.start() + len(self.prefix) : commandMatch.end()].strip()
