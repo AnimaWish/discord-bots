@@ -29,7 +29,7 @@ emojiMap_reverse = {
 EVENT_TITLE_PATTERN = "**What:** (.+)\n"
 TIME_PATTERN = "**When:** (.+)\n"
 TIME_FMT = "**When:** {}\n"
-CODE_PATTERN = "`\$<(.+)>`"
+CODE_PATTERN = r"\`\$<(.+)>\`"
 
 class EventInfo:
     def __init__(self, channelID, messageID, datetimeString, title):
