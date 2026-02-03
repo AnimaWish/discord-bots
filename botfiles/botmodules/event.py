@@ -26,10 +26,10 @@ emojiMap_reverse = {
     "❔": "maybe",
 }
 
-EVENT_TITLE_PATTERN = "\*\*What:\*\* (.+)\n"
-TIME_PATTERN = "\*\*When:\*\* (.+)\n"
+EVENT_TITLE_PATTERN = "**What:** (.+)\n"
+TIME_PATTERN = "**When:** (.+)\n"
 TIME_FMT = "**When:** {}\n"
-CODE_PATTERN = "\`\$<(.+)>\`"
+CODE_PATTERN = "`\$<(.+)>`"
 
 class EventInfo:
     def __init__(self, channelID, messageID, datetimeString, title):
@@ -264,7 +264,7 @@ class EventBot(DiscordBot):
                 await message.channel.send("You need three things to create an event: a name, a time, and a description.\n Try something like this: `!event-create cool party name 1/2/19 7:00pm here is a description`")
                 return
             # Parse out the time first
-            dateTimePattern = "\d+\/\d+\/\d+\s+(at\s*)?\d+(:\d+)?\s*\w[mM]"
+            dateTimePattern = r"\d+\/\d+\/\d+\s+(at\s*)?\d+(:\d+)?\s*\w[mM]"
             dateTimeMatch = re.search(dateTimePattern, params)
             if dateTimeMatch == None:
                 await message.channel.send("Sorry, I couldn't read when the party starts! Make sure you match the format `1/2/19 7:00pm` precisely.")
@@ -279,7 +279,7 @@ class EventBot(DiscordBot):
                 return
 
             # Get the rest of the information for the party
-            pattern = "(.+\s+)?{}(\s+.+)?".format(dateTimePattern)
+            pattern = r"(.+\s+)?{}(\s+.+)?".format(dateTimePattern)
             match = re.match(pattern, params, re.DOTALL)
             if not match:
                 await message.channel.send("Sorry, I didn't understand that at all. Make sure you have the correct format! ```!event-create Cool Party!!! 1/2/19 7:00pm This is the description of your party!```") # TODO use buildCommandHint
