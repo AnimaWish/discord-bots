@@ -26,9 +26,9 @@ emojiMap_reverse = {
     "❔": "maybe",
 }
 
-EVENT_TITLE_PATTERN = "**What:** (.+)\n"
-TIME_PATTERN = "**When:** (.+)\n"
-TIME_FMT = "**When:** {}\n"
+EVENT_TITLE_PATTERN = r"\*\*What:\*\* (.+)\n"
+TIME_PATTERN = r"\*\*When:\*\* (.+)\n"
+TIME_FMT = r"\*\*When:\*\* {}\n"
 CODE_PATTERN = r"\`\$<(.+)>\`"
 
 class EventInfo:
